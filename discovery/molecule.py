@@ -1,4 +1,4 @@
-"""Molecule design using Gemini + RDKit + PubChem validation."""
+"""Molecule design using Groq + RDKit + PubChem validation."""
 
 import json
 import math
@@ -11,17 +11,10 @@ from rdkit.Chem.Lipinski import NumHDonors, NumHAcceptors, NumRotatableBonds
 API_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
 
 
-def _get_gemini_client():
-    import google.genai as genai
-    cfg = json.loads(API_CONFIG_PATH.read_text(encoding="utf-8-sig"))
-    return genai.Client(api_key=cfg.get("gemini_api_key", ""))
+def generate_smiles(target: str, num_candidates: int = 8) -> list[dict]:
+    """Use Groq to generate candidate SMILES for a given target."""
+    from discovery.groq_client import call as groq_call
 
-
-DEFAULT_MODEL = "gemini-2.5-flash"
-
-
-def generate_smiles(target: str, num_candidates: int = 8) -> list[str]:
-    """Use Gemini to generate candidate SMILES for a given target."""
     prompt = f"""You are a medicinal chemist designing small molecules that target: {target}
 
 Generate {num_candidates} diverse drug-like small molecules as SMILES strings.
@@ -37,20 +30,11 @@ Output ONLY a JSON array of objects with keys: smiles, name (if known or 'Novel'
 
 Example: [{{"smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C", "name": "Caffeine", "rationale": "Adenosine receptor antagonist"}}]"""
 
-    import google.genai as genai
-    from google.genai import types
-    client = _get_gemini_client()
-    response = client.models.generate_content(
-        model=DEFAULT_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.7,
-            max_output_tokens=4096,
-            response_mime_type="application/json",
-        ),
-    )
+    result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+    if not result:
+        return []
     try:
-        data = json.loads(response.text)
+        data = json.loads(result)
         return data if isinstance(data, list) else data.get("molecules", [])
     except (json.JSONDecodeError, AttributeError):
         return []

@@ -2757,7 +2757,7 @@ class RumiLive:
         """Auto-detect domain from topic using LLM."""
         prompt = build_detect_prompt() + topic + '"'
         try:
-            result = await self._call_llm(prompt, json_mode=False)
+            result = await self._call_llm(prompt, json_mode=False, provider="groq")
             result = result.strip().lower().strip('"').strip("'")
             if result in DOMAINS or result in DOMAIN_ALIAS_MAP:
                 return result if result in DOMAINS else DOMAIN_ALIAS_MAP[result]
@@ -2791,7 +2791,7 @@ class RumiLive:
 
         self._post_output("[bold cyan]Extracting entities and relationships...[/bold cyan]")
         extraction_prompt = self._build_extraction_prompt(papers, domain)
-        extraction_result = await self._call_llm(extraction_prompt, json_mode=True)
+        extraction_result = await self._call_llm(extraction_prompt, json_mode=True, provider="groq")
         entities, relationships = self._parse_extraction(extraction_result)
 
         self._post_output("[bold cyan]Building knowledge graph...[/bold cyan]")
@@ -2812,7 +2812,7 @@ class RumiLive:
 
         self._post_output("[bold cyan]Mining patterns and generating hypotheses...[/bold cyan]")
         hypothesis_prompt = self._build_hypothesis_prompt(graph, query, domain)
-        hypothesis_result = await self._call_llm(hypothesis_prompt, json_mode=True)
+        hypothesis_result = await self._call_llm(hypothesis_prompt, json_mode=True, provider="groq")
         hypotheses = self._parse_hypotheses(hypothesis_result)
 
         from discovery.output import format_hypotheses, save_hypotheses
@@ -2976,8 +2976,22 @@ Output ONLY valid JSON as a list of objects with this structure:
         except json.JSONDecodeError:
             return []
 
-    async def _call_llm(self, prompt: str, json_mode: bool = False) -> str:
+    async def _call_llm(self, prompt: str, json_mode: bool = False, provider: str = "auto") -> str:
+        """Call LLM. provider: 'auto' (Groq→Gemini fallback), 'groq', 'gemini'."""
+        from discovery.groq_client import call as groq_call, is_available as groq_available
         cfg = json.loads(API_CONFIG_PATH.read_text(encoding="utf-8-sig"))
+
+        if provider in ("auto", "groq"):
+            if groq_available():
+                result = groq_call(prompt, json_mode=json_mode)
+                if result is not None:
+                    return result
+                if provider == "groq":
+                    return ""
+            elif provider == "groq":
+                return ""
+
+        # Fallback to Gemini
         client = genai.Client(api_key=cfg.get("gemini_api_key", ""))
         kwargs = dict(temperature=0.3, max_output_tokens=16384)
         if json_mode:
@@ -3116,8 +3130,8 @@ Output ONLY valid JSON as a list of objects with this structure:
 
     async def _mine_hypotheses(self, graph, topic: str):
         self._post_output("Mining existing graph for new hypotheses...")
-        hypothesis_prompt = self._build_hypothesis_prompt(graph, topic)
-        result = await self._call_llm(hypothesis_prompt, json_mode=True)
+        hypothesis_prompt = self._build_hypothesis_prompt(graph, topic, self.current_domain)
+        result = await self._call_llm(hypothesis_prompt, json_mode=True, provider="groq")
         hypotheses = self._parse_hypotheses(result)
         from discovery.output import format_hypotheses, save_hypotheses
         save_hypotheses(hypotheses)
@@ -3308,7 +3322,7 @@ Output ONLY valid JSON as a list of objects with this structure:
                 self._post_output("No knowledge graph found. Run /discover first.")
                 return
             prompt = self._build_hypothesis_prompt(graph, target, domain)
-            result = await self._call_llm(prompt, json_mode=True)
+            result = await self._call_llm(prompt, json_mode=True, provider="groq")
             hypotheses = self._parse_hypotheses(result)
             from discovery.output import format_hypotheses, save_hypotheses
             save_hypotheses(hypotheses)
