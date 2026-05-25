@@ -1,0 +1,983 @@
+> **Zero GPU required. No cloud dependencies (except LLM API). ~4GB RAM. Pure Python.**
+
+# 🧬 RUMI — Research & Unified Machine Intelligence
+
+<p align="center">
+  <img src="assets/rumi.png" alt="RUMI Logo" width="400" />
+</p>
+
+<p align="center">
+  <img src="assets/rumi_demo.gif" alt="RUMI Autonomous Cognitive Loop Demo" width="800" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/subhansh-dev/Rumi/stargazers">
+    <img src="https://img.shields.io/github/stars/subhansh-dev/Rumi?style=flat" alt="Stars" />
+  </a>
+  <a href="https://github.com/subhansh-dev/Rumi/forks">
+    <img src="https://img.shields.io/github/forks/subhansh-dev/Rumi?style=flat" alt="Forks" />
+  </a>
+  <a href="https://github.com/subhansh-dev/Rumi/issues">
+    <img src="https://img.shields.io/github/issues/subhansh-dev/Rumi" alt="Issues" />
+  </a>
+  <a href="https://github.com/subhansh-dev/Rumi/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/subhansh-dev/Rumi" alt="License" />
+  </a>
+  <a href="https://python.org/versions/3.12">
+    <img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python" />
+  </a>
+</p>
+
+<p align="center">
+  <b>Autonomous Cognitive AI for Scientific Research & Software Engineering</b><br>
+  Terminal-native. 60+ Brain Modules. 15 Scientist Modules. Zero bloat.
+</p>
+
+---
+
+## 📋 Table of Contents
+
+- [About RUMI](#-about-rumi)
+- [Motivation](#-motivation)
+- [Cognitive Architecture](#-cognitive-architecture)
+- [Scientist AI Pipeline](#-scientist-ai-pipeline)
+- [Brain Systems (60+ Modules)](#-brain-systems-60-modules)
+- [Features Overview](#-features-overview)
+- [Tech Stack](#-tech-stack)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Telegram Integration](#-telegram-integration)
+- [Usage](#-usage)
+- [Example Prompts](#-example-prompts)
+- [Project Structure](#-project-structure)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+---
+
+## 🧪 About RUMI
+
+**RUMI** (Research & Unified Machine Intelligence) is a terminal-native autonomous cognitive AI assistant engineered specifically for scientists, engineers, and power users. It bridges the gap between raw LLM capability and autonomous scientific research by combining a sophisticated cognitive architecture — memory, reasoning, planning, consciousness modeling — with a dedicated Scientist AI pipeline for end-to-end research.
+
+| Dimension | RUMI |
+|-----------|------|
+| **Interface** | Terminal-native (Rich + prompt_toolkit) — no GUI dependencies |
+| **Model** | Gemini 2.5 Flash (primary), multi-model routing for specialized tasks |
+| **Architecture** | 60+ cognitive brain modules + 15 Scientist AI modules |
+| **Memory** | 6-type system: neural, episodic, vector, procedural, working, global workspace |
+| **Learning** | Active inference, curiosity-driven exploration, dreaming (offline replay), meta-learning |
+| **Reasoning** | Causal (Pearl's hierarchy), analogical (Gentner's structure mapping), neurosymbolic, narrative |
+| **Cognition** | Dual-process (System 1 fast / System 2 deliberate), integrated information (IIT-phi), theory of mind |
+
+---
+
+## 🎯 Motivation
+
+Contemporary AI assistants share a fundamental limitation: they are stateless. Each session begins from zero — no memory of prior interactions, no model of the user, no awareness of their own capabilities. They are reactive, waiting for commands rather than anticipating needs. They are single-model systems, routing everything through one inference call regardless of task complexity.
+
+RUMI addresses these limitations by implementing a cognitive architecture that mirrors aspects of human cognition, purpose-built for the scientific research lifecycle:
+
+| Dimension | Conventional Assistants | RUMI |
+|-----------|------------------------|-------|
+| **Memory** | Stateless per session | 6-type persistent memory with Hebbian learning, episodic recall, semantic vector search, and procedural skill templates |
+| **Initiative** | Reactive — waits for commands | Proactive — anticipates needs, curiosity-driven exploration, autonomous goal pursuit |
+| **Reasoning** | Single-pass generation | Multi-pass: cognitive gating routes simple tasks to System 1, complex tasks to full planning-simulation-reflection pipeline |
+| **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring, and narrative self-identity |
+| **Learning** | No feedback loop | Error-driven updates, Q-learning for tool selection, experience replay, dreaming-based consolidation, meta-learning |
+| **Research** | Search-and-summarize | Full Scientist AI pipeline: hypothesis generation, experiment design, knowledge graph construction, reproducibility verification, paper generation |
+| **Consciousness** | None | IIT-inspired integrated information (Φ), global workspace coordination, emotional regulation |
+
+---
+
+## 🧬 Cognitive Architecture
+
+RUMI routes inputs through a layered pipeline inspired by dual-process theory and cognitive neuroscience:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        PERCEPTION LAYER                              │
+│     Voice Input ──► Text ──► Gemini Live API ──► Audio Out           │
+└───────────────────────────────────┬──────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼──────────────────────────────────┐
+│                         MEMORY LAYER                                 │
+│  ┌──────────┐ ┌───────────┐ ┌──────────┐ ┌───────────────────┐      │
+│  │  Neural  │ │  Episodic │ │  Vector  │ │    Procedural     │      │
+│  │ (Hebbian)│ │  (Events) │ │ (Search) │ │  (Skill Memory)   │      │
+│  └──────────┘ └───────────┘ └──────────┘ └───────────────────┘      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │           Memory Coordinator (unified recall)                 │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└───────────────────────────────────┬──────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼──────────────────────────────────┐
+│                       INFERENCE LAYER                                │
+│  Active Inference ──► Prediction-Error Minimization (FEP)            │
+│  Curiosity Engine ──► Novelty Detection ──► Exploration Drive        │
+│  Cognitive Gating ──► System 1 (fast) vs System 2 (deliberate)      │
+└───────────────────────────────────┬──────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼──────────────────────────────────┐
+│                       REASONING LAYER                                │
+│  Causal (Pearl) ──► Analogy (Gentner) ──► Neurosymbolic               │
+│  Narrative ──► Creativity ──► Intuition (Recognition-Primed)         │
+└───────────────────────────────────┬──────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼──────────────────────────────────┐
+│                      REFLECTION LAYER                                │
+│  Dreaming ──► Experience Replay ──► Pattern Extraction               │
+│  Meta-Reflection ──► Decision Journal ──► Strategy Scoring           │
+└───────────────────────────────────┬──────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼──────────────────────────────────┐
+│                   COGNITIVE CODING LAYER                              │
+│  Code Intelligence ──► Code Planner ──► Code Simulator                │
+│  (semantic graph)    (EFE planning)    (predictive execution)        │
+│                       Code Reflector                                 │
+│                    (root-cause analysis)                             │
+└───────────────────────────────────┬──────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼──────────────────────────────────┐
+│                      IDENTITY LAYER                                  │
+│  Self-Model ──► Self-Awareness ──► Consciousness (IIT-Φ)             │
+│  Theory of Mind ──► Emotional Regulation ──► Metacognitive Monitor   │
+│  Global Workspace (Thalamus) ──► Multi-Module Coordination           │
+└───────────────────────────────────┬──────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼──────────────────────────────────┐
+│                      ACTION LAYER                                    │
+│  40+ Tool Actions ──► Execution ──► Verification ──► Learning        │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Dual-Process Theory (System 1 vs System 2)
+
+- **System 1 (Fast):** Immediate pattern-matching and responses. Used for factual answers, single tool calls, simple lookups.
+- **System 2 (Deliberate):** Multi-pass reasoning, planning, simulation, reflection, and self-correction. Used for multi-step problems, architecture, security, debugging.
+
+### Research Foundations
+
+RUMI's cognitive architecture is grounded in peer-reviewed research:
+
+| Research Area | Researcher(s) | Core Idea |
+|--------------|---------------|-----------|
+| **Global Workspace Theory** | Bernard Baars (1988) | Consciousness as a broadcast mechanism — competing processors share a central "stage" |
+| **Integrated Information Theory** | Giulio Tononi (2004) | Consciousness as Φ — integrated information a system generates |
+| **Free Energy Principle** | Karl Friston (2010) | All adaptive systems minimize prediction error through perception and action |
+| **Dual Process Theory** | Daniel Kahneman (2011) | System 1 (fast) vs System 2 (slow) reasoning |
+| **Recognition-Primed Decisions** | Gary Klein (1998) | Experts decide by pattern matching, not deliberation |
+| **Structure Mapping Theory** | Dedre Gentner (1983) | Analogical reasoning as the core of intelligence |
+| **Causal Hierarchy** | Judea Pearl (2018) | Association → Intervention → Counterfactual |
+| **Society of Mind** | Marvin Minsky (1986) | Intelligence as emergent competition between simple agents |
+| **Metacognition** | John Flavell (1979) | Thinking about thinking — monitoring and regulating cognition |
+| **Computational Creativity** | Margaret Boden (2004) | Exploration, combination, transformation of conceptual spaces |
+| **World Models** | Ha & Schmidhuber (2018) | Mental simulation before action — learning in a dreamed environment |
+
+---
+
+## 🔬 Scientist AI Pipeline
+
+RUMI automates the entire scientific research lifecycle using 15 integrated modules:
+
+```
+Idea → Novelty Check → Hypothesis Generation → Experiment Design
+  → Execution → Analysis → Paper Generation → Peer Review
+```
+
+| Module | Purpose |
+|--------|---------|
+| **Discovery Engine** | End-to-end: Idea → Novelty Check → Experiment → Paper |
+| **Tournament Hypotheses** | GFlowNet-inspired diverse hypothesis generation with evolutionary selection |
+| **Knowledge Graph** | Multi-hop reasoning, gap detection, and paper ingestion across scientific domains |
+| **Reproducibility Engine** | Extract claims, generate reproduction code, sandbox execution, score reproducibility |
+| **Research Team** | 5-role multi-agent debate (Lead, Methodologist, Critic, Analyst, Scribe) |
+| **Active Experiment Selector** | Bayesian optimal experiment selection maximizing information gain |
+| **Cross-Domain Connector** | Transfer insights between physics, biology, CS, economics, chemistry, and more |
+| **Lab Notebook** | Digital lab notebook for experiments, observations, measurements, and results |
+| **Paper Generator** | Generate academic papers and research reports from findings |
+| **Novelty Checker** | Assess novelty of research ideas against existing literature |
+| **Experiment Designer** | Design controlled experiments with hypothesis testing |
+| **Feynman Reducer** | Feynman technique decomposition — explain complex ideas simply |
+| **Peer Reviewer** | Automated peer review with methodological critique |
+| **Cross-Validator** | Cross-validate findings across multiple sources and methods |
+| **Scientist Search** | Search papers from famous researchers with citation analysis |
+
+---
+
+## 🧠 Brain Systems (60+ Modules)
+
+### Memory Systems
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Neural Memory** | `brain/neural_memory.py` | Long-term facts, Hebbian learning, synaptic decay, pattern completion |
+| **Episodic Memory** | `brain/episodic_memory.py` | Timestamped events with importance scoring and retrieval |
+| **Vector Memory** | `brain/vector_memory.py` | Semantic search via embeddings for fast retrieval |
+| **Procedural Memory** | `brain/procedural_memory.py` | Learns successful tool chains as reusable skill templates |
+| **Associative Memory** | `brain/associative_memory.py` | Spreading activation networks for context-dependent recall |
+| **Predictive Memory** | `brain/predictive_memory.py` | Anticipatory recall — pre-loads relevant memories before request |
+| **Memory Consolidation** | `brain/memory_consolidation.py` | Sleep-like compression of episodic → semantic knowledge |
+| **Memory Coordinator** | `brain/memory_coordinator.py` | Unified recall across all memory stores |
+
+### Learning & Adaptation
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Active Inference** | `brain/active_inference.py` | Free Energy Principle — minimizes prediction error through Bayesian updating |
+| **Learning Engine** | `brain/learning.py` | Error-driven updates, Q-learning for tool selection, user feedback integration |
+| **Curiosity Engine** | `brain/curiosity.py` | Information-seeking behavior, novelty detection, uncertainty-driven exploration |
+| **Dreaming System** | `brain/dreaming.py` | Offline experience replay, pattern extraction, memory consolidation |
+| **Meta-Learner** | `brain/meta_learner.py` | Learning to learn — extracts transferable learning strategies |
+| **Transfer Learning** | `brain/transfer_learning.py` | Cross-domain pattern transfer and abstraction |
+| **Self-Improve Engine** | `brain/self_improve_engine.py` | RLHF-inspired: stores action-outcome pairs, extracts lessons from failures |
+| **Code Evolution** | `brain/code_evolution.py` | Safe recursive self-improvement with audit trail, sandbox testing, rollback |
+
+### Reasoning Systems
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Causal Reasoner** | `brain/causal_reasoner.py` | Pearl's Causal Hierarchy — Association → Intervention → Counterfactual |
+| **Analogy Engine** | `brain/analogy_engine.py` | Gentner's Structure Mapping Theory for fluid intelligence |
+| **Neurosymbolic Reasoner** | `brain/neurosymbolic_reasoner.py` | Combines LLM reasoning with SymPy formal logic verification |
+| **Narrative Intelligence** | `brain/narrative_intelligence.py` | Turns experiences into stories, identity evolution tracking |
+| **Creativity Engine** | `brain/creativity_engine.py` | Conceptual blending, constraint relaxation, bisociation for novel ideas |
+| **Intuition Engine** | `brain/intuition_engine.py` | Fast pattern matching — Recognition-Primed Decision Making (System 1) |
+| **Cognitive Integration** | `brain/cognitive_integration.py` | Orchestrates all reasoning modules into a unified cognitive pipeline |
+| **Module Competition** | `brain/module_competition.py` | Minsky Society of Mind — modules bid for processing rights |
+
+### Consciousness & Self-Awareness
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Self-Awareness** | `brain/self_awareness.py` | Consciousness state tracking, emotional state management |
+| **Self-Model** | `brain/self_model.py` | Capability awareness, confidence calibration, growth tracking |
+| **Theory of Mind** | `brain/theory_of_mind.py` | User expertise modeling, intent inference, emotional state tracking |
+| **Metacognitive Monitor** | `brain/metacognitive_monitor.py` | Thinking quality tracking, calibration, strategy effectiveness |
+| **Introspection Engine** | `brain/introspection_engine.py` | Confidence calibration, cognitive bias detection (12 types), epistemic humility |
+| **Emotional Regulation** | `brain/emotional_regulation.py` | Somatic Marker Hypothesis — emotions as decision-pruning signals |
+| **Integrated Information** | `brain/integrated_info.py` | Φ (phi) approximation inspired by Tononi's IIT theory |
+| **Self-Narrative** | `brain/narrative_intelligence.py` | Evolving story of identity, growth, and experience |
+| **Global Workspace** | `brain/global_workspace.py` | Thalamus-inspired multi-module coordination and broadcast |
+
+### Planning & Autonomy
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Autonomous Planner** | `brain/autonomous_planner.py` | MCTS-inspired plan decomposition with dependency tracking |
+| **Goal Engine** | `brain/goal_engine.py` | Hierarchical goal management — life goals → project goals → tasks |
+| **Intrinsic Motivation** | `brain/intrinsic_motivation.py` | Self-Determination Theory: autonomy, competence, relatedness drives |
+| **Hierarchical Active Inference** | `brain/hierarchical_active_inference.py` | 3-level FEP hierarchy: Meta → Subgoal → Action |
+| **Proactive Engine** | `brain/proactive_engine.py` | Anticipates needs, idle check-ins, returning-user greetings |
+| **Cognitive Load Manager** | `brain/cognitive_load.py` | Working memory monitoring (7±2 slots), overload detection |
+| **AGI Orchestrator** | `brain/agi_orchestrator.py` | Master coordinator wiring all cognitive modules into a unified loop |
+| **Multi-Agent Orchestrator** | `brain/multi_agent_orchestrator.py` | Parallel, debate, pipeline, voting, specialist, swarm execution modes |
+
+### Coding Intelligence
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Code Intelligence** | `brain/code_intelligence.py` | Semantic codebase graph (AST + dependency analysis), chunk memory |
+| **Code Planner** | `brain/code_planner.py` | Hierarchical EFE-based planning with mental simulation |
+| **Code Simulator** | `brain/code_simulator.py` | Predictive execution — simulates code before running, anomaly detection |
+| **Code Reflector** | `brain/code_reflector.py` | Root-cause analysis with hypothesis ranking, failure pattern learning |
+| **Self-Modifier** | `brain/self_modifier.py` | Safely analyzes and proposes modifications to own codebase |
+| **Cognitive Coder** | `actions/cognitive_coder.py` | Master orchestrator: build → analyze → plan → simulate → debug → refactor |
+
+### World Models
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **World Model** | `brain/world_model.py` | DreamerV3-inspired latent dynamics for outcome prediction |
+| **Enhanced World Model** | `brain/enhanced_world_model.py` | Non-linear MLP transitions, ensemble prediction, causal integration |
+| **World Simulation** | `brain/world_simulation.py` | Real-time event tracking, trend detection, counterfactual modeling |
+| **Abstraction Engine** | `brain/abstraction_engine.py` | First principles reasoning, cross-domain transfer, emergent insight |
+
+---
+
+## 🚀 Features Overview
+
+| Category | Description |
+|----------|-------------|
+| 🔬 **Scientist AI** | 15 modules: discovery, tournament hypotheses, knowledge graph, reproducibility, experiment selection, cross-domain, lab notebook, paper generation |
+| 🧠 **Cognition** | 60+ brain modules — self-awareness, active inference, intuition, metacognition, dreaming, curiosity, learning |
+| 💻 **Coding** | Cognitive coding engine with semantic graph, EFE planning, predictive simulation, reflective debugging |
+| 🤖 **Agents** | 30+ specialized expert agents — run individually or in parallel/debate/pipeline/swarm modes |
+| 🌐 **Web** | Browser automation, deep web research, YouTube integration, paper search (arXiv + Semantic Scholar) |
+| 🎙️ **Voice** | Real-time Gemini Live API conversation, voice I/O with sounddevice |
+| 🧠 **Memory** | 9 memory types — neural, episodic, vector, procedural, working, global workspace, associative, predictive, consolidated |
+| 🎯 **Autonomy** | Goal engine, intrinsic motivation, curiosity drive, proactive check-ins, self-improvement |
+| 📄 **Documents** | Document intelligence — contract review, argument mapping, fallacy detection, bias analysis |
+| 🖥️ **System** | File operations, app launching, system settings, desktop management, keyboard/mouse control |
+| 🛡️ **Security** | Permission management, audit logging, rate limiting, input sanitization, config validation |
+| 🔄 **Learning** | Error-driven updates, Q-learning, meta-reflection, experience replay, dreaming consolidation |
+| 📊 **Data** | CSV/JSON analysis with Polars, chart generation, data querying |
+| 🌍 **Research** | Web search, deep-dive research, paper search, scientific knowledge graphs |
+
+### Tool Actions (40+)
+
+| Category | Tools |
+|----------|-------|
+| 🔬 **Scientist** | `scientist_discovery`, `scientist_analyze`, `scientist_experiment`, `scientist_paper`, `scientist_team`, `scientist_tournament`, `scientist_knowledge_graph`, `scientist_reproducibility`, `scientist_cross_domain`, `scientist_lab_notebook`, `scientist_search`, `paper_search`, `hypothesis_manage` |
+| 🧠 **Cognition** | `cognitive_reason`, `analogy_reason`, `causal_analyze`, `creative_solve`, `intuition_check`, `consciousness_state`, `consciousness_check`, `meta_reflect`, `cognitive_status`, `cognitive_load_check`, `decision_review` |
+| 💻 **Code** | `cognitive_code`, `code_helper`, `dev_agent`, `agency_agent`, `agent_task`, `multi_agent` |
+| 🌐 **Web** | `web_search`, `web_research`, `deep_dive`, `browser_control`, `youtube_video`, `ai_pipeline` |
+| 🖥️ **System** | `open_app`, `computer_control`, `computer_settings`, `desktop_control`, `file_controller`, `screen_process` |
+| 📱 **Communication** | `send_message`, `reminder`, `telegram_bridge` |
+| 🧠 **Memory** | `brain_memory`, `save_memory`, `memory_stats`, `procedural_memory`, `record_learning`, `reflect_learning` |
+| 📊 **Data** | `data_analysis`, `weather_report`, `integration_status` |
+| 🛡️ **Security** | `security_tools` (optional, cyber-enabled), `self_audit` |
+| 🎵 **Media** | `gesture_music`, `music_control`, `system_sentinel`, `neural_clipboard`, `auto_doc` |
+| 🔄 **System** | `agi_status`, `self_model_status`, `curiosity_queue`, `run_dream_cycle`, `force_learning`, `api_server`, `shutdown_rumi` |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **AI Models** | Gemini 2.5 Flash (Live API primary), multi-model routing |
+| **Language** | Python 3.12+ |
+| **Voice** | Gemini Live API, sounddevice, edge-tts |
+| **Terminal UI** | Rich (markdown, panels, tables) + prompt_toolkit |
+| **Browser** | Playwright |
+| **Automation** | PyAutoGUI |
+| **System** | psutil, pywin32 |
+| **Storage** | JSON, JSONL |
+| **Networking** | google-genai, httpx, websockets, requests |
+| **Security Tools** | nmap, nuclei, sqlmap, ffuf, subfinder (via WSL, optional) |
+| **Data Analysis** | Polars, Matplotlib |
+| **API Server** | FastAPI, Uvicorn, Pydantic |
+| **Scheduling** | APScheduler |
+| **Audio** | sounddevice, soundfile, edge-tts |
+| **Vision** | OpenCV, mss, pillow |
+| **Math** | SymPy |
+
+---
+
+## 📦 Installation
+
+### Prerequisites
+
+| Requirement | Details |
+|-------------|---------|
+| **Python** | 3.12 or higher ([download](https://python.org/downloads)) |
+| **Git** | Any recent version |
+| **OS** | Windows (primary), Linux/macOS (partial support) |
+| **RAM** | 4GB+ (8GB recommended) |
+| **Storage** | ~500MB for RUMI + ~400MB for Playwright browsers |
+| **API Key** | Gemini API key — free at [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| **Microphone** | Required for voice features |
+| **Webcam** | Optional — for gesture controls |
+
+> **Windows Note:** Some features (desktop control, system notifications, audio routing) use Windows-specific APIs. For the best experience, use Windows 10/11.
+
+### Step 1 — Clone the Repository
+
+```bash
+git clone https://github.com/subhansh-dev/Rumi
+cd rumi
+```
+
+### Step 2 — Create a Virtual Environment
+
+**Windows:**
+```powershell
+python -m venv rumi_env
+rumi_env\Scripts\activate
+```
+
+**Linux/macOS:**
+```bash
+python3 -m venv rumi_env
+source rumi_env/bin/activate
+```
+
+### Step 3 — Install Dependencies
+
+```bash
+# Core installation (all dependencies)
+pip install -e .
+
+# Or install from requirements.txt directly:
+pip install -r requirements.txt
+```
+
+### Step 4 — Install Playwright Browser
+
+```bash
+playwright install chromium
+```
+
+### Step 5 — Configure Your API Key
+
+Create or edit `config/api_keys.json`:
+
+```json
+{
+    "GOOGLE_API_KEY": "your-gemini-api-key-here",
+    "os_system": "windows"
+}
+```
+
+Get a free Gemini API key: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+
+### Step 6 — Launch RUMI
+
+```bash
+# Using the CLI command:
+rumi
+
+# Or directly:
+python rumi_launcher.py
+```
+
+On first launch, RUMI will check your configuration and initialize all cognitive modules. You should see the terminal UI with the RUMI logo and a prompt.
+
+### Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `ModuleNotFoundError` | Ensure virtual environment is activated and `pip install -e .` was run |
+| `GOOGLE_API_KEY not found` | Check `config/api_keys.json` has the correct key |
+| `playwright not found` | Run `playwright install chromium` |
+| `No module named 'brain.*'` | Make sure you're running from the `rumi/` project root |
+| Audio device errors | RUMI will still work in text-only mode if no microphone is available |
+
+---
+
+## ⚙️ Configuration
+
+| File | Purpose |
+|------|---------|
+| `config/api_keys.json` | Gemini API key and optional settings |
+| `core/prompt.txt` | System personality prompt |
+| `RUMI.md` | Identity and behavioral guidelines |
+| `SOUL.md` | Core directives and red lines |
+| `USER.md` | User profile |
+| `memory/` | Persistent memory (long-term + daily logs) |
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `RUMI_TELEGRAM_BOT_TOKEN` | Telegram bot token for remote control |
+| `RUMI_TELEGRAM_ALLOWED_USER` | Allowed Telegram user ID (numeric) |
+
+---
+
+## 🤖 Telegram Integration
+
+RUMI supports two-way Telegram communication — you can chat with RUMI from your phone via a Telegram bot.
+
+### Step 1 — Create Your Telegram Bot
+
+1. Open Telegram and search for **@BotFather**
+2. Send `/newbot`
+3. Follow the prompts to name your bot (e.g. "RUMI Assistant")
+4. BotFather will give you a token like `7234567890:AAH...` — **save this**
+
+### Step 2 — Get Your User ID
+
+1. Search **@userinfobot** on Telegram
+2. Send any message
+3. It will reply with your numeric User ID (e.g. `123456789`) — **save this**
+
+### Step 3 — Configure RUMI
+
+Add to `config/api_keys.json`:
+```json
+{
+    "GOOGLE_API_KEY": "your-gemini-api-key",
+    "telegram_bot_token": "7234567890:AAH...",
+    "telegram_allowed_user": 123456789,
+    "os_system": "windows"
+}
+```
+
+Or use environment variables:
+```powershell
+# Windows PowerShell
+$env:RUMI_TELEGRAM_BOT_TOKEN = "7234567890:AAH..."
+$env:RUMI_TELEGRAM_ALLOWED_USER = "123456789"
+```
+
+```bash
+# Linux/macOS
+export RUMI_TELEGRAM_BOT_TOKEN="7234567890:AAH..."
+export RUMI_TELEGRAM_ALLOWED_USER="123456789"
+```
+
+### Step 4 — Test It
+
+1. Launch RUMI (`rumi` or `python rumi_launcher.py`)
+2. Send a message to your bot on Telegram
+3. RUMI will respond within the terminal and via Telegram
+
+> **Security:** Only the configured `telegram_allowed_user` can communicate with RUMI via Telegram. All other users are ignored.
+
+---
+
+## 📖 Usage
+
+### Launch
+
+```bash
+rumi
+```
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show help |
+| `/clear` | Clear screen |
+| `/status` | System status and uptime |
+| `/stats` | Session statistics |
+| `/science` | Scientist AI capabilities |
+| `/discover` | Run autonomous discovery pipeline |
+| `/hypothesize` | Generate diverse hypotheses |
+| `/experiment` | Design or run an experiment |
+| `/papers` | Search academic papers |
+| `/review` | Peer review a paper or claim |
+| `/graph` | Knowledge graph operations |
+| `/notebook` | Lab notebook operations |
+| `/focus` | Toggle Focus mode (respond only when addressed) |
+| `/think` | Toggle Think mode (reasoning before responses) |
+| `/dive` | Toggle Deep Dive mode (thorough research) |
+| `/mute` | Toggle microphone mute |
+| `/exit` | Exit RUMI |
+
+---
+
+## 💡 Example Prompts
+
+### 🔬 Scientist AI — Research & Discovery
+
+```
+# Full autonomous research pipeline (12 phases)
+scientist_pipeline(action="run", topic="emergent abilities in large language models beyond 100B parameters")
+
+# Quick literature + novelty + hypothesis scan
+scientist_pipeline(action="quick", topic="neuro-symbolic approaches to mathematical reasoning")
+
+# Curiosity-driven exploration mode
+scientist_pipeline(action="explore", topic="")
+
+# Full pipeline with self-improvement analysis
+scientist_pipeline(action="iterate", topic="attention mechanisms in transformer architectures", domain="machine_learning")
+
+# View pipeline history and stats
+scientist_pipeline(action="history")
+scientist_pipeline(action="stats")
+```
+
+### 🔬 Scientist AI — Analysis & Validation
+
+```
+# Novelty check a research idea
+scientist_analyze(action="novelty", topic="using active inference for robot motor control")
+
+# Feynman reduction — simplify a complex concept
+scientist_analyze(action="feynman", topic="the Higgs mechanism")
+
+# Peer review findings
+scientist_analyze(action="review", topic="transformer efficiency", findings='[{"claim": "Sparse attention reduces compute by 40%"}]')
+
+# Cross-validate experiment results
+scientist_analyze(action="validate", topic="quantum machine learning")
+```
+
+### 🔬 Scientist AI — Experiments & Papers
+
+```
+# Design an experiment
+scientist_experiment(action="design", hypothesis="Vision transformers scale better than ConvNets on small datasets", domain="machine_learning", experiment_type="ablation")
+
+# Generate a research paper
+scientist_paper(action="generate", topic="The Role of Induction Heads in In-Context Learning", hypothesis="Induction heads are the primary mechanism for in-context learning in transformers", venue="neurips")
+
+# Search papers by famous researcher
+scientist_search(action="search", researcher="Richard Feynman", topic="quantum electrodynamics")
+
+# Search academic papers
+paper_search(query="mixture of experts in large language models", max_results=15)
+```
+
+### 🔬 Scientist AI — Knowledge & Hypotheses
+
+```
+# Generate diverse hypotheses with tournament selection
+scientist_tournament(action="generate", topic="scaling laws for mixture-of-experts models", domain="computer_science", size=10, generations=5)
+
+# Run hypothesis tournament
+scientist_tournament(action="tournament", topic="energy-based models vs diffusion models for image generation")
+
+# Manage hypotheses
+hypothesis_manage(action="add", title="Scaling MoE routers improves expert specialization", domain="machine_learning")
+
+# Build and query knowledge graph
+scientist_knowledge_graph(action="add_entity", name="attention_is_all_you_need", entity_type="paper", description="Vaswani et al. 2017 - Transformer architecture", domain="machine_learning")
+scientist_knowledge_graph(action="query", name="transformer")
+scientist_knowledge_graph(action="gaps", domain="machine_learning")
+
+# Cross-domain analogies
+scientist_cross_domain(action="analogy", concept="natural selection", source_domain="biology", target_domain="machine_learning")
+
+# Lab notebook
+scientist_lab_notebook(action="create", title="Testing Grokking on Modular Addition", hypothesis="Transformers grok modular addition through Fourier features", domain="machine_learning")
+scientist_lab_notebook(action="search", query="transformer grokking")
+
+# Reproducibility check
+scientist_reproducibility(action="extract", text="[paper text here]")
+```
+
+### 🧠 Cognitive Reasoning
+
+```
+# Multi-module cognitive reasoning
+cognitive_reason(query="What are the implications of category theory for understanding neural network generalization?", depth="deep")
+
+# Analogy reasoning
+analogy_reason(source_domain="biology", target_domain="software_engineering", query="How does immune system adaptation inform microservice architecture design?")
+
+# Causal analysis
+causal_analyze(events="The model performed well on training data but failed on the test set.", question="what caused the generalization gap?")
+
+# Creative problem solving
+creative_solve(problem="Design a new activation function that prevents dead neurons", constraints="must be differentiable, computationally efficient", num_ideas=5)
+
+# Intuition check (System 1 fast reasoning)
+intuition_check(situation="Users are reporting memory leaks after 6 hours of runtime", domain="code")
+
+# Consciousness state
+consciousness_state(action="full")
+```
+
+### 💻 Cognitive Coding
+
+```
+# Full cognitive coding pipeline (plan → simulate → build → debug → reflect)
+cognitive_code(action="build", description="Create a REST API for a scientific paper search engine with arXiv integration", language="python")
+
+# Analyze a codebase
+cognitive_code(action="analyze", project_dir="/path/to/project")
+
+# Plan before implementing
+cognitive_code(action="plan", description="Implement K-fold cross-validation for sklearn models")
+
+# Simulate code execution before running
+cognitive_code(action="simulate", code="def train(model, data): return model.fit(data)")
+
+# Debug with root-cause analysis
+cognitive_code(action="debug", description="The training loop crashes after epoch 10 with an OOM error", language="python", error_output="CUDA out of memory")
+
+# Code refactoring
+cognitive_code(action="refactor", file_path="/path/to/spaghetti_code.py")
+```
+
+### 🎯 Expert Agents
+
+```
+# Code review
+agency_agent(agent_name="code_reviewer", task="Review this Python function for bugs and performance issues", context="[code here]")
+
+# Security audit
+agency_agent(agent_name="security_engineer", task="Audit this web application for OWASP Top 10 vulnerabilities", context="[code here]")
+
+# System architecture
+agency_agent(agent_name="software_architect", task="Design a microservice architecture for a scientific paper repository")
+
+# Database optimization
+agency_agent(agent_name="database_optimizer", task="Optimize these PostgreSQL queries", context="[queries here]")
+
+# Multi-agent team (run 5 agents in parallel)
+multi_agent(action="run", team="code_review", task="Review this authentication system", context="[code here]")
+```
+
+### 🌐 Web & Research
+
+```
+# Quick web search
+web_search(query="latest advances in quantum error correction 2026")
+
+# Deep research with full page content
+web_research(query="comparison of Mamba vs Transformer architectures", depth=2, max_results=5)
+
+# YouTube video analysis
+youtube_video(action="summarize", query="Andrej Karpathy intro to large language models")
+
+# Browser automation
+browser_control(action="go_to", url="https://arxiv.org")
+browser_control(action="search", query="active inference", engine="google")
+```
+
+### 🖥️ System Control
+
+```
+# Open an application
+open_app(app_name="Visual Studio Code")
+
+# File operations
+file_controller(action="list", path="C:\\Projects")
+file_controller(action="read", path="C:\\Projects\\notes.txt")
+
+# Computer control
+computer_control(action="type", text="Hello, RUMI here!")
+computer_control(action="screenshot", path="C:\\Users\\Admin\\Desktop\\screenshot.png")
+
+# System settings
+computer_settings(action="volume", value="50")
+
+# Desktop control
+desktop_control(action="organize", mode="by_type")
+```
+
+### 📊 Data Analysis
+
+```
+# Analyze a CSV file
+data_analysis(action="analyze", filepath="data/results.csv")
+
+# Query data
+data_analysis(action="query", filepath="data/results.csv", query="accuracy > 0.9")
+
+# Generate a chart
+data_analysis(action="chart", filepath="data/results.csv", chart_type="line", chart_title="Model Accuracy Comparison", save_path="charts/accuracy.png")
+```
+
+### 🧠 Memory & Learning
+
+```
+# Save an important fact about the user
+save_memory(category="identity", key="name", value="Sir")
+
+# Search memory
+brain_memory(action="search", query="preferred programming language")
+
+# Record a learning
+record_learning(insight="Users prefer direct answers without greeting phrases", domain="communication")
+
+# Run metacognitive reflection
+reflect_learning(force=True)
+
+# Check learning history
+get_learnings()
+```
+
+### 🔄 System & Monitoring
+
+```
+# System health
+system_sentinel(action="status")
+
+# Check AGI orchestrator status
+agi_status(action="status")
+
+# Run dream/replay cycle
+run_dream_cycle()
+
+# Check curiosity queue
+curiosity_queue(action="queue")
+
+# Check cognitive load
+cognitive_load_check(action="status")
+
+# Self-model status
+self_model_status()
+
+# Trigger active inference learning
+force_learning()
+```
+
+### 📱 Communication
+
+```
+# Send a message
+send_message(receiver="Sir", message_text="Research complete on transformer architectures. Found 3 key papers.", platform="Telegram")
+
+# Set a reminder
+reminder(date="2026-05-26", time="14:00", message="Check new arXiv papers on active inference")
+```
+
+---
+
+## 📁 Project Structure
+
+```
+rumi/
+├── main.py                      # Entry point (~3000 lines)
+├── ui.py                        # Terminal UI (Rich + prompt_toolkit)
+├── rumi_launcher.py             # Console entry point
+├── thinking_loop.py             # Multi-pass reasoning engine
+├── telegram_bot.py              # Telegram bridge
+├── rumi_telegram_patch.py       # Telegram integration
+├── RUMI.md                      # Identity and behavioral guidelines
+├── SOUL.md                      # Core directives and red lines
+├── USER.md                      # User profile
+├── TOOLS.md                     # Tool documentation
+├── HEARTBEAT.md                 # Periodic health checks
+│
+├── brain/                       # 🧠 Cognitive systems (88 files)
+│   ├── neural_memory.py         #   Hebbian learning memory
+│   ├── episodic_memory.py       #   Event recording
+│   ├── vector_memory.py         #   Semantic search
+│   ├── procedural_memory.py     #   Skill templates
+│   ├── associative_memory.py    #   Spreading activation
+│   ├── predictive_memory.py     #   Anticipatory recall
+│   ├── memory_consolidation.py  #   Episodic → semantic
+│   ├── memory_coordinator.py    #   Unified recall
+│   ├── active_inference.py      #   Free Energy Principle
+│   ├── learning.py              #   Q-learning + error-driven
+│   ├── curiosity.py             #   Novelty detection
+│   ├── dreaming.py              #   Experience replay
+│   ├── meta_learner.py          #   Learning strategies
+│   ├── transfer_learning.py     #   Cross-domain transfer
+│   ├── self_improve_engine.py   #   RLHF-inspired improvement
+│   ├── code_evolution.py        #   Recursive self-improvement
+│   ├── causal_reasoner.py       #   Pearl's causal hierarchy
+│   ├── analogy_engine.py        #   Gentner structure mapping
+│   ├── neurosymbolic_reasoner.py # Neural + symbolic reasoning
+│   ├── narrative_intelligence.py # Story + identity
+│   ├── creativity_engine.py     #   Conceptual blending
+│   ├── intuition_engine.py      #   Recognition-primed decisions
+│   ├── cognitive_integration.py #   Unified reasoning pipeline
+│   ├── module_competition.py    #   Society of Mind bidding
+│   ├── self_awareness.py        #   Consciousness tracking
+│   ├── self_model.py            #   Capability awareness
+│   ├── theory_of_mind.py        #   User modeling
+│   ├── metacognitive_monitor.py #   Thinking quality
+│   ├── introspection_engine.py  #   Bias detection
+│   ├── emotional_regulation.py  #   Somatic markers
+│   ├── integrated_info.py       #   IIT Φ consciousness
+│   ├── global_workspace.py      #   Thalamus coordination
+│   ├── autonomous_planner.py    #   MCTS planning
+│   ├── goal_engine.py           #   Hierarchical goals
+│   ├── intrinsic_motivation.py  #   Self-determination theory
+│   ├── hierarchical_active_inference.py # 3-level FEP
+│   ├── proactive_engine.py      #   Anticipatory suggestions
+│   ├── cognitive_load.py        #   Working memory tracking
+│   ├── agi_orchestrator.py      #   Master cognitive loop
+│   ├── multi_agent_orchestrator.py # Parallel agent execution
+│   ├── code_intelligence.py     #   Code understanding
+│   ├── code_planner.py          #   EFE-based planning
+│   ├── code_simulator.py        #   Predictive execution
+│   ├── code_reflector.py        #   Root-cause analysis
+│   ├── self_modifier.py         #   Safe self-modification
+│   ├── world_model.py           #   Latent dynamics
+│   ├── enhanced_world_model.py  #   Non-linear MLP
+│   ├── world_simulation.py      #   Event tracking
+│   ├── abstraction_engine.py    #   First principles
+│   ├── model_router.py          #   Multi-model routing
+│   ├── findings_bus.py          #   Inter-module comms
+│   ├── api_server.py            #   REST API
+│   ├── integrations.py          #   System integrations
+│   └── workspace_adapters.py    #   Global workspace wiring
+│
+├── scientist/                   # 🔬 Scientist AI (20 files)
+│   ├── discovery_engine.py      #   Full discovery pipeline
+│   ├── novelty_checker.py       #   Novelty assessment
+│   ├── experiment_designer.py   #   Experiment design
+│   ├── paper_generator.py       #   Academic paper generation
+│   ├── peer_reviewer.py         #   Automated review
+│   ├── feynman_reducer.py       #   Simple explanations
+│   ├── cross_validator.py       #   Cross-validation
+│   ├── research_team.py         #   5-role multi-agent debate
+│   ├── tournament_hypothesis.py #   GFlowNet hypothesis gen
+│   ├── knowledge_graph.py       #   Scientific KG
+│   ├── reproducibility_engine.py # Claim reproduction
+│   ├── active_experiment_selector.py # Bayesian selection
+│   ├── cross_domain_connector.py # Domain transfer
+│   ├── lab_notebook.py          #   Digital lab notebook
+│   ├── scientist_search.py      #   Paper search
+│   └── pipeline.py               #   🆕 12-phase enhanced research pipeline
+│
+├── actions/                     # ⚡ Tool actions (17 files)
+│   ├── cognitive_coder.py       #   Cognitive coding engine
+│   ├── browser_control.py       #   Browser automation
+│   ├── computer_control.py      #   Mouse/keyboard
+│   ├── code_helper.py           #   Code write/edit/run
+│   ├── dev_agent.py             #   Project generation
+│   ├── agency_agent.py          #   30+ expert agents
+│   ├── file_controller.py       #   File operations
+│   ├── screen_processor.py      #   Screen capture
+│   ├── web_search.py            #   Quick search
+│   ├── web_research.py          #   Deep research
+│   ├── ai_pipeline.py           #   Text processing
+│   ├── paper_search.py          #   Academic search
+│   ├── verification.py          #   Action verification
+│   ├── desktop.py               #   Desktop management
+│   └── resilience.py            #   Error resilience
+│
+├── security/                    # 🔒 Security (7 files)
+│   ├── permission_manager.py    #   Access control
+│   ├── audit_logger.py          #   Audit trail
+│   ├── tools_guard.py           #   Rate limiting
+│   ├── input_sanitizer.py       #   Input validation
+│   ├── config_validator.py      #   Config validation
+│   └── lock_state.py            #   System lock
+│
+├── skills/                      # 🎯 Skill engine (15 files)
+│   ├── cognitive_gating.py      #   Complexity assessment
+│   ├── working_memory.py        #   Active context
+│   ├── meta_reflect.py          #   Metacognition
+│   ├── decision_journal.py      #   Decision logging
+│   ├── experience_replay.py     #   Template learning
+│   ├── adaptive_planner.py      #   Strategy optimization
+│   ├── deep_dive.py             #   Research agent
+│   ├── research_agent.py        #   Knowledge graph research
+│   ├── document_intelligence.py #   Document analysis
+│   ├── sentinel.py              #   System monitoring
+│   ├── neural_clipboard.py      #   Clipboard history
+│   └── auto_doc.py              #   Documentation gen
+│
+├── agent/                       # 🤖 Task execution
+│   ├── task_queue.py            #   Async task management
+│   ├── executor.py              #   Task execution
+│   ├── planner.py               #   Task planning
+│   └── error_handler.py         #   Error recovery
+│
+├── agents/                      # 👥 Expert agent personas
+│   ├── engineering/             #   Engineering agents
+│   ├── testing/                 #   Testing agents
+│   ├── design/                  #   Design agents
+│   └── specialized/             #   Specialized agents
+│
+├── config/                      # ⚙️ Configuration
+│   ├── api_keys.json            #   API keys
+│   ├── consent_log.json         #   Consent records
+│   └── target_guard.json        #   Target classification
+│
+├── core/prompt.txt              # System prompt
+├── memory/                      # Persistent memory
+│   ├── MEMORY.md                #   Long-term memory
+│   └── YYYY-MM-DD.md            #   Daily logs
+├── assets/                      # Images and media
+├── data/                        # Runtime data
+└── docs/                        # Documentation
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
+```bash
+# Development setup
+git clone https://github.com/subhansh-dev/Rumi.git
+cd rumi
+pip install -r requirements.txt
+python main.py
+```
+
+---
+
+## 📄 License
+
+RUMI License v1.0 — Non-commercial use is free. Contact for commercial licensing.
+
+---
+
+<p align="center">
+  <sub>Built by Subhansh · RUMI v2.0</sub>
+</p>

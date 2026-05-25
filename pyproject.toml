@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=64.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rumi"
+version = "2.0.0"
+description = "RUMI — Autonomous Cognitive AI for Scientific Research"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "RUMI License v1.0"}
+
+authors = [
+    {name = "Subhansh"},
+]
+
+keywords = [
+    "ai", "assistant", "terminal", "cognitive", "research",
+    "artificial-intelligence", "agi", "scientist-ai", "autonomous",
+    "machine-learning", "neural-networks", "active-inference",
+    "scientific-research", "terminal-ui", "llm", "gemini",
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Information Technology",
+    "License :: Other/Proprietary License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Human Machine Interfaces",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Terminal Emulators/X Terminals",
+]
+
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[project.urls]
+Homepage = "https://github.com/subhansh-dev/Rumi"
+Repository = "https://github.com/subhansh-dev/Rumi"
+Documentation = "https://github.com/subhansh-dev/Rumi#readme"
+Issues = "https://github.com/subhansh-dev/Rumi/issues"
+Changelog = "https://github.com/subhansh-dev/Rumi/releases"
+
+[project.scripts]
+rumi = "rumi_launcher:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = ["E402", "E501", "F811", "F841", "W291"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+allow_untyped_defs = true
+
+[tool.bandit]
+exclude_dirs = ["__pycache__", ".git", "tests"]

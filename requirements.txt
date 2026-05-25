@@ -1,0 +1,72 @@
+# ── RUMI DEPENDENCIES ────────────────────────────────────────────
+# Scientist AI — lightweight, terminal-native.
+# Install: pip install -r requirements.txt
+#
+# ── AI / LLM ──────────────────────────────────────────────────────
+google-genai>=1.73.0
+openai>=1.30.0
+
+# ── TERMINAL UI ───────────────────────────────────────────────────
+rich>=13.0.0
+prompt_toolkit>=3.0.0
+
+# ── AUDIO / VOICE ─────────────────────────────────────────────────
+sounddevice>=0.5.0
+soundfile>=0.12.0
+edge-tts>=6.1.0
+
+# ── IMAGE / SCREEN ────────────────────────────────────────────────
+numpy>=2.0.0
+pillow>=11.0.0
+mss>=10.0.0
+opencv-python-headless>=4.10.0
+
+# ── NETWORKING ────────────────────────────────────────────────────
+requests>=2.31.0
+urllib3>=2.0.0
+httpx>=0.27.0
+websockets>=12.0
+dnspython>=2.6.0
+
+# ── WEB SCRAPING / SEARCH ─────────────────────────────────────────
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+duckduckgo-search>=6.0.0
+youtube-transcript-api>=0.6.0
+
+# ── AUTOMATION ────────────────────────────────────────────────────
+pyautogui>=0.9.50
+pyperclip>=1.8.0
+playwright>=1.45.0
+
+# ── SYSTEM ────────────────────────────────────────────────────────
+psutil>=6.0.0
+watchdog>=4.0.0
+send2trash>=1.8.0
+
+# ── MATH / REASONING ──────────────────────────────────────────────
+sympy>=1.12.0
+regex>=2024.0.0
+
+# ── DATA ANALYSIS ─────────────────────────────────────────────────
+polars>=1.0.0
+matplotlib>=3.8.0
+scikit-learn>=1.3.0
+
+# ── SCHEDULING ────────────────────────────────────────────────────
+apscheduler>=3.10.0
+
+# ── WEB API ───────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn>=0.30.0
+pydantic>=2.0.0
+
+# ── CONSOLE / PROGRESS ────────────────────────────────────────────
+tqdm>=4.66.0
+
+# ── SECURITY ──────────────────────────────────────────────────────
+cryptography>=42.0.0
+paramiko>=3.4.0
+
+# ── WINDOWS ONLY ─────────────────────────────────────────────────
+pywin32>=306  ; platform_system == 'Windows'

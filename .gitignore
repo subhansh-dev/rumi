@@ -1,0 +1,59 @@
+# ── Python ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Runtime State ──────────────────────────────────
+brain/*.json
+brain/hypothesis_state.json
+!brain/__init__.py
+memory/*.json
+scientist/*.json
+*.log
+logs/
+
+# ── Config & Secrets ──────────────────────────────
+config/api_keys.json
+.env
+*.env
+secrets.py
+secrets.json
+
+# ── Virtual Environments ──────────────────────────
+venv/
+.venv/
+env/
+.env/
+rumi_env/
+
+# ── IDE & Editors ─────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS Junk ───────────────────────────────────────
+.DS_Store
+Thumbs.db
+nul
+
+# ── Development ───────────────────────────────────
+_scan.py
+debug_check.py
+tmp/
+temp/
+
+# ── Docs / Demo ───────────────────────────────────
+docs/*.gif
+docs/*.cast
+docs/*.svg
+
+# ── Node (for demo tooling) ───────────────────────
+node_modules/
+npm-debug.log*
