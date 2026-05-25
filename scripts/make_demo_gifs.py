@@ -250,7 +250,7 @@ def create_quickstart_gif():
         elif i < len(frames) - 4: durs.append(180)
         else: durs.append(350)
     frames[0].save(path, save_all=True, append_images=frames[1:],
-                   duration=durs, loop=0, optimize=True, disposal=2)
+                   duration=durs, loop=0, optimize=False, disposal=1)
     print(f"Quickstart GIF: {os.path.getsize(path)} bytes")
     return path
 
@@ -319,7 +319,7 @@ def create_pipeline_gif():
     durs = [200] + [180] * (n - 1) + [400]
     path = os.path.join(OUT_DIR, "rumi_pipeline.gif")
     frames[0].save(path, save_all=True, append_images=frames[1:],
-                   duration=durs, loop=0, optimize=True, disposal=2)
+                   duration=durs, loop=0, optimize=False, disposal=1)
     print(f"Pipeline GIF: {os.path.getsize(path)} bytes")
     return path
 
@@ -365,7 +365,7 @@ def create_install_gif():
     path = os.path.join(OUT_DIR, "rumi_install.gif")
     durs = [150] * (len(steps) - 1) + [500]
     frames[0].save(path, save_all=True, append_images=frames[1:],
-                   duration=durs, loop=0, optimize=True, disposal=2)
+                   duration=durs, loop=0, optimize=False, disposal=1)
     print(f"Install GIF: {os.path.getsize(path)} bytes")
     return path
 
@@ -381,71 +381,153 @@ def optimize_ffmpeg(input_path):
 
 
 def create_intro_gif():
-    """Create intro GIF: RUMI startup → user types 'haiii :3'"""
+    """Create intro GIF: rumi command → boot → haiiii :3 → reply"""
     frames = []
     all_lines = []
 
-    # 1: Boot screen
+    # 1-4: Typing "rumi" command char by char
+    cmd_word = "rumi"
+    for i, ch in enumerate(cmd_word):
+        typed = cmd_word[:i+1]
+        cursor = "█" if i < len(cmd_word) - 1 else " "
+        lines = [
+            ("", None, "body"),
+            ("", None, "body"),
+            ("", None, "body"),
+            ("", None, "body"),
+            ("", None, "body"),
+            ("", None, "body"),
+            ("", None, "body"),
+            ("", None, "body"),
+            (f"  PS C:\\Users\\Researcher> {typed}{cursor}", GREEN, "heading"),
+        ]
+        all_lines.append(lines)
+
+    # 5: Press Enter – boot starts
     lines = [
-        ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN, "body"),
-        ("[BOOT] Initializing cognitive architecture...", MUTED, "body"),
-        ("[BOOT] Loading brain modules...", MUTED, "body"),
+        ("  PS C:\\Users\\Researcher> rumi", GREEN, "heading"),
+        ("", None, "body"),
+        ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("  ║     🧬  RUMI v2.0  —  Initializing...        ║", ORANGE, "body"),
+        ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  [BOOT] WUMI v2.0 — Weseawch & Unified Machine Intewwigence!!", CYAN, "heading"),
+        ("  [BOOT] Initiawizing cognitive awchitectuwe...", MUTED, "body"),
     ]
     all_lines.append(lines)
 
-    # 2: Systems online
+    # 6-10: Loading bars for modules
+    load_modules = [
+        "neural_memory        ████████░░░░  [42%]",
+        "episodic_memory      ████████████  [88%]",
+        "vectow_memowy        ██████████░░  [71%]",
+        "active_infewence     ████████████  [95%]",
+        "cuwiosity_engine     ████████████  [100%]",
+    ]
+    for i, mod in enumerate(load_modules):
+        lines = [
+            ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
+            ("  ║     🧬  WUMI v2.0  —  Loading brain modules  ║", ORANGE, "body"),
+            ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
+            ("", None, "body"),
+            ("  [BOOT] WUMI v2.0 — Weseawch & Unified Machine Intewwigence!!", CYAN, "heading"),
+        ]
+        for j in range(i + 1):
+            completed = j < i
+            c = GREEN if completed else YELLOW
+            icon = "✅" if completed else "⏳"
+            lines.append((f"  {icon}  {load_modules[j]}", c, "small"))
+        lines.append(("", None, "body"))
+        lines.append((f"  [{i+1}/{len(load_modules)}] modules woaded...", MUTED, "body"))
+        all_lines.append(lines)
+
+    # 11: Systems online
     lines = [
-        ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN, "body"),
-        ("[BOOT] All systems nominal.", GREEN, "body"),
-        ("  ✓  60+ brain modules               [ONLINE]", GREEN, "body"),
-        ("  ✓  15 scientist modules            [ONLINE]", GREEN, "body"),
-        ("  ✓  11 research agents              [READY]", GREEN, "body"),
+        ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("  ║     🧬  WUMI v2.0  —  Online!!               ║", ORANGE, "body"),
+        ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
         ("", None, "body"),
-        ("  System ready.", CYAN, "body"),
+        ("  [BOOT] Aww systems nominaw!!", GREEN, "heading"),
+        ("  ✅  60+ bwain modules               [ONWINE]", GREEN, "body"),
+        ("  ✅  15 scientist moduwes           [ONWINE]", GREEN, "body"),
+        ("  ✅  11 weseawch agents              [WEADY]", GREEN, "body"),
+        ("", None, "body"),
+        ("  System weady!! hewwo!! ^_^", CYAN, "heading"),
         ("", None, "body"),
         ("  ───────────────────────────────────────", MUTED, "small"),
-        ("  RUMI v2.0  |  Gemini 2.5 Flash  |  ~200MB RAM", MUTED, "small"),
+        ("  WUMI v2.0  |  Gemini 2.5 Fwash  |  ~200MB WAM", MUTED, "small"),
         ("  ───────────────────────────────────────", MUTED, "small"),
     ]
     all_lines.append(lines)
 
-    # 3: Prompt
+    # 12: Prompt shows
     lines = [
-        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
-        ("║     🧬  RUMI  —  Ready to chat               ║", ORANGE, "body"),
-        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("  ║     🧬  WUMI  —  Ready to chat!!             ║", ORANGE, "body"),
+        ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
         ("", None, "body"),
-        ("  hai", PINK, "heading"),
+        ("  Hewwo senpai!! 🥺 what can i hewp you with~?", CYAN, "body"),
+        ("", None, "body"),
+        ("  rumi > ", PROMPT, "heading"),
     ]
     all_lines.append(lines)
 
-    # 4: continuing typing
+    # 13-20: Typing "haiiiii :3" char by char
+    msg = "haiiiii :3"
+    for i, ch in enumerate(msg):
+        typed = msg[:i+1]
+        cursor = "█" if i < len(msg) - 1 else " "
+        lines = [
+            ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
+            ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
+            ("", None, "body"),
+            ("  Hewwo senpai!! 🥺 what can i hewp you with~?", CYAN, "body"),
+            ("", None, "body"),
+            (f"  rumi > {typed}{cursor}", PINK if i < len(msg)-1 else PINK, "heading"),
+        ]
+        all_lines.append(lines)
+
+    # 21: RUMI thinks / loading indicator
     lines = [
-        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
-        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
         ("", None, "body"),
-        ("  haiiii :3", PINK, "heading"),
+        ("  Hewwo senpai!! 🥺 what can i hewp you with~?", CYAN, "body"),
+        ("", None, "body"),
+        ("  rumi > haiiiiii :3", PINK, "heading"),
+        ("", None, "body"),
+        ("  ⏳ WUMI is pwocessing...", YELLOW, "body"),
+        ("  ✨  synthesizing wovingly...", YELLOW, "small"),
     ]
     all_lines.append(lines)
 
-    # 5: RUMI responds
+    # 22: RUMI responds with cute uwu reply
     lines = [
-        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
-        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
         ("", None, "body"),
-        ("  haiiii :3", PINK, "heading"),
+        ("  Hewwo senpai!! 🥺 what can i hewp you with~?", CYAN, "body"),
         ("", None, "body"),
-        ("  hewwo!! 🧪✨ how can i help wiff your", CYAN, "body"),
+        ("  rumi > haiiiiii :3", PINK, "heading"),
+        ("", None, "body"),
+        ("  hewwooo senpai!!! 🧪✨🥺", CYAN, "heading"),
+        ("", None, "body"),
+        ("  how can i hewp wiff youw", CYAN, "body"),
         ("  science today~? 🔬", CYAN, "body"),
+        ("", None, "body"),
+        ("  i can do wesearch, wite code,", CYAN, "body"),
+        ("  ow just chat!! tell me evewything!!", CYAN, "body"),
+        ("", None, "body"),
+        ("  🐣  uwu  |  ready to serve senpai  |  💖", MUTED, "small"),
     ]
     all_lines.append(lines)
 
     for ls in all_lines:
         frames.append(frame_from_lines(ls))
     path = os.path.join(OUT_DIR, "rumi_intro.gif")
-    durs = [80, 100, 80, 80, 350]
+    durs = [250]*4 + [400] + [150]*5 + [350] + [200] + [120]*10 + [250] + [600]
     frames[0].save(path, save_all=True, append_images=frames[1:],
-                   duration=durs, loop=0, optimize=True, disposal=2)
+                   duration=durs, loop=0, optimize=False, disposal=1)
     print(f"Intro GIF: {os.path.getsize(path)} bytes")
     return path
 
@@ -455,5 +537,6 @@ if __name__ == "__main__":
     g1 = create_quickstart_gif()
     g2 = create_pipeline_gif()
     g3 = create_install_gif()
-    for g in [g_intro, g1, g2, g3]:
-        optimize_ffmpeg(g)
+    # opt with ffmpeg disabled - causes rendering issues on some viewers
+    # for g in [g_intro, g1, g2, g3]:
+    #     optimize_ffmpeg(g)
