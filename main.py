@@ -3235,6 +3235,21 @@ Output ONLY valid JSON as a list of objects with this structure:
             enriched = enrich_power(graph)
             total_enriched += enriched
 
+        if "nasa_api" in enrich_sources:
+            from discovery.nasa_api import enrich_entities as enrich_nasa
+            enriched = enrich_nasa(graph)
+            total_enriched += enriched
+
+        if "arxiv" in enrich_sources:
+            from discovery.arxiv_api import enrich_entities as enrich_arxiv
+            enriched = enrich_arxiv(graph, query=domain_cfg.get("label", ""))
+            total_enriched += enriched
+
+        if "gbif" in enrich_sources:
+            from discovery.gbif_api import enrich_entities as enrich_gbif
+            enriched = enrich_gbif(graph)
+            total_enriched += enriched
+
         graph.save()
         self._post_output(f"Enriched {total_enriched} entities with {', '.join(e.capitalize() for e in enrich_sources)} data.")
 
@@ -3410,6 +3425,75 @@ Output ONLY valid JSON as a list of objects with keys: title, components, ration
                 self._post_output(f"\n  [bold]Design {i}: {d.get('title', '?')}[/bold]")
                 self._post_output(f"  Components: {d.get('components', '?')}")
                 self._post_output(f"  Rationale: {d.get('rationale', '?')}")
+
+        elif domain == "space_astronomy":
+            self._post_output(f"[bold cyan]Generating space research proposals for: {target}...[/bold cyan]")
+            prompt = f"""You are an astrophysicist and space scientist. Generate 3 research proposals or mission concepts for: {target}
+
+For EACH proposal, provide:
+1. Title
+2. Research objective
+3. Methodology (observational, theoretical, or mission-based)
+4. Expected discoveries or outcomes
+5. Data sources or instruments needed
+
+Output ONLY valid JSON as a list of objects with keys: title, objective, methodology, outcomes, data_sources"""
+            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            proposals = json.loads(result) if result else []
+            if not proposals:
+                self._post_output("No proposals generated. Try a different target.")
+                return
+            _save_output(proposals, "proposals")
+            for i, p in enumerate(proposals, 1):
+                self._post_output(f"\n  [bold]Proposal {i}: {p.get('title', '?')}[/bold]")
+                self._post_output(f"  Objective: {p.get('objective', '?')}")
+                self._post_output(f"  Methodology: {p.get('methodology', '?')}")
+
+        elif domain == "ecology":
+            self._post_output(f"[bold cyan]Generating ecology/conservation proposals for: {target}...[/bold cyan]")
+            prompt = f"""You are an ecologist and conservation biologist. Generate 3 research proposals or conservation strategies for: {target}
+
+For EACH proposal, provide:
+1. Title
+2. Ecological question or conservation goal
+3. Methodology (field study, genomic analysis, modeling, etc.)
+4. Expected outcomes
+5. Conservation implications
+
+Output ONLY valid JSON as a list of objects with keys: title, question, methodology, outcomes, conservation_impact"""
+            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            proposals = json.loads(result) if result else []
+            if not proposals:
+                self._post_output("No proposals generated. Try a different target.")
+                return
+            _save_output(proposals, "proposals")
+            for i, p in enumerate(proposals, 1):
+                self._post_output(f"\n  [bold]Proposal {i}: {p.get('title', '?')}[/bold]")
+                self._post_output(f"  Question: {p.get('question', '?')}")
+                self._post_output(f"  Methodology: {p.get('methodology', '?')}")
+
+        elif domain == "physics":
+            self._post_output(f"[bold cyan]Generating physics research proposals for: {target}...[/bold cyan]")
+            prompt = f"""You are a theoretical or experimental physicist. Generate 3 research proposals for: {target}
+
+For EACH proposal, provide:
+1. Title
+2. Physical question or problem
+3. Theoretical framework or experimental design
+4. Predicted outcomes or testable predictions
+5. Required resources or apparatus
+
+Output ONLY valid JSON as a list of objects with keys: title, question, framework, predictions, resources"""
+            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            proposals = json.loads(result) if result else []
+            if not proposals:
+                self._post_output("No proposals generated. Try a different target.")
+                return
+            _save_output(proposals, "proposals")
+            for i, p in enumerate(proposals, 1):
+                self._post_output(f"\n  [bold]Proposal {i}: {p.get('title', '?')}[/bold]")
+                self._post_output(f"  Question: {p.get('question', '?')}")
+                self._post_output(f"  Framework: {p.get('framework', '?')}")
 
         elif domain == "climate_energy":
             self._post_output(f"[bold cyan]Generating climate/energy proposals for: {target}...[/bold cyan]")

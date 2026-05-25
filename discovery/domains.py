@@ -86,6 +86,58 @@ DOMAINS = {
         "generation": "hypothesis",
     },
 
+    "space_astronomy": {
+        "label": "Space & Astronomy",
+        "description": "Celestial bodies, missions, exoplanets, galaxies, stars — with NASA image + exoplanet archive + arXiv enrichment",
+        "aliases": ["space", "astronomy", "astro", "nasa", "cosmos"],
+        "entity_types": {
+            "celestial_body": {"color": "#e056fd", "description": "Planet, moon, asteroid, or other body"},
+            "mission":        {"color": "#00b894", "description": "Space mission or program"},
+            "telescope":      {"color": "#00cec9", "description": "Telescope or observatory"},
+            "exoplanet":      {"color": "#fdcb6e", "description": "Planet outside our solar system"},
+            "galaxy":         {"color": "#a29bfe", "description": "Galaxy or nebula"},
+            "star":           {"color": "#ffeaa7", "description": "Star or stellar object"},
+            "phenomenon":     {"color": "#fd79a8", "description": "Astrophysical phenomenon"},
+            "theory":         {"color": "#74b9ff", "description": "Astrophysical theory or model"},
+        },
+        "enrichment": ["nasa_api", "arxiv", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
+    "ecology": {
+        "label": "Ecology & Environment",
+        "description": "Species, habitats, ecosystems, conservation — with GBIF biodiversity + Semantic Scholar enrichment",
+        "aliases": ["ecology", "environment", "biodiversity", "conservation", "nature"],
+        "entity_types": {
+            "species":           {"color": "#55efc4", "description": "Species or taxon"},
+            "habitat":           {"color": "#00b894", "description": "Habitat or ecosystem type"},
+            "ecosystem":         {"color": "#81ecec", "description": "Ecosystem or biome"},
+            "organism":          {"color": "#74b9ff", "description": "Organism or life form"},
+            "threat":            {"color": "#ff7675", "description": "Environmental threat or stressor"},
+            "conservation_action": {"color": "#fdcb6e", "description": "Conservation strategy or action"},
+            "region":            {"color": "#55efc4", "description": "Geographic region"},
+        },
+        "enrichment": ["gbif", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
+    "physics": {
+        "label": "Physics",
+        "description": "Particles, forces, theories, experiments — with arXiv + Semantic Scholar enrichment",
+        "aliases": ["physics", "particle", "quantum", "relativity", "mechanics"],
+        "entity_types": {
+            "particle":     {"color": "#fd79a8", "description": "Fundamental or composite particle"},
+            "force":        {"color": "#e17055", "description": "Fundamental force or interaction"},
+            "theory":       {"color": "#74b9ff", "description": "Physical theory or model"},
+            "experiment":   {"color": "#00cec9", "description": "Experiment or detector"},
+            "phenomenon":   {"color": "#fdcb6e", "description": "Physical phenomenon or effect"},
+            "constant":     {"color": "#a29bfe", "description": "Physical constant"},
+            "material":     {"color": "#00b894", "description": "Physical material or state"},
+        },
+        "enrichment": ["arxiv", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
     "general": {
         "label": "General Science",
         "description": "Any scientific topic — entities auto-detected from paper content, with Semantic Scholar citation enrichment",
