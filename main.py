@@ -2254,6 +2254,10 @@ class RumiLive:
         self._audio_drop_count = 0
 
         self.ui.on_text_command = self._on_text_command
+        self.ui.on_discovery_command = self._on_discovery_command
+        self.ui.on_idle_scan = lambda: asyncio.run_coroutine_threadsafe(
+            self._run_idle_scan(), self._loop
+        )
 
         if _telegram_ok and TelegramBridge:
             try:
@@ -2743,6 +2747,458 @@ class RumiLive:
             self.ui.set_state("SPEAKING")
         elif not self.ui.muted:
             self.ui.set_state("LISTENING")
+
+    # ── Discovery Engine ───────────────────────────────────────────────
+
+    async def _run_discovery_pipeline(self, query: str, depth: str = "quick"):
+        from discovery.pubmed import search_and_fetch
+        from discovery.graph import KnowledgeGraph
+        from discovery.output import format_papers, save_session
+
+        max_results = 20 if depth == "quick" else 100
+
+        self._post_output(f"[bold cyan]Searching PubMed...[/bold cyan]")
+        papers = search_and_fetch(query, max_results=max_results)
+        if not papers:
+            self._post_output("No papers found. Try a different query.")
+            return
+        self._post_output(f"Found {len(papers)} papers.")
+        self._post_output(format_papers(papers[:5]))
+
+        self._post_output("[bold cyan]Extracting entities and relationships...[/bold cyan]")
+        extraction_prompt = self._build_extraction_prompt(papers)
+        extraction_result = await self._call_llm(extraction_prompt, json_mode=True)
+        entities, relationships = self._parse_extraction(extraction_result)
+
+        self._post_output("[bold cyan]Building knowledge graph...[/bold cyan]")
+        graph = KnowledgeGraph.load()
+        for p in papers:
+            graph.add_paper(p["pmid"], p["title"], p.get("abstract", ""), p["url"], p.get("year", ""))
+        if entities:
+            graph.add_paper_entities(entities, papers[0]["pmid"])
+        if relationships:
+            graph.add_relationships(relationships, papers[0]["pmid"])
+        graph.save()
+
+        self._post_output("[bold cyan]Enriching drug entities with PubChem + OpenFDA...[/bold cyan]")
+        await self._enrich_drug_entities(graph)
+
+        self._post_output("[bold cyan]Mining patterns and generating hypotheses...[/bold cyan]")
+        hypothesis_prompt = self._build_hypothesis_prompt(graph, query)
+        hypothesis_result = await self._call_llm(hypothesis_prompt, json_mode=True)
+        hypotheses = self._parse_hypotheses(hypothesis_result)
+
+        from discovery.output import format_hypotheses, save_hypotheses
+        save_hypotheses(hypotheses)
+        save_session(query, papers, hypotheses)
+        self._track_discovery_topic(query, [p["pmid"] for p in papers])
+        self._post_output(format_hypotheses(hypotheses))
+        self._post_output("\nDone. Run /dashboard to explore visually.")
+
+    def _build_extraction_prompt(self, papers: list[dict]) -> str:
+        papers_text = "\n\n".join(
+            f"--- Paper {i+1} (PMID: {p['pmid']}) ---\nTitle: {p['title']}\nAbstract: {p.get('abstract', '')}"
+            for i, p in enumerate(papers)
+        )
+        return f"""You are a biomedical entity extractor. Extract ALL drugs, diseases, genes, proteins, mechanisms, and pathways from these papers.
+
+For each paper, output a JSON array of entities and relationships.
+
+Entity format: {{"type": "drug|disease|gene|protein|mechanism|pathway", "name": "exact name"}}
+Relationship format: {{"source": "entity name", "source_type": "entity type", "relation": "treats|causes|activates|inhibits|binds|expressed_in|regulates|associated_with", "target": "entity name", "target_type": "entity type", "confidence": 0.0-1.0}}
+
+Papers:
+{papers_text}
+
+Output ONLY valid JSON in this format:
+{{"entities": [...], "relationships": [...]}}"""
+
+    def _build_hypothesis_prompt(self, graph, query: str) -> str:
+        stats = graph.stats()
+        metrics = graph.compute_metrics()
+        graph_summary = json.dumps({
+            "entities": {k: {"type": v["type"], "name": v["name"], "papers": len(v["papers"])} for k, v in list(graph.entities.items())[:50]},
+            "relationships": graph.relationships[:100],
+            "stats": stats,
+        }, indent=2)
+        metrics_summary = json.dumps(metrics, indent=2, default=str)
+        return f"""You are an AI drug discovery scientist analyzing a knowledge graph from PubMed papers on: "{query}"
+
+=== KNOWLEDGE GRAPH ===
+{graph_summary}
+
+=== MATHEMATICAL GRAPH METRICS ===
+{metrics_summary}
+
+=== HOW TO USE METRICS ===
+- **Jaccard similarity** (co_occurrence[].jaccard): 0 = never co-occur in papers, 1 = always together. High Jaccard (>0.3) = strong known association.
+- **Degree centrality** (entity_metrics[].degree): number of connections. Hub nodes with high degree are promising drug targets.
+- **Betweenness centrality** (entity_metrics[].betweenness): 0-1 scale. High betweenness nodes bridge disconnected clusters — repurposing candidates.
+- **Closeness centrality** (entity_metrics[].closeness): how quickly a node reaches all others. High closeness = broadly relevant.
+- **Clustering coefficient** (entity_metrics[].clustering): 0-1. Low clustering on high-degree nodes suggests bridge/hub role.
+- **Relation entropy** (entity_metrics[].relation_entropy): 0 = only one relation type, higher = diverse functions.
+- **Edge strength** (edge_strength[].avg_confidence * count): confidence-weighted evidence for each relationship.
+- **Contradictions** (contradiction_candidates): pairs with conflicting relation types (e.g. activates AND inhibits) — mechanistic conflicts worth investigating.
+- **Graph density**: {metrics['density']} ({metrics['edge_count']} edges / {metrics['entity_count']} nodes).
+- **Temporal trends**: year-over-year citation frequency per entity — rising trends = emerging interest.
+
+=== PATTERN MINING RULES ===
+For each pattern type, identify the exact metric values that support it:
+1. Drug Repurposing: Find an entity with high betweenness bridging a drug cluster and a disease cluster. Cite the betweenness value.
+2. Bridge Node: Entity linking two otherwise disconnected subgraphs. Cite Jaccard near 0 (no direct co-occurrence between the two clusters) but shared neighbor connections.
+3. Contradiction: Cite the exact conflicting relation types from contradiction_candidates.
+4. Low Co-occurrence: Find entity pairs with Jaccard = 0 but plausible biological connection via shared neighbors. Cite zero jaccard and the bridging path.
+
+Generate 3-5 hypotheses. For EACH hypothesis you MUST:
+1. State which pattern type you detected
+2. Cite the specific metric values that support it (jaccard, betweenness, degree, etc.)
+3. Define every NODE: name, type, biological role/definition, any variable conditions
+4. Define every EDGE: source, relation, target, what the relation MEANS biologically, which papers support it (cite PMIDs)
+
+=== OUTPUT SCHEMA ===
+Output ONLY valid JSON as a list of objects with this structure:
+{{
+  "title": "string — concise hypothesis title",
+  "description": "string — detailed explanation",
+  "pattern_type": "drug_repurposing|bridge_node|contradiction|low_cooccurrence|novel_mechanism",
+  "confidence": 0.0-1.0,
+  "mathematical_grounding": {{
+    "primary_metric": "jaccard|betweenness|degree|closeness|clustering|entropy|edge_strength|contradiction|density",
+    "metric_value": <number>,
+    "metric_definition": "string — what the metric means in context",
+    "supporting_metrics": {{"metric_name": <number>}}
+  }},
+  "nodes": [
+    {{"name": "exact entity name", "type": "drug|disease|gene|protein|mechanism|pathway|side_effect|property", "definition": "biological definition and role", "conditions": "any variable conditions or empty string", "papers_count": <int>, "degree": <int>, "betweenness": <float>}}
+  ],
+  "edges": [
+    {{"source": "entity name", "relation": "relation type", "target": "entity name", "definition": "what this relationship means biologically with PMID citation", "papers": ["PMID1", "PMID2"]}}
+  ],
+  "evidence": ["string evidence items"],
+  "papers": ["PMIDs"],
+  "testability": "string — how to experimentally test this",
+  "novelty": "high|medium|low"
+}}"""
+
+    def _parse_extraction(self, text: str):
+        import re
+        # Try to extract JSON from markdown code block
+        m = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        if m:
+            text = m.group(1)
+        else:
+            # Fallback: strip ``` markers manually if regex failed
+            text = text.strip().removeprefix('```json').removeprefix('```')
+            close = text.rfind('```')
+            if close >= 0:
+                text = text[:close]
+            text = text.strip()
+        try:
+            data = json.loads(text)
+            # Handle both list-of-paper-extractions and single-object formats
+            if isinstance(data, list):
+                all_entities = []
+                all_relationships = []
+                seen_entities = set()
+                for item in data:
+                    for ent in item.get("entities", []):
+                        key = (ent["type"], ent["name"])
+                        if key not in seen_entities:
+                            all_entities.append(ent)
+                            seen_entities.add(key)
+                    all_relationships.extend(item.get("relationships", []))
+                return all_entities, all_relationships
+            return data.get("entities", []), data.get("relationships", [])
+        except json.JSONDecodeError:
+            return [], []
+
+    def _parse_hypotheses(self, text: str) -> list:
+        import re
+        m = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        if m:
+            text = m.group(1)
+        else:
+            text = text.strip().removeprefix('```json').removeprefix('```')
+            close = text.rfind('```')
+            if close >= 0:
+                text = text[:close]
+            text = text.strip()
+        try:
+            data = json.loads(text)
+            hypotheses = data if isinstance(data, list) else data.get("hypotheses", [])
+            # Ensure uniform schema for downstream consumers
+            for h in hypotheses:
+                h.setdefault("pattern_type", "unknown")
+                h.setdefault("mathematical_grounding", {})
+                h.setdefault("nodes", [])
+                h.setdefault("edges", [])
+                h.setdefault("novelty", "medium")
+                h.setdefault("evidence", h.get("evidence", []))
+                h.setdefault("papers", h.get("papers", []))
+                h.setdefault("testability", h.get("testability", ""))
+            return hypotheses
+        except json.JSONDecodeError:
+            return []
+
+    async def _call_llm(self, prompt: str, json_mode: bool = False) -> str:
+        cfg = json.loads(API_CONFIG_PATH.read_text(encoding="utf-8-sig"))
+        client = genai.Client(api_key=cfg.get("gemini_api_key", ""))
+        kwargs = dict(temperature=0.3, max_output_tokens=16384)
+        if json_mode:
+            kwargs["response_mime_type"] = "application/json"
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", contents=prompt,
+            config=types.GenerateContentConfig(**kwargs),
+        )
+        return response.text
+
+    def _on_discovery_command(self, command: str, args: str):
+        """Handle discovery commands from the UI."""
+        if command == "discover":
+            if args:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_discovery_pipeline(args), self._loop
+                )
+            else:
+                self._post_output("Specify a topic: /discover <topic>")
+        elif command == "search":
+            if args:
+                from discovery.pubmed import search_and_fetch
+                from discovery.output import format_papers
+                papers = search_and_fetch(args, max_results=10)
+                if papers:
+                    self._post_output(format_papers(papers))
+                else:
+                    self._post_output("No results found.")
+            else:
+                self._post_output("Specify a query: /search <query>")
+        elif command == "hypothesize":
+            from discovery.graph import KnowledgeGraph
+            graph = KnowledgeGraph.load()
+            if not graph.entities:
+                self._post_output("No knowledge graph found. Run /discover first.")
+                return
+            asyncio.run_coroutine_threadsafe(
+                self._mine_hypotheses(graph, args or "existing data"), self._loop
+            )
+        elif command == "graph":
+            from discovery.graph import KnowledgeGraph
+            from discovery.output import format_stats
+            graph = KnowledgeGraph.load()
+            self._post_output(format_stats(graph.stats()))
+        elif command == "dashboard":
+            import webbrowser
+            dp = Path(__file__).resolve().parent / "discovery" / "dashboard" / "index.html"
+            if dp.exists():
+                webbrowser.open(dp.as_uri())
+                self._post_output("Dashboard opened in browser.")
+            else:
+                self._post_output("Dashboard not found. Run /discover first and create the dashboard.")
+        elif command == "discoveries":
+            sd = Path(__file__).resolve().parent / "discovery" / "sessions"
+            if not sd.exists():
+                self._post_output("No discoveries yet.")
+                return
+            import json
+            for s in sorted(sd.glob("*.json"), reverse=True)[:5]:
+                data = json.loads(s.read_text(encoding="utf-8"))
+                self._post_output(
+                    f"  {s.stem} - Query: {data.get('query','?')} | "
+                    f"{len(data.get('papers',[]))} papers, "
+                    f"{len(data.get('hypotheses',[]))} hypotheses"
+                )
+
+        elif command == "enrich":
+            from discovery.graph import KnowledgeGraph
+            graph = KnowledgeGraph.load()
+            asyncio.run_coroutine_threadsafe(
+                self._enrich_drug_entities(graph), self._loop
+            )
+
+        elif command == "contradictions":
+            from discovery.graph import KnowledgeGraph
+            graph = KnowledgeGraph.load()
+            if not graph.entities:
+                self._post_output("No knowledge graph found. Run /discover first.")
+                return
+            ccs = graph.detect_contradictions()
+            if not ccs:
+                self._post_output("No contradictions detected in the current knowledge graph.")
+                return
+            # Save for dashboard
+            cd = Path(__file__).resolve().parent / "discovery" / "contradictions"
+            cd.mkdir(parents=True, exist_ok=True)
+            (cd / "active.json").write_text(json.dumps(ccs, indent=2), encoding="utf-8")
+            self._post_output(self._format_contradictions(ccs))
+
+        elif command == "idle_scan":
+            asyncio.run_coroutine_threadsafe(
+                self._run_idle_scan(), self._loop
+            )
+
+        elif command == "generate":
+            if args:
+                asyncio.run_coroutine_threadsafe(
+                    self._generate_molecules(args), self._loop
+                )
+            else:
+                self._post_output("Specify a target: /generate <target> (e.g., /generate AMPK activator)")
+
+    async def _mine_hypotheses(self, graph, topic: str):
+        self._post_output("Mining existing graph for new hypotheses...")
+        hypothesis_prompt = self._build_hypothesis_prompt(graph, topic)
+        result = await self._call_llm(hypothesis_prompt, json_mode=True)
+        hypotheses = self._parse_hypotheses(result)
+        from discovery.output import format_hypotheses, save_hypotheses
+        save_hypotheses(hypotheses)
+        self._post_output(format_hypotheses(hypotheses))
+
+    async def _enrich_drug_entities(self, graph):
+        """Enrich all drug entities in the graph with PubChem and OpenFDA data."""
+        from discovery.pubchem import search_compound, get_targets
+        from discovery.openfda import get_side_effects, get_labeling
+
+        drug_entities = {
+            eid: ent for eid, ent in graph.entities.items()
+            if ent["type"] == "drug"
+        }
+        if not drug_entities:
+            self._post_output("No drug entities found to enrich.")
+            return
+
+        enriched = 0
+        for eid, ent in drug_entities.items():
+            drug_name = ent["name"]
+
+            pc = search_compound(drug_name)
+            if pc and pc["molecular_formula"]:
+                prop_eid = f"property_{drug_name.lower().replace(' ', '_')}_mw"
+                if prop_eid not in graph.entities:
+                    graph.entities[prop_eid] = {
+                        "id": prop_eid, "type": "property",
+                        "name": f"{drug_name} MW: {pc['molecular_weight']}",
+                        "papers": [],
+                    }
+                targets = get_targets(drug_name)
+                for t in targets:
+                    if t["name"]:
+                        tid = f"{'gene' if t['type'] == 'GENE' else 'protein'}_{t['name'].lower()}"
+                        if tid not in graph.entities:
+                            graph.entities[tid] = {
+                                "id": tid, "type": "gene" if t["type"] == "GENE" else "protein",
+                                "name": t["name"], "papers": [],
+                            }
+                        graph.relationships.append({
+                            "source": eid, "relation": "has_target",
+                            "target": tid, "confidence": 0.8, "papers": [],
+                        })
+
+            se_list = get_side_effects(drug_name)
+            for se in se_list[:10]:
+                seid = f"side_effect_{se['reaction'].lower().replace(' ', '_')}"
+                if seid not in graph.entities:
+                    graph.entities[seid] = {
+                        "id": seid, "type": "side_effect",
+                        "name": se["reaction"], "papers": [],
+                    }
+                graph.relationships.append({
+                    "source": eid, "relation": "has_side_effect",
+                    "target": seid, "confidence": 0.7,
+                    "papers": [], "count": se["count"],
+                })
+            enriched += 1
+
+        graph.save()
+        self._post_output(f"Enriched {enriched} drug entit{( 'y' if enriched == 1 else 'ies')} with PubChem + OpenFDA data.")
+
+    def _format_contradictions(self, contradictions: list[dict]) -> str:
+        lines = ["", "=" * 70, "  CONTRADICTIONS DETECTED", "=" * 70, ""]
+        severity_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}
+        for i, c in enumerate(contradictions, 1):
+            icon = severity_icon.get(c["severity"], "⚪")
+            lines.append(f"  {icon} Contradiction {i} ({c['severity'].upper()})")
+            lines.append(f"  Type: {c['type'].replace('_', ' ').title()}")
+            lines.append(f"  {c['summary']}")
+            if c["type"] == "direct":
+                lines.append(f"    Paper A: {', '.join(c.get('papers_a', [])[:3])}")
+                lines.append(f"    Paper B: {', '.join(c.get('papers_b', [])[:3])}")
+            elif c["type"] == "confidence":
+                lines.append(f"    Confidence range: {c.get('min_confidence', '?')} – {c.get('max_confidence', '?')}")
+            elif c["type"] == "path":
+                lines.append(f"    Chain: {c.get('source_name','')} → {c.get('intermediate_name','')} → {c.get('target_name','')}")
+            lines.append("")
+        return "\n".join(lines)
+
+    def _track_discovery_topic(self, topic: str, pmids: list[str]):
+        from datetime import date
+        topics_path = Path(__file__).resolve().parent / "discovery" / "topics.json"
+        topics = []
+        if topics_path.exists():
+            try:
+                topics = json.loads(topics_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                topics = []
+        existing = next((t for t in topics if t["topic"] == topic), None)
+        if existing:
+            existing["last_searched"] = str(date.today())
+            existing["last_pmids"] = pmids
+        else:
+            topics.append({"topic": topic, "last_searched": str(date.today()), "last_pmids": pmids})
+        topics_path.write_text(json.dumps(topics, indent=2), encoding="utf-8")
+
+    async def _run_idle_scan(self):
+        topics_path = Path(__file__).resolve().parent / "discovery" / "topics.json"
+        if not topics_path.exists():
+            return
+        try:
+            topics = json.loads(topics_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return
+        if not topics:
+            return
+
+        from discovery.pubmed import search_and_fetch
+        self._post_output("[dim]Idle scan: checking for new papers on saved topics...[/dim]")
+        new_findings = []
+        for t in topics:
+            papers = search_and_fetch(t["topic"], max_results=5)
+            if not papers:
+                continue
+            current_pmids = {p["pmid"] for p in papers}
+            old_pmids = set(t.get("last_pmids", []))
+            new_pmids = current_pmids - old_pmids
+            if new_pmids:
+                new_papers = [p for p in papers if p["pmid"] in new_pmids]
+                new_findings.append({"topic": t["topic"], "papers": new_papers[:3]})
+            t["last_searched"] = str(__import__("datetime").date.today())
+            t["last_pmids"] = list(current_pmids)
+        topics_path.write_text(json.dumps(topics, indent=2), encoding="utf-8")
+        if new_findings:
+            self._post_output(self._format_new_findings(new_findings))
+
+    def _format_new_findings(self, findings: list[dict]) -> str:
+        from discovery.output import format_papers
+        lines = ["", "=" * 70, "  NEW PAPERS FOUND (Idle Scan)", "=" * 70, ""]
+        for f in findings:
+            lines.append(f"  Topic: {f['topic']}")
+            lines.append(format_papers(f["papers"]).strip())
+            lines.append("")
+        return "\n".join(lines)
+
+    async def _generate_molecules(self, target: str):
+        self._post_output(f"[bold cyan]Generating molecules for target: {target}...[/bold cyan]")
+        from discovery.graph import KnowledgeGraph
+        from discovery.molecule import generate_candidates, format_candidates
+        kg = KnowledgeGraph.load()
+        graph = kg if kg.entities else None
+        candidates = generate_candidates(target, graph)
+        if not candidates:
+            self._post_output("No valid molecules generated. Try a different target.")
+            return
+        md = Path(__file__).resolve().parent / "discovery" / "molecules"
+        md.mkdir(parents=True, exist_ok=True)
+        (md / "active.json").write_text(json.dumps(candidates, indent=2), encoding="utf-8")
+        self._post_output(format_candidates(candidates))
 
     def shutdown_executors(self):
         """Shut down all thread pool executors."""

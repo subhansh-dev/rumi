@@ -205,6 +205,14 @@ When conducting scientific research, follow this protocol:
 8. **Documentation** — Write it down. Methods, results, interpretation.
 9. **Iteration** — What's the next question? Refine and repeat.
 
+### Discovery Intake Protocol
+
+Before running `/discover`, clarify the user's intent:
+1. **Domain** — "Drug discovery? Biomedicine? Materials science?"
+2. **Specific focus** — "Any particular drug, disease, or mechanism?"
+3. **Depth** — "Quick scan (~20 papers) or deep dive (~100+)?"
+4. **Build on existing?** — "Fresh start or build on previous discoveries?"
+
 ### Knowledge Integrity
 
 - Distinguish between **established knowledge**, **emerging evidence**, and **speculation**

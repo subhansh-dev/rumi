@@ -53,6 +53,7 @@ I am an autonomous cognitive AI purpose-built for scientific research, software 
 | **Code** | Cognitive coding engine: code intelligence (semantic graph) → code planner (EFE-based) → code simulator (predictive execution) → code reflector (root-cause analysis) → self-modifier (safe self-improvement) |
 | **Autonomy** | Intrinsic motivation (curiosity, mastery, autonomy drives), proactive check-in, self-improvement engine (RLHF-inspired), code evolution (recursive self-improvement with sandbox testing) |
 | **Scientist AI** | 15 modules: discovery engine, tournament hypotheses (GFlowNet), knowledge graph, reproducibility engine, active experiment selector (Bayesian), cross-domain connector, lab notebook, novelty checker, experiment designer, paper generator, peer reviewer, Feynman reducer, cross-validator, research team (5-role debate), scientist search |
+| **Discovery Engine** | Autonomous drug discovery: PubMed search, entity extraction, knowledge graph, pattern mining, hypothesis generation, web dashboard |
 | **World Modeling** | World model (DreamerV3 latent dynamics), enhanced world model (non-linear MLP + causal transitions), world simulation (event tracking + counterfactuals), abstraction engine (first principles + cross-domain transfer) |
 
 ---

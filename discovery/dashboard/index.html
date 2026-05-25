@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RUMI Discovery Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/dist/vis-network.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', monospace; }
+  .tab-bar { display: flex; background: #16213e; padding: 8px; gap: 4px; }
+  .tab { padding: 10px 24px; cursor: pointer; color: #8899aa; border-radius: 4px 4px 0 0; }
+  .tab:hover { background: #0f3460; }
+  .tab.active { color: #00d4aa; background: #1a1a2e; border-bottom: 2px solid #00d4aa; }
+  #graph-container { width: 100%; height: 80vh; }
+  .hypothesis-card { background: #16213e; margin: 12px; padding: 16px; border-radius: 8px; border-left: 4px solid #00d4aa; }
+  .hypothesis-card h3 { color: #00d4aa; margin-bottom: 8px; }
+  .evidence { font-size: 0.9em; color: #aabbcc; margin-top: 8px; padding-left: 16px; }
+  .stat-grid { display: flex; flex-wrap: wrap; gap: 16px; padding: 20px; }
+  .stat-box { background: #16213e; padding: 24px; border-radius: 8px; min-width: 160px; text-align: center; }
+  .stat-value { font-size: 2.5em; color: #00d4aa; font-weight: bold; }
+  .stat-label { color: #8899aa; font-size: 0.9em; margin-top: 4px; }
+  .hidden { display: none; }
+  #papers-container { padding: 20px; }
+  .paper-item { background: #16213e; margin: 8px 0; padding: 12px; border-radius: 4px; }
+  #paper-search { width: 100%; padding: 10px; margin-bottom: 12px; background: #16213e; border: 1px solid #333; color: #e0e0e0; border-radius: 4px; }
+  .node-label { color: #e0e0e0; }
+</style>
+</head>
+<body>
+<div class="tab-bar">
+  <div class="tab active" onclick="switchTab('graph')">Graph</div>
+  <div class="tab" onclick="switchTab('hypotheses')">Hypotheses</div>
+  <div class="tab" onclick="switchTab('contradictions')">Contradictions</div>
+  <div class="tab" onclick="switchTab('molecules')">Molecules</div>
+  <div class="tab" onclick="switchTab('papers')">Papers</div>
+  <div class="tab" onclick="switchTab('stats')">Stats</div>
+</div>
+<div id="graph-container"></div>
+<div id="hypotheses-container" class="hidden" style="padding:20px;max-height:80vh;overflow-y:auto;"></div>
+<div id="contradictions-container" class="hidden" style="padding:20px;max-height:80vh;overflow-y:auto;"></div>
+<div id="molecules-container" class="hidden" style="padding:20px;max-height:80vh;overflow-y:auto;"></div>
+<div id="papers-container" class="hidden"></div>
+<div id="stats-container" class="hidden"></div>
+<script>
+const COLORS = {drug:'#4ade80', disease:'#f87171', gene:'#60a5fa', protein:'#a78bfa', mechanism:'#fb923c', pathway:'#fbbf24', side_effect:'#e879f9', property:'#fcd34d'};
+let network = null;
+
+async function loadGraph() {
+  try {
+    const resp = await fetch('../../discovery/graph/knowledge_graph.json');
+    const data = await resp.json();
+    const nodes = [], edges = [];
+    const ents = data.entities || {};
+    for (const [id, e] of Object.entries(ents)) {
+      nodes.push({ id, label: e.name, title: e.type + ': ' + e.name + '\nPapers: ' + (e.papers||[]).length, color: COLORS[e.type]||'#94a3b8', shape: 'dot', size: 20 + Math.min((e.papers||[]).length * 3, 30) });
+    }
+    const rels = data.relationships || [];
+    for (const r of rels) {
+      edges.push({ from: r.source, to: r.target, label: r.relation, title: 'Confidence: ' + r.confidence, width: (r.confidence||0.5)*3, color: { color: '#64748b', highlight: '#00d4aa' }, font: { size: 10, color: '#94a3b8' } });
+    }
+    const container = document.getElementById('graph-container');
+    network = new vis.Network(container, { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) }, {
+      physics: { solver: 'forceAtlas2Based', stabilization: { iterations: 200 } },
+      interaction: { hover: true, tooltipDelay: 100 },
+      nodes: { borderWidth: 2, font: { color: '#e0e0e0', size: 12 } },
+    });
+  } catch(e) { document.getElementById('graph-container').innerHTML = '<p style="padding:40px;color:#8899aa;">No graph data yet. Run /discover first.</p>'; }
+}
+
+async function loadHypotheses() {
+  try {
+    const resp = await fetch('../../discovery/hypotheses/active.json');
+    const hyps = await resp.json();
+    const container = document.getElementById('hypotheses-container');
+    container.innerHTML = hyps.map(function(h,i) {
+      var mg = h.mathematical_grounding || {};
+      var mgHtml = '';
+      if (mg.primary_metric) {
+        mgHtml = '<div style="margin-top:8px;padding:8px;background:#0f3460;border-radius:4px;font-size:0.85em;">'
+          + '<strong>Mathematical Grounding:</strong><br>'
+          + '<span style="color:#fbbf24;">Primary: ' + mg.primary_metric + ' = ' + mg.metric_value + '</span>'
+          + '<br><em>' + (mg.metric_definition||'') + '</em>';
+        if (mg.supporting_metrics) {
+          for (var mk in mg.supporting_metrics) {
+            mgHtml += '<br>' + mk + ': ' + mg.supporting_metrics[mk];
+          }
+        }
+        mgHtml += '</div>';
+      }
+      var nodesHtml = '';
+      if ((h.nodes||[]).length) {
+        nodesHtml = '<div style="margin-top:8px;font-size:0.85em;"><strong>Nodes:</strong><ul style="padding-left:16px;margin:4px 0;">'
+          + h.nodes.map(function(n) {
+            var cond = n.conditions ? ' — ' + n.conditions : '';
+            var meta = (n.degree !== undefined ? ' deg=' + n.degree : '') + (n.betweenness !== undefined ? ' bw=' + n.betweenness : '') + (n.papers_count !== undefined ? ' papers=' + n.papers_count : '');
+            return '<li><span style="color:' + (COLORS[n.type]||'#94a3b8') + ';">' + n.name + '</span> (' + n.type + ')' + meta + (n.definition ? '<br><em>' + n.definition + '</em>' : '') + cond + '</li>';
+          }).join('') + '</ul></div>';
+      }
+      var edgesHtml = '';
+      if ((h.edges||[]).length) {
+        edgesHtml = '<div style="margin-top:8px;font-size:0.85em;"><strong>Edges:</strong><ul style="padding-left:16px;margin:4px 0;">'
+          + h.edges.map(function(e) {
+            var pstr = (e.papers||[]).length ? ' [' + e.papers.slice(0,3).join(' ') + ']' : '';
+            return '<li>' + e.source + ' → <span style="color:#00d4aa;">' + e.relation + '</span> → ' + e.target + pstr + (e.definition ? '<br><em>' + e.definition + '</em>' : '') + '</li>';
+          }).join('') + '</ul></div>';
+      }
+      return '<div class="hypothesis-card"><h3>Hypothesis ' + (i+1) + ': ' + (h.title||'Untitled') + '</h3>'
+        + '<div style="color:#8899aa;font-size:0.9em;margin-bottom:4px;">'
+        + 'Pattern: <span style="color:#fbbf24;">' + (h.pattern_type||'unknown').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}) + '</span>'
+        + ' | Confidence: ' + Math.round((h.confidence||0)*100) + '%'
+        + ' | Novelty: ' + (h.novelty||'medium').toUpperCase()
+        + '</div>'
+        + '<p>' + (h.description||'') + '</p>'
+        + mgHtml + nodesHtml + edgesHtml
+        + '<div class="evidence"><strong>Evidence:</strong><ul>' + ((h.evidence||[]).map(function(e) { return '<li>' + e + '</li>'; }).join('')) + '</ul></div>'
+        + '<div style="margin-top:8px;color:#8899aa;font-size:0.85em;">Papers: ' + (h.papers||[]).join(', ') + '<br>Testability: ' + (h.testability||'N/A') + '</div></div>';
+    }).join('');
+  } catch(e) { document.getElementById('hypotheses-container').innerHTML = '<p style="padding:20px;color:#8899aa;">No hypotheses yet.</p>'; }
+}
+
+async function loadPapers() {
+  try {
+    const resp = await fetch('../../discovery/graph/knowledge_graph.json');
+    const data = await resp.json();
+    const papers = Object.values(data.papers || {});
+    const container = document.getElementById('papers-container');
+    container.innerHTML = '<input type="text" id="paper-search" placeholder="Search papers..." oninput="filterPapers()">'
+      + '<div id="paper-list">' + papers.map(function(p) {
+        return '<div class="paper-item"><strong>' + (p.title||'') + '</strong><br><span style="color:#8899aa;font-size:0.85em;">PMID: ' + (p.pmid||'') + ' | <a href="' + (p.url||'') + '" target="_blank" style="color:#00d4aa;">View</a></span></div>';
+      }).join('') + '</div>';
+    window._papers = papers;
+  } catch(e) { document.getElementById('papers-container').innerHTML = '<p style="padding:20px;color:#8899aa;">No papers yet.</p>'; }
+}
+
+window.filterPapers = function() {
+  var q = (document.getElementById('paper-search').value||'').toLowerCase();
+  var filtered = (window._papers||[]).filter(function(p) { return (p.title||'').toLowerCase().includes(q); });
+  document.getElementById('paper-list').innerHTML = filtered.map(function(p) {
+    return '<div class="paper-item"><strong>' + (p.title||'') + '</strong><br><span style="color:#8899aa;font-size:0.85em;">PMID: ' + (p.pmid||'') + '</span></div>';
+  }).join('');
+};
+
+async function loadStats() {
+  try {
+    const resp = await fetch('../../discovery/graph/knowledge_graph.json');
+    const data = await resp.json();
+    var ents = Object.values(data.entities||{}), rels = data.relationships||[], papers = Object.values(data.papers||{});
+    var etypes = {};
+    ents.forEach(function(e) { etypes[e.type] = (etypes[e.type]||0) + 1; });
+    var html = '<div class="stat-grid">';
+    html += statBox(papers.length, 'Papers') + statBox(ents.length, 'Entities') + statBox(rels.length, 'Relationships');
+    for (var t in etypes) { html += statBoxColored(etypes[t], t, COLORS[t]||'#e0e0e0'); }
+    html += '</div>';
+    document.getElementById('stats-container').innerHTML = html;
+  } catch(e) { document.getElementById('stats-container').innerHTML = '<p style="padding:20px;color:#8899aa;">No stats yet.</p>'; }
+}
+
+function statBox(val, label) { return '<div class="stat-box"><div class="stat-value">' + val + '</div><div class="stat-label">' + label + '</div></div>'; }
+function statBoxColored(val, label, color) { return '<div class="stat-box"><div class="stat-value" style="color:' + color + '">' + val + '</div><div class="stat-label">' + label + '</div></div>'; }
+
+async function loadContradictions() {
+  try {
+    const resp = await fetch('../../discovery/contradictions/active.json');
+    const ccs = await resp.json();
+    const container = document.getElementById('contradictions-container');
+    container.innerHTML = ccs.map(function(c,i) {
+      var icon = c.severity === 'high' ? '🟥' : c.severity === 'medium' ? '🟧' : '🟩';
+      var detail = '';
+      if (c.type === 'direct') {
+        detail = '<br>Paper A: ' + (c.papers_a||[]).slice(0,3).join(', ') + '<br>Paper B: ' + (c.papers_b||[]).slice(0,3).join(', ');
+      } else if (c.type === 'confidence') {
+        detail = '<br>Range: ' + c.min_confidence + ' – ' + c.max_confidence;
+      } else if (c.type === 'path') {
+        detail = '<br>Chain: ' + c.source_name + ' → ' + (c.intermediate_name||'') + ' → ' + c.target_name;
+      } else if (c.type === 'side_effect') {
+        detail = '<br>Side effects: ' + (c.side_effects||[]).join(', ');
+      }
+      return '<div class="hypothesis-card" style="border-left-color:' + (c.severity==='high'?'#f87171':c.severity==='medium'?'#fbbf24':'#4ade80') + ';">'
+        + '<h3>' + icon + ' ' + c.type.replace(/_/g,' ').replace(/\b\w/g,function(s){return s.toUpperCase();}) + '</h3>'
+        + '<div style="color:#8899aa;font-size:0.9em;margin-bottom:4px;">Severity: <strong>' + c.severity.toUpperCase() + '</strong></div>'
+        + '<p>' + c.summary + '</p>'
+        + '<div style="margin-top:8px;color:#8899aa;font-size:0.85em;">' + detail + '</div></div>';
+    }).join('');
+  } catch(e) { document.getElementById('contradictions-container').innerHTML = '<p style="padding:20px;color:#8899aa;">Run /contradictions to populate.</p>'; }
+}
+
+async function loadMolecules() {
+  try {
+    const resp = await fetch('../../discovery/molecules/active.json');
+    const mols = await resp.json();
+    const container = document.getElementById('molecules-container');
+    container.innerHTML = mols.map(function(m,i) {
+      var pc = m.pubchem_cid ? ' | <a href="https://pubchem.ncbi.nlm.nih.gov/compound/' + m.pubchem_cid + '" target="_blank" style="color:#00d4aa;">PubChem CID ' + m.pubchem_cid + '</a>' : ' | <span style="color:#8899aa;">Novel</span>';
+      return '<div class="hypothesis-card" style="border-left-color:' + (m.score > 0.7 ? '#4ade80' : m.score > 0.5 ? '#fbbf24' : '#f87171') + ';">'
+        + '<h3>' + m.name + ' <span style="font-size:0.8em;color:#8899aa;">(Score: ' + m.score + ')</span></h3>'
+        + '<div style="color:#8899aa;font-size:0.85em;margin-bottom:8px;">'
+        + 'MW: ' + m.mw + ' | LogP: ' + m.logp + ' | HBD:' + m.hbd + ' HBA:' + m.hba + ' | QED: ' + m.qed
+        + ' | Novelty: ' + m.novelty + pc
+        + '</div>'
+        + '<div style="font-family:monospace;background:#0f3460;padding:8px;border-radius:4px;font-size:0.85em;word-break:break-all;">SMILES: ' + m.smiles + '</div>'
+        + '<div style="margin-top:6px;color:#8899aa;font-size:0.85em;">Formula: ' + m.molecular_formula + ' | TPSA: ' + m.tpsa + ' | Lipinski violations: ' + m.lipinski_violations + ' | RotB: ' + m.rotatable_bonds + '</div>'
+        + (m.rationale ? '<div style="margin-top:4px;font-size:0.85em;color:#aabbcc;">' + m.rationale + '</div>' : '')
+        + '</div>';
+    }).join('');
+  } catch(e) { document.getElementById('molecules-container').innerHTML = '<p style="padding:20px;color:#8899aa;">Run /generate to design molecules.</p>'; }
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(t) {
+    if (t.textContent.toLowerCase().trim().startsWith(name)) t.classList.add('active');
+  });
+  ['graph-container','hypotheses-container','contradictions-container','molecules-container','papers-container','stats-container'].forEach(function(id) {
+    document.getElementById(id).classList.toggle('hidden', id !== name + '-container');
+  });
+  if (name === 'graph' && network) network.redraw();
+}
+
+loadGraph(); loadHypotheses(); loadContradictions(); loadMolecules(); loadPapers(); loadStats();
+</script>
+</body>
+</html>

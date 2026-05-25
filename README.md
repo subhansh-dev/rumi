@@ -173,36 +173,45 @@ RUMI's cognitive architecture is grounded in peer-reviewed research:
 
 ---
 
-## 🔬 Scientist AI Pipeline
+## 🔬 Discovery Engine
 
-RUMI automates the entire scientific research lifecycle using 15 integrated modules:
+RUMI's **Discovery Engine** is an autonomous drug discovery pipeline — from literature mining to molecule design. All 5 phases run in-terminal with zero cloud dependencies.
 
-<p align="center">
-  <img src="assets/rumi_pipeline.gif" alt="RUMI 12-Phase Research Pipeline" width="800" />
-</p>
+### Pipeline
 
 ```
-Idea → Novelty Check → Hypothesis Generation → Experiment Design
-  → Execution → Analysis → Paper Generation → Peer Review
+/discover <topic>
+  → PubMed search & fetch
+  → LLM entity extraction (drugs, diseases, genes, proteins, mechanisms)
+  → Knowledge graph build & persist
+  → PubChem + OpenFDA enrichment (MW, formula, targets, side effects)
+  → Mathematical graph metrics (Jaccard, betweenness, degree, density, entropy, clustering, edge strength)
+  → Pattern mining + hypothesis generation with node/edge definitions
+  → Web dashboard (vis-network graph + hypothesis browser)
+
+/contradictions
+  → Direct relation conflicts, confidence anomalies, side-effect contradictions, path-based conflicts
+
+/generate <target>
+  → Gemini SMILES generation → RDKit validation → PubChem lookup → graph novelty scoring
+
+/enrich       — Enrich existing graph with PubChem + OpenFDA
+/hypothesize  — Re-mine hypotheses from existing graph
+/dashboard    — Open interactive web dashboard
+/discoveries  — List past discovery sessions
 ```
 
-| Module | Purpose |
-|--------|---------|
-| **Discovery Engine** | End-to-end: Idea → Novelty Check → Experiment → Paper |
-| **Tournament Hypotheses** | GFlowNet-inspired diverse hypothesis generation with evolutionary selection |
-| **Knowledge Graph** | Multi-hop reasoning, gap detection, and paper ingestion across scientific domains |
-| **Reproducibility Engine** | Extract claims, generate reproduction code, sandbox execution, score reproducibility |
-| **Research Team** | 5-role multi-agent debate (Lead, Methodologist, Critic, Analyst, Scribe) |
-| **Active Experiment Selector** | Bayesian optimal experiment selection maximizing information gain |
-| **Cross-Domain Connector** | Transfer insights between physics, biology, CS, economics, chemistry, and more |
-| **Lab Notebook** | Digital lab notebook for experiments, observations, measurements, and results |
-| **Paper Generator** | Generate academic papers and research reports from findings |
-| **Novelty Checker** | Assess novelty of research ideas against existing literature |
-| **Experiment Designer** | Design controlled experiments with hypothesis testing |
-| **Feynman Reducer** | Feynman technique decomposition — explain complex ideas simply |
-| **Peer Reviewer** | Automated peer review with methodological critique |
-| **Cross-Validator** | Cross-validate findings across multiple sources and methods |
-| **Scientist Search** | Search papers from famous researchers with citation analysis |
+### Modules
+
+| Module | Location | Purpose |
+|--------|----------|---------|
+| **PubMed Miner** | `discovery/pubmed.py` | ESearch + EFetch, rate-limited, XML parsing |
+| **Knowledge Graph** | `discovery/graph.py` | Entities, relationships, merge, metrics, contradiction detection |
+| **PubChem Enrichment** | `discovery/pubchem.py` | Compound search, targets, properties via PUG REST |
+| **OpenFDA Enrichment** | `discovery/openfda.py` | Side effects, labeling via openFDA API |
+| **Molecule Designer** | `discovery/molecule.py` | Gemini SMILES → RDKit validation → PubChem → scoring |
+| **Output** | `discovery/output.py` | Terminal formatting, session saving |
+| **Dashboard** | `discovery/dashboard/index.html` | vis-network graph + tabs for hypotheses, contradictions, molecules |
 
 ---
 
@@ -288,7 +297,7 @@ Idea → Novelty Check → Hypothesis Generation → Experiment Design
 
 | Category | Description |
 |----------|-------------|
-| 🔬 **Scientist AI** | 15 modules: discovery, tournament hypotheses, knowledge graph, reproducibility, experiment selection, cross-domain, lab notebook, paper generation |
+| 🔬 **Discovery Engine** | 5-phase drug discovery: PubMed mining, knowledge graph with mathematical metrics, PubChem/OpenFDA enrichment, contradiction detection, molecule design (Gemini + RDKit + PubChem) |
 | 🧠 **Cognition** | 60+ brain modules — causal reasoning, analogy, active inference, curiosity, metacognition, dreaming, learning |
 | 🌐 **Research** | Paper search (arXiv + Semantic Scholar), deep web research, scientific knowledge graphs |
 | 🧠 **Memory** | 9 memory types — neural, episodic, vector, procedural, working, global workspace, associative, predictive, consolidated |
@@ -324,6 +333,8 @@ Idea → Novelty Check → Hypothesis Generation → Experiment Design
 | **Browser** | Playwright |
 | **System** | psutil, pywin32 |
 | **Storage** | JSON, JSONL |
+| **Cheminformatics** | RDKit (MW, LogP, QED, Lipinski, TPSA, SMILES) |
+| **Discovery APIs** | PubMed Entrez, PubChem PUG REST, OpenFDA |
 | **Networking** | google-genai, httpx, websockets, requests |
 | **Data Analysis** | Polars, Matplotlib |
 | **API Server** | FastAPI, Uvicorn, Pydantic |
@@ -517,13 +528,15 @@ rumi
 | `/status` | System status and uptime |
 | `/stats` | Session statistics |
 | `/science` | Scientist AI capabilities |
-| `/discover` | Run autonomous discovery pipeline |
-| `/hypothesize` | Generate diverse hypotheses |
-| `/experiment` | Design or run an experiment |
-| `/papers` | Search academic papers |
-| `/review` | Peer review a paper or claim |
-| `/graph` | Knowledge graph operations |
-| `/notebook` | Lab notebook operations |
+| `/discover <topic>` | Full pipeline: PubMed → extraction → graph → enrichment → hypotheses |
+| `/search <query>` | Quick PubMed search (no extraction) |
+| `/enrich` | Enrich existing graph with PubChem + OpenFDA data |
+| `/hypothesize [topic]` | Generate new hypotheses from existing graph |
+| `/contradictions` | Detect contradictions in knowledge graph |
+| `/generate <target>` | Design molecules (e.g., `/generate AMPK activator`) |
+| `/graph` | Knowledge graph statistics |
+| `/dashboard` | Open web-based interactive dashboard |
+| `/discoveries` | List past discovery sessions |
 | `/focus` | Toggle Focus mode (respond only when addressed) |
 | `/think` | Toggle Think mode (reasoning before responses) |
 | `/dive` | Toggle Deep Dive mode (thorough research) |
@@ -759,6 +772,7 @@ rumi/
 ├── main.py                      # Entry point (~3000 lines)
 ├── ui.py                        # Terminal UI (Rich + prompt_toolkit)
 ├── rumi_launcher.py             # Console entry point
+├── rumi_launcher.py             # Console entry point
 ├── thinking_loop.py             # Multi-pass reasoning engine
 ├── telegram_bot.py              # Telegram bridge
 ├── rumi_telegram_patch.py       # Telegram integration
@@ -767,6 +781,16 @@ rumi/
 ├── USER.md                      # User profile
 ├── TOOLS.md                     # Tool documentation
 ├── HEARTBEAT.md                 # Periodic health checks
+│
+├── discovery/                   # 🔬 Drug Discovery Engine
+│   ├── pubmed.py                #   PubMed search + abstract fetch
+│   ├── graph.py                 #   Knowledge graph + metrics + contradictions
+│   ├── pubchem.py               #   PubChem compound/target lookup
+│   ├── openfda.py               #   OpenFDA side effects + labeling
+│   ├── molecule.py              #   Molecule design (Gemini + RDKit + PubChem)
+│   ├── output.py                #   Terminal formatting + file output
+│   └── dashboard/
+│       └── index.html           #   Web dashboard (vis-network)
 │
 ├── brain/                       # 🧠 Cognitive systems (88 files)
 │   ├── neural_memory.py         #   Hebbian learning memory

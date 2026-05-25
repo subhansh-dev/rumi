@@ -165,8 +165,8 @@ HELP_TEXT = """
 SLASH_COMMANDS = [
     "/help", "/clear", "/focus", "/think", "/dive",
     "/mute", "/status", "/stats", "/model", "/exit",
-    "/science", "/discover", "/hypothesize", "/experiment",
-    "/papers", "/review", "/graph", "/notebook", "/domains",
+    "/science", "/discover", "/search", "/enrich", "/hypothesize", "/experiment", "/generate",
+    "/papers", "/review", "/graph", "/dashboard", "/discoveries", "/notebook", "/domains",
     "/personality",
 ]
 
@@ -215,9 +215,11 @@ class RumiUI:
 
         # Callbacks
         self.on_text_command = None
+        self.on_discovery_command = None
         self.on_focus_mode_toggle = None
         self.on_think_mode_toggle = None
         self.on_deep_dive_toggle = None
+        self.on_idle_scan = None
 
         # Threading
         self._running = True
@@ -226,6 +228,12 @@ class RumiUI:
         # ── Interrupt & Message Queue ──
         self._interrupt_requested = threading.Event()
         self._is_busy = False
+
+        # ── Idle Scan ──
+        self._last_input_time = time.time()
+        self._last_idle_scan_time = 0.0
+        self._idle_thread = threading.Thread(target=self._idle_monitor, daemon=True)
+        self._idle_thread.start()
         self._message_queue_count = 0
         self._current_spin_idx = 0
         self._current_word_idx = 0
@@ -344,6 +352,17 @@ class RumiUI:
         console.print()
 
     # ── Input Loop ──────────────────────────────────────────────
+    def _idle_monitor(self):
+        """Background thread that triggers idle scan after 30s of inactivity."""
+        while self._running:
+            idle_time = time.time() - self._last_input_time
+            time_since_last_scan = time.time() - self._last_idle_scan_time
+            if idle_time > 30 and time_since_last_scan > 3600:
+                self._last_idle_scan_time = time.time()
+                if self.on_idle_scan:
+                    self.on_idle_scan()
+            time.sleep(10)
+
     def _input_loop(self):
         """Background thread reading user input via prompt_toolkit or fallback."""
         pt_style = PtStyle([
@@ -388,6 +407,7 @@ class RumiUI:
 
                 # Dispatch to main app
                 if self.on_text_command:
+                    self._last_input_time = time.time()
                     self._message_count += 1
                     self.write_log(f"You: {value}")
                     threading.Thread(target=self.on_text_command, args=(value,), daemon=True).start()
@@ -401,6 +421,7 @@ class RumiUI:
 
     def _handle_command(self, cmd: str):
         """Handle slash commands."""
+        self._last_input_time = time.time()
         cmd = cmd.lower().strip()
 
         if cmd == "/help":
@@ -469,23 +490,68 @@ class RumiUI:
         elif cmd == "/science":
             self._show_science_help()
 
+        elif cmd.startswith("/discover "):
+            args = cmd[len("/discover "):].strip()
+            self.write_log(f"SYS: Discovery pipeline: {args}")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("discover", args), daemon=True).start()
+
         elif cmd == "/discover":
-            self.write_log("SYS: Dispatching discovery pipeline...")
-            if self.on_text_command:
-                threading.Thread(
-                    target=self.on_text_command,
-                    args=("Run the autonomous scientific discovery pipeline on a topic of your choice. Ask me what topic to research.",),
-                    daemon=True,
-                ).start()
+            self.write_log("SYS: Discovery pipeline (no topic specified)")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("discover", ""), daemon=True).start()
+
+        elif cmd.startswith("/search "):
+            args = cmd[len("/search "):].strip()
+            self.write_log(f"SYS: PubMed search: {args}")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("search", args), daemon=True).start()
+
+        elif cmd.startswith("/hypothesize "):
+            args = cmd[len("/hypothesize "):].strip()
+            self.write_log(f"SYS: Hypothesis mining: {args}")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("hypothesize", args), daemon=True).start()
 
         elif cmd == "/hypothesize":
-            self.write_log("SYS: Generating hypotheses...")
-            if self.on_text_command:
-                threading.Thread(
-                    target=self.on_text_command,
-                    args=("Generate diverse research hypotheses using the tournament engine. What topic should I hypothesize about?",),
-                    daemon=True,
-                ).start()
+            self.write_log("SYS: Hypothesis mining (no topic)")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("hypothesize", ""), daemon=True).start()
+
+        elif cmd.startswith("/generate "):
+            args = cmd[len("/generate "):].strip()
+            self.write_log(f"SYS: Molecule generation: {args}")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("generate", args), daemon=True).start()
+
+        elif cmd == "/generate":
+            self.write_log("SYS: Molecule generation (no target)")
+            console.print("  Specify a target: /generate <target> (e.g., /generate AMPK activator)")
+
+        elif cmd == "/contradictions":
+            self.write_log("SYS: Detecting contradictions in knowledge graph...")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("contradictions", ""), daemon=True).start()
+
+        elif cmd == "/enrich":
+            self.write_log("SYS: Enriching drug entities with PubChem + OpenFDA...")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("enrich", ""), daemon=True).start()
+
+        elif cmd == "/graph":
+            self.write_log("SYS: Knowledge graph stats")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("graph", ""), daemon=True).start()
+
+        elif cmd == "/dashboard":
+            self.write_log("SYS: Opening discovery dashboard")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("dashboard", ""), daemon=True).start()
+
+        elif cmd == "/discoveries":
+            self.write_log("SYS: Listing discoveries")
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("discoveries", ""), daemon=True).start()
 
         elif cmd == "/experiment":
             self.write_log("SYS: Experiment design mode...")
@@ -511,15 +577,6 @@ class RumiUI:
                 threading.Thread(
                     target=self.on_text_command,
                     args=("Perform a peer review on a paper or scientific claim. Paste the text or describe what to review.",),
-                    daemon=True,
-                ).start()
-
-        elif cmd == "/graph":
-            self.write_log("SYS: Knowledge graph mode...")
-            if self.on_text_command:
-                threading.Thread(
-                    target=self.on_text_command,
-                    args=("Show me the current knowledge graph stats and recent entries.",),
                     daemon=True,
                 ).start()
 
