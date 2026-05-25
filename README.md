@@ -1,5 +1,3 @@
-> **Zero GPU required. No cloud dependencies (except LLM API). ~4GB RAM. Pure Python.**
-
 # 🧬 RUMI — Research & Unified Machine Intelligence
 
 <p align="center">
@@ -58,13 +56,13 @@
 
 | Dimension | RUMI |
 |-----------|------|
-| **Interface** | Terminal-native (Rich + prompt_toolkit) — no GUI dependencies |
-| **Model** | Gemini 2.5 Flash (primary), multi-model routing for specialized tasks |
+| **Interface** | Terminal-native (Rich + prompt_toolkit) — no bloat |
+| **Model** | Gemini 2.5 Flash, multi-model routing for specialized scientific tasks |
 | **Architecture** | 60+ cognitive brain modules + 15 Scientist AI modules |
-| **Memory** | 6-type system: neural, episodic, vector, procedural, working, global workspace |
+| **Memory** | 9-type system: neural, episodic, vector, procedural, working, associative, predictive, consolidated, global workspace |
 | **Learning** | Active inference, curiosity-driven exploration, dreaming (offline replay), meta-learning |
-| **Reasoning** | Causal (Pearl's hierarchy), analogical (Gentner's structure mapping), neurosymbolic, narrative |
-| **Cognition** | Dual-process (System 1 fast / System 2 deliberate), integrated information (IIT-phi), theory of mind |
+| **Reasoning** | Causal (Pearl's hierarchy), analogical (Gentner's structure mapping), neurosymbolic, first-principles |
+| **Cognition** | Dual-process (System 1 fast / System 2 deliberate), integrated information (IIT-φ), metacognition |
 
 ---
 
@@ -86,13 +84,13 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 
 | Dimension | Conventional Assistants | RUMI |
 |-----------|------------------------|-------|
-| **Memory** | Stateless per session | 6-type persistent memory with Hebbian learning, episodic recall, semantic vector search, and procedural skill templates |
-| **Initiative** | Reactive — waits for commands | Proactive — anticipates needs, curiosity-driven exploration, autonomous goal pursuit |
-| **Reasoning** | Single-pass generation | Multi-pass: cognitive gating routes simple tasks to System 1, complex tasks to full planning-simulation-reflection pipeline |
-| **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring, and narrative self-identity |
-| **Learning** | No feedback loop | Error-driven updates, Q-learning for tool selection, experience replay, dreaming-based consolidation, meta-learning |
-| **Research** | Search-and-summarize | Full Scientist AI pipeline: hypothesis generation, experiment design, knowledge graph construction, reproducibility verification, paper generation |
-| **Consciousness** | None | IIT-inspired integrated information (Φ), global workspace coordination, emotional regulation |
+| **Memory** | Stateless per session | 9-type persistent memory with Hebbian learning, episodic recall, semantic vector search, and procedural templates |
+| **Initiative** | Reactive — waits for commands | Proactive — curiosity-driven exploration, autonomous research goal pursuit |
+| **Reasoning** | Single-pass generation | Multi-pass: cognitive gating, causal (Pearl), analogical (Gentner), neurosymbolic, first-principles |
+| **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring |
+| **Learning** | No feedback loop | Error-driven updates, experience replay, dreaming-based consolidation, meta-learning |
+| **Research** | Search-and-summarize | Full Scientist AI pipeline: novelty check, hypothesis generation, experiment design, knowledge graph, reproducibility, paper generation, peer review |
+| **Cognition** | None | Dual-process (System 1/2), IIT-inspired integrated information (Φ), global workspace coordination |
 
 ---
 
@@ -306,35 +304,28 @@ Idea → Novelty Check → Hypothesis Generation → Experiment Design
 | Category | Description |
 |----------|-------------|
 | 🔬 **Scientist AI** | 15 modules: discovery, tournament hypotheses, knowledge graph, reproducibility, experiment selection, cross-domain, lab notebook, paper generation |
-| 🧠 **Cognition** | 60+ brain modules — self-awareness, active inference, intuition, metacognition, dreaming, curiosity, learning |
-| 💻 **Coding** | Cognitive coding engine with semantic graph, EFE planning, predictive simulation, reflective debugging |
-| 🤖 **Agents** | 30+ specialized expert agents — run individually or in parallel/debate/pipeline/swarm modes |
-| 🌐 **Web** | Browser automation, deep web research, YouTube integration, paper search (arXiv + Semantic Scholar) |
-| 🎙️ **Voice** | Real-time Gemini Live API conversation, voice I/O with sounddevice |
+| 🧠 **Cognition** | 60+ brain modules — causal reasoning, analogy, active inference, curiosity, metacognition, dreaming, learning |
+| 🌐 **Research** | Paper search (arXiv + Semantic Scholar), deep web research, scientific knowledge graphs |
 | 🧠 **Memory** | 9 memory types — neural, episodic, vector, procedural, working, global workspace, associative, predictive, consolidated |
-| 🎯 **Autonomy** | Goal engine, intrinsic motivation, curiosity drive, proactive check-ins, self-improvement |
-| 📄 **Documents** | Document intelligence — contract review, argument mapping, fallacy detection, bias analysis |
-| 🖥️ **System** | File operations, app launching, system settings, desktop management, keyboard/mouse control |
+| 🤖 **Scientist Agents** | 11 specialized research agent personas: literature reviewer, hypothesis generator, experiment designer, paper writer, peer reviewer, novelty analyst, cross-domain bridge, reproducibility engineer, data analyst, knowledge curator, research coordinator |
+| 🎯 **Autonomy** | Goal engine, intrinsic motivation, curiosity drive, proactive exploration, self-improvement |
 | 🛡️ **Security** | Permission management, audit logging, rate limiting, input sanitization, config validation |
 | 🔄 **Learning** | Error-driven updates, Q-learning, meta-reflection, experience replay, dreaming consolidation |
 | 📊 **Data** | CSV/JSON analysis with Polars, chart generation, data querying |
-| 🌍 **Research** | Web search, deep-dive research, paper search, scientific knowledge graphs |
 
 ### Tool Actions (40+)
 
 | Category | Tools |
 |----------|-------|
-| 🔬 **Scientist** | `scientist_discovery`, `scientist_analyze`, `scientist_experiment`, `scientist_paper`, `scientist_team`, `scientist_tournament`, `scientist_knowledge_graph`, `scientist_reproducibility`, `scientist_cross_domain`, `scientist_lab_notebook`, `scientist_search`, `paper_search`, `hypothesis_manage` |
-| 🧠 **Cognition** | `cognitive_reason`, `analogy_reason`, `causal_analyze`, `creative_solve`, `intuition_check`, `consciousness_state`, `consciousness_check`, `meta_reflect`, `cognitive_status`, `cognitive_load_check`, `decision_review` |
-| 💻 **Code** | `cognitive_code`, `code_helper`, `dev_agent`, `agency_agent`, `agent_task`, `multi_agent` |
-| 🌐 **Web** | `web_search`, `web_research`, `deep_dive`, `browser_control`, `youtube_video`, `ai_pipeline` |
-| 🖥️ **System** | `open_app`, `computer_control`, `computer_settings`, `desktop_control`, `file_controller`, `screen_process` |
-| 📱 **Communication** | `send_message`, `reminder`, `telegram_bridge` |
-| 🧠 **Memory** | `brain_memory`, `save_memory`, `memory_stats`, `procedural_memory`, `record_learning`, `reflect_learning` |
-| 📊 **Data** | `data_analysis`, `weather_report`, `integration_status` |
-| 🛡️ **Security** | `security_tools` (optional, cyber-enabled), `self_audit` |
-| 🎵 **Media** | `gesture_music`, `music_control`, `system_sentinel`, `neural_clipboard`, `auto_doc` |
-| 🔄 **System** | `agi_status`, `self_model_status`, `curiosity_queue`, `run_dream_cycle`, `force_learning`, `api_server`, `shutdown_rumi` |
+| 🔬 **Scientist** | `scientist_pipeline`, `scientist_discovery`, `scientist_analyze`, `scientist_experiment`, `scientist_paper`, `scientist_team`, `scientist_tournament`, `scientist_knowledge_graph`, `scientist_reproducibility`, `scientist_cross_domain`, `scientist_lab_notebook`, `scientist_search`, `paper_search`, `hypothesis_manage` |
+| 🧠 **Cognition** | `cognitive_reason`, `analogy_reason`, `causal_analyze`, `creative_solve`, `intuition_check`, `consciousness_state`, `meta_reflect`, `cognitive_load_check` |
+| 🌐 **Research** | `web_search`, `web_research`, `deep_dive`, `paper_search`, `scientist_search`, `browser_control` |
+| 🧠 **Memory** | `brain_memory`, `save_memory`, `memory_stats`, `record_learning`, `reflect_learning` |
+| 🤖 **Scientist Agents** | `agency_agent` (literature_reviewer, hypothesis_generator, experiment_designer, paper_writer, peer_reviewer, novelty_analyst, cross_domain_bridge, reproducibility_engineer, data_analyst, knowledge_curator, research_coordinator) |
+| 📊 **Data** | `data_analysis`, `integration_status` |
+| 🖥️ **System** | `file_controller`, `computer_control`, `desktop_control`, `open_app` |
+| 🛡️ **Security** | `security_tools`, `self_audit` |
+| 🔄 **System** | `agi_status`, `self_model_status`, `curiosity_queue`, `run_dream_cycle`, `force_learning`, `api_server`, `system_sentinel`, `shutdown_rumi` |
 
 ---
 
@@ -342,20 +333,16 @@ Idea → Novelty Check → Hypothesis Generation → Experiment Design
 
 | Layer | Technology |
 |-------|-----------|
-| **AI Models** | Gemini 2.5 Flash (Live API primary), multi-model routing |
+| **AI Models** | Gemini 2.5 Flash, multi-model routing |
 | **Language** | Python 3.12+ |
-| **Voice** | Gemini Live API, sounddevice, edge-tts |
 | **Terminal UI** | Rich (markdown, panels, tables) + prompt_toolkit |
 | **Browser** | Playwright |
-| **Automation** | PyAutoGUI |
 | **System** | psutil, pywin32 |
 | **Storage** | JSON, JSONL |
 | **Networking** | google-genai, httpx, websockets, requests |
-| **Security Tools** | nmap, nuclei, sqlmap, ffuf, subfinder (via WSL, optional) |
 | **Data Analysis** | Polars, Matplotlib |
 | **API Server** | FastAPI, Uvicorn, Pydantic |
 | **Scheduling** | APScheduler |
-| **Audio** | sounddevice, soundfile, edge-tts |
 | **Vision** | OpenCV, mss, pillow |
 | **Math** | SymPy |
 
@@ -373,10 +360,6 @@ Idea → Novelty Check → Hypothesis Generation → Experiment Design
 | **RAM** | 4GB+ (8GB recommended) |
 | **Storage** | ~500MB for RUMI + ~400MB for Playwright browsers |
 | **API Key** | Gemini API key — free at [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| **Microphone** | Required for voice features |
-| **Webcam** | Optional — for gesture controls |
-
-> **Windows Note:** Some features (desktop control, system notifications, audio routing) use Windows-specific APIs. For the best experience, use Windows 10/11.
 
 ### Step 1 — Clone the Repository
 
@@ -448,7 +431,7 @@ On first launch, RUMI will check your configuration and initialize all cognitive
 | `GOOGLE_API_KEY not found` | Check `config/api_keys.json` has the correct key |
 | `playwright not found` | Run `playwright install chromium` |
 | `No module named 'brain.*'` | Make sure you're running from the `rumi/` project root |
-| Audio device errors | RUMI will still work in text-only mode if no microphone is available |
+
 
 ---
 
@@ -660,83 +643,61 @@ intuition_check(situation="Users are reporting memory leaks after 6 hours of run
 consciousness_state(action="full")
 ```
 
-### 💻 Cognitive Coding
+### 🤖 Scientist Agents
 
 ```
-# Full cognitive coding pipeline (plan → simulate → build → debug → reflect)
-cognitive_code(action="build", description="Create a REST API for a scientific paper search engine with arXiv integration", language="python")
+# Literature review
+agency_agent(agent_name="literature_reviewer", task="Review recent advances in mechanistic interpretability of transformers")
 
-# Analyze a codebase
-cognitive_code(action="analyze", project_dir="/path/to/project")
+# Hypothesis generation
+agency_agent(agent_name="hypothesis_generator", task="Generate novel hypotheses about the relationship between model scale and emergent abilities")
 
-# Plan before implementing
-cognitive_code(action="plan", description="Implement K-fold cross-validation for sklearn models")
+# Experiment design
+agency_agent(agent_name="experiment_designer", task="Design an experiment to test whether chain-of-thought reasoning emerges from next-token prediction")
 
-# Simulate code execution before running
-cognitive_code(action="simulate", code="def train(model, data): return model.fit(data)")
+# Paper writing
+agency_agent(agent_name="paper_writer", task="Write a paper on our findings about scaling laws in mixture-of-experts models", context="[findings data here]")
 
-# Debug with root-cause analysis
-cognitive_code(action="debug", description="The training loop crashes after epoch 10 with an OOM error", language="python", error_output="CUDA out of memory")
+# Peer review
+agency_agent(agent_name="peer_reviewer", task="Review this paper for methodological rigor", context="[paper text here]")
 
-# Code refactoring
-cognitive_code(action="refactor", file_path="/path/to/spaghetti_code.py")
-```
+# Novelty analysis
+agency_agent(agent_name="novelty_analyst", task="Assess whether this research idea is novel", context="[idea description here]")
 
-### 🎯 Expert Agents
+# Cross-domain bridge
+agency_agent(agent_name="cross_domain_bridge", task="What can reinforcement learning learn from evolutionary biology?")
 
-```
-# Code review
-agency_agent(agent_name="code_reviewer", task="Review this Python function for bugs and performance issues", context="[code here]")
+# Reproducibility check
+agency_agent(agent_name="reproducibility_engineer", task="Check if these claims are reproducible", context="[paper claims here]")
 
-# Security audit
-agency_agent(agent_name="security_engineer", task="Audit this web application for OWASP Top 10 vulnerabilities", context="[code here]")
+# Data analysis
+agency_agent(agent_name="data_analyst", task="Analyze this experiment results and extract insights", context="[data here]")
 
-# System architecture
-agency_agent(agent_name="software_architect", task="Design a microservice architecture for a scientific paper repository")
+# Knowledge curation
+agency_agent(agent_name="knowledge_curator", task="Extract key entities and relationships from this paper", context="[paper text here]")
 
-# Database optimization
-agency_agent(agent_name="database_optimizer", task="Optimize these PostgreSQL queries", context="[queries here]")
-
-# Multi-agent team (run 5 agents in parallel)
-multi_agent(action="run", team="code_review", task="Review this authentication system", context="[code here]")
+# Full research coordination
+agency_agent(agent_name="research_coordinator", task="Coordinate a full research pipeline on the topic of sparse autoencoders for LLM interpretability")
 ```
 
 ### 🌐 Web & Research
 
 ```
-# Quick web search
-web_search(query="latest advances in quantum error correction 2026")
+# Paper search on arXiv
+paper_search(query="attention mechanisms in transformer architectures", max_results=10)
+
+# Search papers by author
+scientist_search(action="search", researcher="Andrej Karpathy", topic="language models")
 
 # Deep research with full page content
 web_research(query="comparison of Mamba vs Transformer architectures", depth=2, max_results=5)
 
-# YouTube video analysis
-youtube_video(action="summarize", query="Andrej Karpathy intro to large language models")
+# Browser-based research
+browser_control(action="go_to", url="https://arxiv.org/search/?query=active+inference&searchtype=all")
+browser_control(action="screenshot", path="research/findings.png")
 
-# Browser automation
-browser_control(action="go_to", url="https://arxiv.org")
-browser_control(action="search", query="active inference", engine="google")
-```
-
-### 🖥️ System Control
-
-```
-# Open an application
-open_app(app_name="Visual Studio Code")
-
-# File operations
-file_controller(action="list", path="C:\\Projects")
-file_controller(action="read", path="C:\\Projects\\notes.txt")
-
-# Computer control
-computer_control(action="type", text="Hello, RUMI here!")
-computer_control(action="screenshot", path="C:\\Users\\Admin\\Desktop\\screenshot.png")
-
-# System settings
-computer_settings(action="volume", value="50")
-
-# Desktop control
-desktop_control(action="organize", mode="by_type")
+# Deep research dive
+deep_dive(topic="recent breakthroughs in protein folding prediction")
 ```
 
 ### 📊 Data Analysis
@@ -794,16 +755,6 @@ self_model_status()
 
 # Trigger active inference learning
 force_learning()
-```
-
-### 📱 Communication
-
-```
-# Send a message
-send_message(receiver="Sir", message_text="Research complete on transformer architectures. Found 3 key papers.", platform="Telegram")
-
-# Set a reminder
-reminder(date="2026-05-26", time="14:00", message="Check new arXiv papers on active inference")
 ```
 
 ---

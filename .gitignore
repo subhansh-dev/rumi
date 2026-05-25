@@ -18,7 +18,8 @@ scientist/*.json
 logs/
 
 # ── Config & Secrets ──────────────────────────────
-config/api_keys.json
+
+
 .env
 *.env
 secrets.py

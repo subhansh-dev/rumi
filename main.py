@@ -202,7 +202,6 @@ youtube_video, _ = _safe_action_import("actions.youtube_video", "youtube_video")
 desktop_control, _ = _safe_action_import("actions.desktop", "desktop_control")
 browser_control, _ = _safe_action_import("actions.browser_control", "browser_control")
 file_controller, _ = _safe_action_import("actions.file_controller", "file_controller")
-code_helper, _ = _safe_action_import("actions.code_helper", "code_helper")
 dev_agent, _ = _safe_action_import("actions.dev_agent", "dev_agent")
 web_search_action, _ = _safe_action_import("actions.web_search", "web_search")
 computer_control, _ = _safe_action_import("actions.computer_control", "computer_control")
@@ -210,47 +209,6 @@ web_research, _ = _safe_action_import("actions.web_research", "web_research")
 agency_agent_action, _ = _safe_action_import("actions.agency_agent", "agency_agent")
 agency_list_agents, _ = _safe_action_import("actions.agency_agent", "list_agents")
 research_pipeline, _ = _safe_action_import("actions.research_pipeline", "research_pipeline")
-
-# ── Cognitive Coding Engine imports ─────────────────────────────────────
-_cognitive_coding_ok = False
-try:
-    from actions.cognitive_coder import cognitive_code
-    _cognitive_coding_ok = True
-except Exception as e:
-    print(f"[RUMI] cognitive_coder: {e}", flush=True)
-    cognitive_code = None
-
-_brain_code_intelligence_ok = False
-try:
-    from brain.code_intelligence import get_code_intelligence
-    _brain_code_intelligence_ok = True
-except Exception as e:
-    print(f"[RUMI] brain.code_intelligence: {e}", flush=True)
-    get_code_intelligence = None
-
-_brain_code_planner_ok = False
-try:
-    from brain.code_planner import get_code_planner
-    _brain_code_planner_ok = True
-except Exception as e:
-    print(f"[RUMI] brain.code_planner: {e}", flush=True)
-    get_code_planner = None
-
-_brain_code_simulator_ok = False
-try:
-    from brain.code_simulator import get_code_simulator
-    _brain_code_simulator_ok = True
-except Exception as e:
-    print(f"[RUMI] brain.code_simulator: {e}", flush=True)
-    get_code_simulator = None
-
-_brain_code_reflector_ok = False
-try:
-    from brain.code_reflector import get_code_reflector
-    _brain_code_reflector_ok = True
-except Exception as e:
-    print(f"[RUMI] brain.code_reflector: {e}", flush=True)
-    get_code_reflector = None
 
 _brain_self_modifier_ok = False
 try:
@@ -622,14 +580,6 @@ try:
 except Exception as e:
     print(f"[RUMI] brain.world_simulation: {e}", flush=True)
     get_world_simulation = None
-
-_agi_code_evolution_ok = False
-try:
-    from brain.code_evolution import get_code_evolution
-    _agi_code_evolution_ok = True
-except Exception as e:
-    print(f"[RUMI] brain.code_evolution: {e}", flush=True)
-    get_code_evolution = None
 
 _verification_ok = False
 try:
@@ -1153,24 +1103,6 @@ TOOL_DECLARATIONS = [
         }
     },
     {
-        "name": "code_helper",
-        "description": "Writes, edits, explains, runs, or builds code files.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "action": {"type": "STRING", "description": "write | edit | explain | run | build | auto (default: auto)"},
-                "description": {"type": "STRING", "description": "What the code should do or what change to make"},
-                "language": {"type": "STRING", "description": "Programming language (default: python)"},
-                "output_path": {"type": "STRING", "description": "Where to save the file"},
-                "file_path": {"type": "STRING", "description": "Path to existing file for edit/explain/run/build"},
-                "code": {"type": "STRING", "description": "Raw code string for explain"},
-                "args": {"type": "STRING", "description": "CLI arguments for run/build"},
-                "timeout": {"type": "INTEGER", "description": "Execution timeout in seconds (default: 30)"},
-            },
-            "required": ["action"]
-        }
-    },
-    {
         "name": "dev_agent",
         "description": "Builds complete multi-file projects from scratch: plans, writes files, installs deps, opens VSCode, runs and fixes errors.",
         "parameters": {
@@ -1597,23 +1529,6 @@ TOOL_DECLARATIONS = [
                 "steps": {"type": "ARRAY", "items": {"type": "OBJECT"}, "description": "Tool steps for learn: [{tool, description}]"},
                 "success": {"type": "BOOLEAN", "description": "Outcome for record action (true/false)"}
             }
-        }
-    },
-    {
-        "name": "cognitive_code",
-        "description": "RUMI's Cognitive Coding Engine — thinks like an expert programmer. Uses semantic code understanding, hierarchical planning with EFE minimization, predictive simulation, and reflective debugging. Actions: 'build' (full cognitive pipeline: plan→simulate→execute→debug→reflect), 'analyze' (build codebase semantic graph + chunk memory), 'plan' (generate execution plan without executing), 'simulate' (predict code behavior + anomaly detection before running), 'debug' (root-cause analysis with hypothesis ranking for failures), 'refactor' (complexity analysis + improvement suggestions), 'review' (deep code review combining all cognitive modules), 'explain' (explain code with cognitive context + pattern recognition), 'status' (get cognitive system status). Use this INSTEAD of code_helper for complex coding tasks. code_helper is for simple write/edit/run; cognitive_code is for tasks needing planning, debugging, or architectural reasoning.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "action": {"type": "STRING", "description": "build | analyze | plan | simulate | debug | refactor | review | explain | status (default: build)"},
-                "description": {"type": "STRING", "description": "What to build, debug, or analyze"},
-                "language": {"type": "STRING", "description": "Programming language (default: python)"},
-                "code": {"type": "STRING", "description": "Code content for simulate/debug/refactor/review/explain"},
-                "file_path": {"type": "STRING", "description": "File path for analyze/debug/refactor/review/explain"},
-                "project_dir": {"type": "STRING", "description": "Project directory for analyze/build (builds semantic graph)"},
-                "error_output": {"type": "STRING", "description": "Error output for debug action"}
-            },
-            "required": []
         }
     },
     {
@@ -2560,11 +2475,6 @@ class RumiLive:
             self._world_simulation = None
 
         try:
-            self._code_evolution = get_code_evolution() if get_code_evolution else None
-        except Exception:
-            self._code_evolution = None
-
-        try:
             self._self_awareness = get_self_awareness() if get_self_awareness else _NullModule()
         except Exception:
             self._self_awareness = _NullModule()
@@ -2602,37 +2512,6 @@ class RumiLive:
                 if not isinstance(self._procedural_memory, type(None)) and self._procedural_memory:
                     adapters.append(ProceduralMemoryAdapter(self._procedural_memory))
 
-                # ── Cognitive Coding Engine initialization ───────────────
-                if _brain_code_intelligence_ok:
-                    try:
-                        ci = get_code_intelligence()
-                        print(f"[RUMI] Code Intelligence online — {len(ci._chunks)} chunks loaded", flush=True)
-                    except Exception as e:
-                        print(f"[RUMI] Code Intelligence init failed: {e}", flush=True)
-
-                if _brain_code_planner_ok:
-                    try:
-                        cp = get_code_planner()
-                        stats = cp.get_plan_stats()
-                        print(f"[RUMI] Code Planner online — {stats['total_plans']} plans loaded", flush=True)
-                    except Exception as e:
-                        print(f"[RUMI] Code Planner init failed: {e}", flush=True)
-
-                if _brain_code_simulator_ok:
-                    try:
-                        cs = get_code_simulator()
-                        stats = cs.get_anomaly_stats()
-                        print(f"[RUMI] Code Simulator online — {stats['total_anomalies']} anomalies tracked", flush=True)
-                    except Exception as e:
-                        print(f"[RUMI] Code Simulator init failed: {e}", flush=True)
-
-                if _brain_code_reflector_ok:
-                    try:
-                        cr = get_code_reflector()
-                        stats = cr.get_stats()
-                        print(f"[RUMI] Code Reflector online — {stats['total_patterns']} patterns learned", flush=True)
-                    except Exception as e:
-                        print(f"[RUMI] Code Reflector init failed: {e}", flush=True)
                 if _brain_self_modifier_ok:
                     try:
                         sm = get_self_modifier()
@@ -2973,39 +2852,6 @@ class RumiLive:
             except Exception:
                 pass
 
-        # Inject Cognitive Coding Engine context
-        if _brain_code_intelligence_ok:
-            try:
-                ci = get_code_intelligence()
-                ci_ctx = ci.format_for_prompt(max_chars=600)
-                if ci_ctx:
-                    parts.append(ci_ctx)
-            except Exception:
-                pass
-        if _brain_code_planner_ok:
-            try:
-                cp = get_code_planner()
-                cp_ctx = cp.format_for_prompt(max_chars=400)
-                if cp_ctx:
-                    parts.append(cp_ctx)
-            except Exception:
-                pass
-        if _brain_code_simulator_ok:
-            try:
-                cs = get_code_simulator()
-                cs_ctx = cs.format_for_prompt(max_chars=400)
-                if cs_ctx:
-                    parts.append(cs_ctx)
-            except Exception:
-                pass
-        if _brain_code_reflector_ok:
-            try:
-                cr = get_code_reflector()
-                cr_ctx = cr.format_for_prompt(max_chars=400)
-                if cr_ctx:
-                    parts.append(cr_ctx)
-            except Exception:
-                pass
         if _brain_self_modifier_ok:
             try:
                 sm = get_self_modifier()
@@ -4261,20 +4107,6 @@ class RumiLive:
             lambda: desktop_control(parameters=args, player=self.ui))
         return r if r is not None else "desktop_control returned no result."
 
-    @register_tool("code_helper")
-    async def _tool_code(self, args):
-        if not code_helper:
-            return "code_helper module not loaded."
-        args.setdefault("action", "auto")
-        args.setdefault("language", "python")
-        if args["action"] in ("write", "auto") and not args.get("description"):
-            return "Please describe what the code should do."
-        r = await self._run_tool_with_timeout(
-            lambda: _call_with_optional_speak(
-                lambda **kw: code_helper(parameters=args, player=self.ui, **kw),
-                self.speak))
-        return r if r is not None else "code_helper returned no result."
-
     @register_tool("dev_agent")
     async def _tool_dev_agent(self, args):
         if not dev_agent:
@@ -5186,14 +5018,6 @@ class RumiLive:
 
 
 
-    @register_tool("cognitive_code")
-    async def _tool_cognitive_code(self, args):
-        if not _cognitive_coding_ok:
-            return "Cognitive coding engine not available."
-        r = await self._run_long_tool_with_timeout(
-            lambda: cognitive_code(parameters=args, player=self.ui),
-            timeout=300)
-        return r if r is not None else "cognitive_code returned no result."
     # ── Enhanced Research Pipeline ──────────────────────────────────
     @register_tool("scientist_pipeline")
     async def _tool_scientist_pipeline(self, args):
@@ -6802,27 +6626,6 @@ class RumiLive:
                             update_memory(b.all_memories())
                 except Exception:
                     pass
-                # Save cognitive coding state
-                if _brain_code_intelligence_ok:
-                    try:
-                        get_code_intelligence()._save()
-                    except Exception:
-                        pass
-                if _brain_code_planner_ok:
-                    try:
-                        get_code_planner()._save_history()
-                    except Exception:
-                        pass
-                if _brain_code_simulator_ok:
-                    try:
-                        get_code_simulator()._save_anomalies()
-                    except Exception:
-                        pass
-                if _brain_code_reflector_ok:
-                    try:
-                        get_code_reflector()._save()
-                    except Exception:
-                        pass
                 rumi_instance._write_health()
                 try:
                     rumi_instance.shutdown_executors()
