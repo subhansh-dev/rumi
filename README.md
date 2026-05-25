@@ -66,20 +66,6 @@
 
 ---
 
-## 🎬 Demo
-
-<p align="center">
-  <img src="assets/rumi_demo.gif" alt="RUMI Quick Start Demo" width="800" />
-  <br><em>Launch → module loading → pipeline execution → results</em>
-</p>
-
-<p align="center">
-  <img src="assets/rumi_pipeline.gif" alt="RUMI 12-Phase Research Pipeline" width="800" />
-  <br><em>12-phase enhanced research pipeline with active learning loop</em>
-</p>
-
----
-
 ## 🎯 Motivation
 
 Contemporary AI assistants share a fundamental limitation: they are stateless. Each session begins from zero — no memory of prior interactions, no model of the user, no awareness of their own capabilities. They are reactive, waiting for commands rather than anticipating needs. They are single-model systems, routing everything through one inference call regardless of task complexity.
@@ -187,6 +173,11 @@ RUMI's cognitive architecture is grounded in peer-reviewed research:
 ## 🔬 Scientist AI Pipeline
 
 RUMI automates the entire scientific research lifecycle using 15 integrated modules:
+
+<p align="center">
+  <img src="assets/rumi_pipeline.gif" alt="RUMI 12-Phase Research Pipeline" width="800" />
+  <br><em>12-phase enhanced research pipeline with active learning loop</em>
+</p>
 
 ```
 Idea → Novelty Check → Hypothesis Generation → Experiment Design
@@ -510,6 +501,11 @@ export RUMI_TELEGRAM_ALLOWED_USER="123456789"
 ```bash
 rumi
 ```
+
+<p align="center">
+  <img src="assets/rumi_demo.gif" alt="RUMI Quick Start Demo" width="800" />
+  <br><em>Launch → module loading → pipeline execution → results</em>
+</p>
 
 ### Slash Commands
 
