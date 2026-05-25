@@ -7,10 +7,6 @@
 </p>
 
 <p align="center">
-  <img src="assets/rumi_demo.gif" alt="RUMI Autonomous Cognitive Loop Demo" width="800" />
-</p>
-
-<p align="center">
   <a href="https://github.com/subhansh-dev/Rumi/stargazers">
     <img src="https://img.shields.io/github/stars/subhansh-dev/Rumi?style=flat" alt="Stars" />
   </a>
@@ -38,6 +34,7 @@
 ## 📋 Table of Contents
 
 - [About RUMI](#-about-rumi)
+- [Demo](#-demo)
 - [Motivation](#-motivation)
 - [Cognitive Architecture](#-cognitive-architecture)
 - [Scientist AI Pipeline](#-scientist-ai-pipeline)
@@ -68,6 +65,16 @@
 | **Learning** | Active inference, curiosity-driven exploration, dreaming (offline replay), meta-learning |
 | **Reasoning** | Causal (Pearl's hierarchy), analogical (Gentner's structure mapping), neurosymbolic, narrative |
 | **Cognition** | Dual-process (System 1 fast / System 2 deliberate), integrated information (IIT-phi), theory of mind |
+
+---
+
+## 🎬 Demo
+
+<video autoplay loop muted playsinline width="100%">
+  <source src="assets/rumi_demo.gif" type="image/gif">
+</video>
+
+*Autonomous cognitive loop — RUMI running research pipeline, memory recall, and real-time reasoning.*
 
 ---
 
