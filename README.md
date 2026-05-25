@@ -182,12 +182,15 @@ RUMI's **Discovery Engine** is a multi-domain scientific discovery pipeline — 
 
 | Domain | Key | Entity Types | Enrichment | Generation |
 |--------|-----|-------------|------------|------------|
-| Drug Discovery | `drug_discovery` | drug, disease, gene, protein, mechanism, pathway, cell_type | PubChem + OpenFDA | Molecules |
-| Materials Science | `materials_science` | material, compound, property, synthesis_method, application, element | PubChem | Materials |
-| Neuroscience | `neuroscience` | brain_region, neurotransmitter, disorder, gene, behavior, neuron_type | UniProt | Hypotheses |
-| Molecular Biology | `molecular_biology` | gene, protein, pathway, organism, phenotype, cell_type | UniProt | Hypotheses |
-| Climate & Energy | `climate_energy` | emission_source, technology, policy, impact, region, resource | — | Hypotheses |
-| General Science | `general` | concept, method, finding, technology, organism, material | — | Hypotheses |
+| Drug Discovery | `drug_discovery` | drug, disease, gene, protein, mechanism, pathway, cell_type, side_effect, property | PubChem + OpenFDA + PDB + Semantic Scholar | Drug molecules |
+| Materials Science | `materials_science` | material, compound, property, synthesis_method, application, element | PubChem + Materials Project + Semantic Scholar | Novel compounds |
+| Neuroscience | `neuroscience` | brain_region, neurotransmitter, disorder, gene, protein, behavior, neuron_type, mechanism | UniProt + PDB + Semantic Scholar | Experiments |
+| Molecular Biology | `molecular_biology` | gene, protein, pathway, organism, phenotype, cell_type | UniProt + PDB + Semantic Scholar | Gene circuits |
+| Climate & Energy | `climate_energy` | emission_source, technology, policy, impact, region, resource | NASA POWER + Semantic Scholar | Policy proposals |
+| Space & Astronomy | `space_astronomy` | celestial_body, mission, telescope, exoplanet, galaxy, star, phenomenon, theory | NASA API + arXiv + Semantic Scholar | Mission concepts |
+| Ecology | `ecology` | species, habitat, ecosystem, organism, threat, conservation_action, region | GBIF + Semantic Scholar | Conservation plans |
+| Physics | `physics` | particle, force, theory, experiment, phenomenon, constant, material | arXiv + Semantic Scholar | Research proposals |
+| General Science | `general` | concept, method, finding, technology, organism, material | Semantic Scholar | Research proposals |
 
 Auto-detect: `/discover battery cathodes` → materials science  
 Manual: `/discover materials: battery cathodes` or `/domain materials_science`
@@ -225,11 +228,18 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 |--------|----------|---------|
 | **PubMed Miner** | `discovery/pubmed.py` | ESearch + EFetch, rate-limited, XML parsing |
 | **Knowledge Graph** | `discovery/graph.py` | Entities, relationships, merge, metrics, contradiction detection, domain metadata |
-| **Domain Config** | `discovery/domains.py` | 6 domain definitions with entity types, colors, enrichment sources, generation type |
-| **PubChem Enrichment** | `discovery/pubchem.py` | Compound search, targets, properties via PUG REST |
-| **OpenFDA Enrichment** | `discovery/openfda.py` | Side effects, labeling via openFDA API |
-| **UniProt Enrichment** | `discovery/uniprot.py` | Gene/protein lookup (free REST, no key needed) |
-| **Molecule Designer** | `discovery/molecule.py` | Gemini SMILES → RDKit validation → PubChem → scoring |
+| **Domain Config** | `discovery/domains.py` | 9 domain definitions with entity types, colors, enrichment, generation |
+| **PubChem Enrichment** | `discovery/pubchem.py` | Compound search, targets, properties via PUG REST (drug, materials) |
+| **OpenFDA Enrichment** | `discovery/openfda.py` | Side effects, labeling via openFDA API (drug) |
+| **UniProt Enrichment** | `discovery/uniprot.py` | Gene/protein lookup, free REST, no key (neuro, molbio) |
+| **PDB Enrichment** | `discovery/pdb.py` | Protein Data Bank — structures, ligands, free, no key (drug, neuro, molbio) |
+| **Semantic Scholar** | `discovery/semantic_scholar.py` | Paper citations + influence scores, free, no key (ALL domains) |
+| **Materials Project** | `discovery/materials_project.py` | Crystal structures, band gaps, density — free key (materials) |
+| **NASA POWER** | `discovery/nasa_power.py` | Climate data, solar irradiance, temperature — free, no key (climate) |
+| **NASA API** | `discovery/nasa_api.py` | Image library, exoplanets, NEOs — free key (space/astro) |
+| **arXiv** | `discovery/arxiv_api.py` | Physics/astro/CS paper search — free, no key (physics, space) |
+| **GBIF** | `discovery/gbif_api.py` | Species/biodiversity data — free, no key (ecology) |
+| **Molecule Designer** | `discovery/molecule.py` | Groq SMILES → RDKit validation → PubChem → scoring (drug) |
 | **Output** | `discovery/output.py` | Terminal formatting, session saving |
 | **Dashboard** | `discovery/dashboard/index.html` | vis-network graph + tabs for hypotheses, contradictions, molecules |
 
@@ -802,14 +812,21 @@ rumi/
 ├── TOOLS.md                     # Tool documentation
 ├── HEARTBEAT.md                 # Periodic health checks
 │
-├── discovery/                   # 🔬 Multi-Domain Discovery Engine
-│   ├── domains.py               #   6 domain configs (entity types, colors, enrichment, generation)
+├── discovery/                   # 🔬 Multi-Domain Discovery Engine (9 domains)
+│   ├── domains.py               #   Domain configs (entity types, colors, enrichment, generation)
 │   ├── pubmed.py                #   PubMed search + abstract fetch
-│   ├── graph.py                 #   Knowledge graph + metrics + contradictions + domain metadata
+│   ├── graph.py                 #   Knowledge graph + metrics + contradictions
 │   ├── pubchem.py               #   PubChem compound/target lookup
 │   ├── openfda.py               #   OpenFDA side effects + labeling
-│   ├── uniprot.py               #   UniProt gene/protein lookup (free REST API)
-│   ├── molecule.py              #   Molecule design (Gemini + RDKit + PubChem)
+│   ├── uniprot.py               #   UniProt gene/protein lookup
+│   ├── pdb.py                   #   Protein Data Bank — structures, ligands
+│   ├── semantic_scholar.py      #   Paper citations + influence scores
+│   ├── materials_project.py     #   Materials Project — crystals, band gaps
+│   ├── nasa_power.py            #   NASA POWER — climate data
+│   ├── nasa_api.py              #   NASA — image library, exoplanets, NEOs
+│   ├── arxiv_api.py             #   arXiv — physics/astro/CS papers
+│   ├── gbif_api.py              #   GBIF — species biodiversity
+│   ├── molecule.py              #   Molecule design (Groq + RDKit + PubChem)
 │   ├── output.py                #   Terminal formatting + file output
 │   └── dashboard/
 │       └── index.html           #   Web dashboard (vis-network)
