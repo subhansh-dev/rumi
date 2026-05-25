@@ -29,7 +29,6 @@
 
 <p align="center">
   <img src="assets/rumi_intro.gif" alt="RUMI Startup Demo" width="800" />
-  <br><em>RUMI booting up and responding to a greeting</em>
 </p>
 
 ---
@@ -180,7 +179,6 @@ RUMI automates the entire scientific research lifecycle using 15 integrated modu
 
 <p align="center">
   <img src="assets/rumi_pipeline.gif" alt="RUMI 12-Phase Research Pipeline" width="800" />
-  <br><em>12-phase enhanced research pipeline with active learning loop</em>
 </p>
 
 ```
@@ -508,7 +506,6 @@ rumi
 
 <p align="center">
   <img src="assets/rumi_demo.gif" alt="RUMI Quick Start Demo" width="800" />
-  <br><em>Launch → module loading → pipeline execution → results</em>
 </p>
 
 ### Slash Commands

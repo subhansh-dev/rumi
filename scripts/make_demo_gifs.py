@@ -381,9 +381,11 @@ def optimize_ffmpeg(input_path):
 
 
 def create_intro_gif():
-    """Create intro GIF: rumi command → boot → haiiii :3 → reply"""
+    """Create intro GIF: rumi command → boot → you typing haiiii :3 → reply"""
     frames = []
     all_lines = []
+
+    USER_PROMPT = "  you > "  # clearly user input, not rumi
 
     # 1-4: Typing "rumi" command char by char
     cmd_word = "rumi"
@@ -460,19 +462,19 @@ def create_intro_gif():
     ]
     all_lines.append(lines)
 
-    # 12: Prompt shows
+    # 12: Prompt shows — WUMI says hewwo, user prompt empty
     lines = [
         ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
-        ("  ║     🧬  WUMI  —  Ready to chat!!             ║", ORANGE, "body"),
+        ("  ║     🧬  WUMI  —  Hewwo!!                     ║", ORANGE, "body"),
         ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
         ("", None, "body"),
-        ("  Hewwo senpai!! 🥺 what can i hewp you with~?", CYAN, "body"),
+        ("  Hewwo boss!! 🥺 what can i hewp you with~?", CYAN, "body"),
         ("", None, "body"),
-        ("  rumi > ", PROMPT, "heading"),
+        (f"  {USER_PROMPT}", PROMPT, "heading"),
     ]
     all_lines.append(lines)
 
-    # 13-20: Typing "haiiiii :3" char by char
+    # 13-22: Typing "haiiiii :3" char by char at USER prompt
     msg = "haiiiii :3"
     for i, ch in enumerate(msg):
         typed = msg[:i+1]
@@ -481,36 +483,36 @@ def create_intro_gif():
             ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
             ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
             ("", None, "body"),
-            ("  Hewwo senpai!! 🥺 what can i hewp you with~?", CYAN, "body"),
+            ("  Hewwo boss!! 🥺 what can i hewp you with~?", CYAN, "body"),
             ("", None, "body"),
-            (f"  rumi > {typed}{cursor}", PINK if i < len(msg)-1 else PINK, "heading"),
+            (f"  {USER_PROMPT}{typed}{cursor}", PINK, "heading"),
         ]
         all_lines.append(lines)
 
-    # 21: RUMI thinks / loading indicator
+    # 23: RUMI thinks / loading indicator
     lines = [
         ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
         ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
         ("", None, "body"),
-        ("  Hewwo senpai!! 🥺 what can i hewp you with~?", CYAN, "body"),
+        ("  Hewwo boss!! 🥺 what can i hewp you with~?", CYAN, "body"),
         ("", None, "body"),
-        ("  rumi > haiiiiii :3", PINK, "heading"),
+        (f"  {USER_PROMPT}haiiiii :3", PINK, "heading"),
         ("", None, "body"),
         ("  ⏳ WUMI is pwocessing...", YELLOW, "body"),
         ("  ✨  synthesizing wovingly...", YELLOW, "small"),
     ]
     all_lines.append(lines)
 
-    # 22: RUMI responds with cute uwu reply
+    # 24: RUMI responds with cute uwu reply (LONG LAST FRAME)
     lines = [
         ("  ╔══════════════════════════════════════════════╗", ORANGE, "body"),
         ("  ╚══════════════════════════════════════════════╝", ORANGE, "body"),
         ("", None, "body"),
-        ("  Hewwo senpai!! 🥺 what can i hewp you with~?", CYAN, "body"),
+        ("  Hewwo boss!! 🥺 what can i hewp you with~?", CYAN, "body"),
         ("", None, "body"),
-        ("  rumi > haiiiiii :3", PINK, "heading"),
+        (f"  {USER_PROMPT}haiiiii :3", PINK, "heading"),
         ("", None, "body"),
-        ("  hewwooo senpai!!! 🧪✨🥺", CYAN, "heading"),
+        ("  hewwooo!!! 🧪✨", CYAN, "heading"),
         ("", None, "body"),
         ("  how can i hewp wiff youw", CYAN, "body"),
         ("  science today~? 🔬", CYAN, "body"),
@@ -518,14 +520,14 @@ def create_intro_gif():
         ("  i can do wesearch, wite code,", CYAN, "body"),
         ("  ow just chat!! tell me evewything!!", CYAN, "body"),
         ("", None, "body"),
-        ("  🐣  uwu  |  ready to serve senpai  |  💖", MUTED, "small"),
+        ("  🐣  uwu  |  weady to serve boss  |  💖", MUTED, "small"),
     ]
     all_lines.append(lines)
 
     for ls in all_lines:
         frames.append(frame_from_lines(ls))
     path = os.path.join(OUT_DIR, "rumi_intro.gif")
-    durs = [250]*4 + [400] + [150]*5 + [350] + [200] + [120]*10 + [250] + [600]
+    durs = [250]*4 + [400] + [150]*5 + [350] + [200] + [120]*10 + [250] + [4000]
     frames[0].save(path, save_all=True, append_images=frames[1:],
                    duration=durs, loop=0, optimize=False, disposal=1)
     print(f"Intro GIF: {os.path.getsize(path)} bytes")
