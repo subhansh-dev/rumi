@@ -553,6 +553,15 @@ class RumiUI:
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("discoveries", ""), daemon=True).start()
 
+        elif cmd.startswith("/domain "):
+            args = cmd[len("/domain "):].strip()
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("domain", args), daemon=True).start()
+
+        elif cmd == "/domain":
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("domain", ""), daemon=True).start()
+
         elif cmd == "/experiment":
             self.write_log("SYS: Experiment design mode...")
             if self.on_text_command:
@@ -759,32 +768,23 @@ class RumiUI:
         console.print()
 
     def _show_domains(self):
-        """Show available scientific domains."""
+        """Show available Discovery Engine domains."""
+        from discovery.domains import list_domains
         table = Table(
-            title="Scientific Domains for Cross-Domain Analysis",
+            title="Discovery Engine Domains",
             border_style=C_PURPLE,
             box=ROUNDED,
         )
-        table.add_column("Domain", style=f"bold {C_CYAN}")
-        table.add_column("Core Concepts", style=C_WHITE)
+        table.add_column("Domain Key", style=f"bold {C_CYAN}")
+        table.add_column("Label", style=C_GREEN)
+        table.add_column("Description", style=C_WHITE)
 
-        domains = [
-            ("Physics", "energy, force, momentum, entropy, symmetry, conservation, field, wave"),
-            ("Biology", "evolution, fitness, adaptation, selection, mutation, gene, organism"),
-            ("Computer Science", "algorithm, complexity, abstraction, optimization, learning, network"),
-            ("Economics", "utility, equilibrium, incentive, market, trade, game, strategy"),
-            ("Chemistry", "bond, reaction, catalyst, equilibrium, kinetics, thermodynamics"),
-            ("Mathematics", "proof, structure, mapping, invariant, convergence, topology"),
-            ("Neuroscience", "neuron, synapse, plasticity, representation, learning, attention"),
-            ("Ecology", "niche, competition, cooperation, diversity, stability, resilience"),
-        ]
-
-        for name, concepts in domains:
-            table.add_row(name, concepts)
+        for d in list_domains():
+            table.add_row(d["key"], d["label"], d["description"])
 
         console.print()
         console.print(table)
-        console.print(Text("  Use: 'Find analogies between [concept] in [domain1] and [domain2]'", style=f"dim {C_DIM}"))
+        console.print(Text("  Use: /domain <key> to switch, or /discover <domain>: <topic>", style=f"dim {C_DIM}"))
         console.print()
 
     def _handle_personality(self):

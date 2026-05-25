@@ -25,6 +25,8 @@ _project_root = Path(__file__).resolve().parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+from discovery.domains import DOMAINS, get_domain, entity_types_list, build_detect_prompt, entity_colors, DOMAIN_ALIAS_MAP, list_domains
+
 import sounddevice as sd
 from google import genai
 from google.genai import types
@@ -2221,6 +2223,7 @@ class RumiLive:
         self._speaking_ended_at = 0.0
 
         self._modes = {"focus": False, "think": False, "deep_dive": False}
+        self.current_domain = "drug_discovery"
 
         self._last_audio_time = 0.0
         self._last_send_time = 0.0
@@ -2750,10 +2753,31 @@ class RumiLive:
 
     # ── Discovery Engine ───────────────────────────────────────────────
 
-    async def _run_discovery_pipeline(self, query: str, depth: str = "quick"):
+    async def _detect_domain(self, topic: str) -> str:
+        """Auto-detect domain from topic using LLM."""
+        prompt = build_detect_prompt() + topic + '"'
+        try:
+            result = await self._call_llm(prompt, json_mode=False)
+            result = result.strip().lower().strip('"').strip("'")
+            if result in DOMAINS or result in DOMAIN_ALIAS_MAP:
+                return result if result in DOMAINS else DOMAIN_ALIAS_MAP[result]
+        except Exception:
+            pass
+        return "drug_discovery"
+
+    async def _run_discovery_pipeline(self, query: str, depth: str = "quick", domain_override: str = None):
         from discovery.pubmed import search_and_fetch
         from discovery.graph import KnowledgeGraph
         from discovery.output import format_papers, save_session
+
+        # Detect domain
+        if domain_override:
+            domain = domain_override
+        else:
+            domain = await self._detect_domain(query)
+        self.current_domain = domain
+        domain_label = get_domain(domain)["label"] if get_domain(domain) else "General Science"
+        self._post_output(f"[bold cyan]Domain detected: {domain_label}[/bold cyan]")
 
         max_results = 20 if depth == "quick" else 100
 
@@ -2766,12 +2790,13 @@ class RumiLive:
         self._post_output(format_papers(papers[:5]))
 
         self._post_output("[bold cyan]Extracting entities and relationships...[/bold cyan]")
-        extraction_prompt = self._build_extraction_prompt(papers)
+        extraction_prompt = self._build_extraction_prompt(papers, domain)
         extraction_result = await self._call_llm(extraction_prompt, json_mode=True)
         entities, relationships = self._parse_extraction(extraction_result)
 
         self._post_output("[bold cyan]Building knowledge graph...[/bold cyan]")
         graph = KnowledgeGraph.load()
+        graph.domain = domain
         for p in papers:
             graph.add_paper(p["pmid"], p["title"], p.get("abstract", ""), p["url"], p.get("year", ""))
         if entities:
@@ -2780,11 +2805,13 @@ class RumiLive:
             graph.add_relationships(relationships, papers[0]["pmid"])
         graph.save()
 
-        self._post_output("[bold cyan]Enriching drug entities with PubChem + OpenFDA...[/bold cyan]")
-        await self._enrich_drug_entities(graph)
+        enrichment_label = get_domain(domain).get("enrichment", []) if get_domain(domain) else []
+        if enrichment_label:
+            self._post_output(f"[bold cyan]Enriching entities with {', '.join(e.capitalize() for e in enrichment_label)}...[/bold cyan]")
+            await self._enrich_entities(graph, domain)
 
         self._post_output("[bold cyan]Mining patterns and generating hypotheses...[/bold cyan]")
-        hypothesis_prompt = self._build_hypothesis_prompt(graph, query)
+        hypothesis_prompt = self._build_hypothesis_prompt(graph, query, domain)
         hypothesis_result = await self._call_llm(hypothesis_prompt, json_mode=True)
         hypotheses = self._parse_hypotheses(hypothesis_result)
 
@@ -2795,17 +2822,21 @@ class RumiLive:
         self._post_output(format_hypotheses(hypotheses))
         self._post_output("\nDone. Run /dashboard to explore visually.")
 
-    def _build_extraction_prompt(self, papers: list[dict]) -> str:
+    def _build_extraction_prompt(self, papers: list[dict], domain: str = "drug_discovery") -> str:
         papers_text = "\n\n".join(
             f"--- Paper {i+1} (PMID: {p['pmid']}) ---\nTitle: {p['title']}\nAbstract: {p.get('abstract', '')}"
             for i, p in enumerate(papers)
         )
-        return f"""You are a biomedical entity extractor. Extract ALL drugs, diseases, genes, proteins, mechanisms, and pathways from these papers.
+        domain_cfg = get_domain(domain)
+        if not domain_cfg:
+            domain_cfg = get_domain("general")
+        entity_types_str = ", ".join(sorted(domain_cfg["entity_types"].keys()))
+        return f"""You are a scientific entity extractor for the {domain_cfg['label']} domain. Extract ALL entities of these types from these papers: {entity_types_str}
 
 For each paper, output a JSON array of entities and relationships.
 
-Entity format: {{"type": "drug|disease|gene|protein|mechanism|pathway", "name": "exact name"}}
-Relationship format: {{"source": "entity name", "source_type": "entity type", "relation": "treats|causes|activates|inhibits|binds|expressed_in|regulates|associated_with", "target": "entity name", "target_type": "entity type", "confidence": 0.0-1.0}}
+Entity format: {{"type": "{entity_types_str.replace(', ', '|')}", "name": "exact name"}}
+Relationship format: {{"source": "entity name", "source_type": "entity type", "relation": "treats|causes|activates|inhibits|binds|expressed_in|regulates|associated_with|correlated_with|synthesized_by|measured_in|related_to", "target": "entity name", "target_type": "entity type", "confidence": 0.0-1.0}}
 
 Papers:
 {papers_text}
@@ -2813,16 +2844,21 @@ Papers:
 Output ONLY valid JSON in this format:
 {{"entities": [...], "relationships": [...]}}"""
 
-    def _build_hypothesis_prompt(self, graph, query: str) -> str:
+    def _build_hypothesis_prompt(self, graph, query: str, domain: str = "drug_discovery") -> str:
         stats = graph.stats()
         metrics = graph.compute_metrics()
+        domain_cfg = get_domain(domain)
+        if not domain_cfg:
+            domain_cfg = get_domain("general")
+        entity_types_str = ", ".join(sorted(domain_cfg["entity_types"].keys()))
+        domain_label = domain_cfg["label"]
         graph_summary = json.dumps({
             "entities": {k: {"type": v["type"], "name": v["name"], "papers": len(v["papers"])} for k, v in list(graph.entities.items())[:50]},
             "relationships": graph.relationships[:100],
             "stats": stats,
         }, indent=2)
         metrics_summary = json.dumps(metrics, indent=2, default=str)
-        return f"""You are an AI drug discovery scientist analyzing a knowledge graph from PubMed papers on: "{query}"
+        return f"""You are an AI research scientist in {domain_label} analyzing a knowledge graph from PubMed papers on: "{query}"
 
 === KNOWLEDGE GRAPH ===
 {graph_summary}
@@ -2832,35 +2868,35 @@ Output ONLY valid JSON in this format:
 
 === HOW TO USE METRICS ===
 - **Jaccard similarity** (co_occurrence[].jaccard): 0 = never co-occur in papers, 1 = always together. High Jaccard (>0.3) = strong known association.
-- **Degree centrality** (entity_metrics[].degree): number of connections. Hub nodes with high degree are promising drug targets.
-- **Betweenness centrality** (entity_metrics[].betweenness): 0-1 scale. High betweenness nodes bridge disconnected clusters — repurposing candidates.
+- **Degree centrality** (entity_metrics[].degree): number of connections. Hub nodes with high degree are promising targets.
+- **Betweenness centrality** (entity_metrics[].betweenness): 0-1 scale. High betweenness nodes bridge disconnected clusters — repurposing or cross-domain candidates.
 - **Closeness centrality** (entity_metrics[].closeness): how quickly a node reaches all others. High closeness = broadly relevant.
 - **Clustering coefficient** (entity_metrics[].clustering): 0-1. Low clustering on high-degree nodes suggests bridge/hub role.
 - **Relation entropy** (entity_metrics[].relation_entropy): 0 = only one relation type, higher = diverse functions.
 - **Edge strength** (edge_strength[].avg_confidence * count): confidence-weighted evidence for each relationship.
 - **Contradictions** (contradiction_candidates): pairs with conflicting relation types (e.g. activates AND inhibits) — mechanistic conflicts worth investigating.
-- **Graph density**: {metrics['density']} ({metrics['edge_count']} edges / {metrics['entity_count']} nodes).
+- **Graph density**: {metrics['density']} ({metrics['edge_count']} edges / {metrics['entity_count']} nodes.
 - **Temporal trends**: year-over-year citation frequency per entity — rising trends = emerging interest.
 
 === PATTERN MINING RULES ===
 For each pattern type, identify the exact metric values that support it:
-1. Drug Repurposing: Find an entity with high betweenness bridging a drug cluster and a disease cluster. Cite the betweenness value.
-2. Bridge Node: Entity linking two otherwise disconnected subgraphs. Cite Jaccard near 0 (no direct co-occurrence between the two clusters) but shared neighbor connections.
-3. Contradiction: Cite the exact conflicting relation types from contradiction_candidates.
-4. Low Co-occurrence: Find entity pairs with Jaccard = 0 but plausible biological connection via shared neighbors. Cite zero jaccard and the bridging path.
+1. Bridge Node: Entity linking two otherwise disconnected subgraphs. Cite Jaccard near 0 (no direct co-occurrence between the two clusters) but shared neighbor connections.
+2. Contradiction: Cite the exact conflicting relation types from contradiction_candidates.
+3. Low Co-occurrence: Find entity pairs with Jaccard = 0 but plausible connection via shared neighbors. Cite zero jaccard and the bridging path.
+4. Novel Mechanism: Entity with high relation entropy — diverse interaction types suggesting multifunctional roles.
 
 Generate 3-5 hypotheses. For EACH hypothesis you MUST:
 1. State which pattern type you detected
 2. Cite the specific metric values that support it (jaccard, betweenness, degree, etc.)
-3. Define every NODE: name, type, biological role/definition, any variable conditions
-4. Define every EDGE: source, relation, target, what the relation MEANS biologically, which papers support it (cite PMIDs)
+3. Define every NODE: name, type, definition/role in {domain_label}, any variable conditions
+4. Define every EDGE: source, relation, target, what the relation MEANS in {domain_label} context, which papers support it (cite PMIDs)
 
 === OUTPUT SCHEMA ===
 Output ONLY valid JSON as a list of objects with this structure:
 {{
   "title": "string — concise hypothesis title",
   "description": "string — detailed explanation",
-  "pattern_type": "drug_repurposing|bridge_node|contradiction|low_cooccurrence|novel_mechanism",
+  "pattern_type": "bridge_node|contradiction|low_cooccurrence|novel_mechanism",
   "confidence": 0.0-1.0,
   "mathematical_grounding": {{
     "primary_metric": "jaccard|betweenness|degree|closeness|clustering|entropy|edge_strength|contradiction|density",
@@ -2869,10 +2905,10 @@ Output ONLY valid JSON as a list of objects with this structure:
     "supporting_metrics": {{"metric_name": <number>}}
   }},
   "nodes": [
-    {{"name": "exact entity name", "type": "drug|disease|gene|protein|mechanism|pathway|side_effect|property", "definition": "biological definition and role", "conditions": "any variable conditions or empty string", "papers_count": <int>, "degree": <int>, "betweenness": <float>}}
+    {{"name": "exact entity name", "type": "{entity_types_str.replace(', ', '|')}", "definition": "definition and role in {domain_label}", "conditions": "any variable conditions or empty string", "papers_count": <int>, "degree": <int>, "betweenness": <float>}}
   ],
   "edges": [
-    {{"source": "entity name", "relation": "relation type", "target": "entity name", "definition": "what this relationship means biologically with PMID citation", "papers": ["PMID1", "PMID2"]}}
+    {{"source": "entity name", "relation": "relation type", "target": "entity name", "definition": "what this relationship means with PMID citation", "papers": ["PMID1", "PMID2"]}}
   ],
   "evidence": ["string evidence items"],
   "papers": ["PMIDs"],
@@ -2956,8 +2992,18 @@ Output ONLY valid JSON as a list of objects with this structure:
         """Handle discovery commands from the UI."""
         if command == "discover":
             if args:
+                # Support manual domain override: /discover materials: battery cathodes
+                domain_override = None
+                topic = args
+                if ":" in args:
+                    maybe_domain, _, maybe_topic = args.partition(":")
+                    maybe_domain = maybe_domain.strip().lower()
+                    cfg = get_domain(maybe_domain)
+                    if cfg:
+                        domain_override = maybe_domain if maybe_domain in DOMAINS else DOMAIN_ALIAS_MAP.get(maybe_domain)
+                        topic = maybe_topic.strip()
                 asyncio.run_coroutine_threadsafe(
-                    self._run_discovery_pipeline(args), self._loop
+                    self._run_discovery_pipeline(topic, domain_override=domain_override), self._loop
                 )
             else:
                 self._post_output("Specify a topic: /discover <topic>")
@@ -3011,8 +3057,9 @@ Output ONLY valid JSON as a list of objects with this structure:
         elif command == "enrich":
             from discovery.graph import KnowledgeGraph
             graph = KnowledgeGraph.load()
+            domain = getattr(graph, "domain", self.current_domain) or self.current_domain
             asyncio.run_coroutine_threadsafe(
-                self._enrich_drug_entities(graph), self._loop
+                self._enrich_entities(graph, domain), self._loop
             )
 
         elif command == "contradictions":
@@ -3038,11 +3085,34 @@ Output ONLY valid JSON as a list of objects with this structure:
 
         elif command == "generate":
             if args:
+                domain = self.current_domain
                 asyncio.run_coroutine_threadsafe(
-                    self._generate_molecules(args), self._loop
+                    self._generate(args, domain), self._loop
                 )
             else:
                 self._post_output("Specify a target: /generate <target> (e.g., /generate AMPK activator)")
+
+        elif command == "domain":
+            from discovery.domains import get_domain
+            if not args:
+                cfg = get_domain(self.current_domain)
+                label = cfg["label"] if cfg else self.current_domain
+                self._post_output(f"Current domain: [bold cyan]{label}[/bold cyan]")
+                return
+            domain_key = args.strip().lower()
+            cfg = get_domain(domain_key)
+            if cfg:
+                self.current_domain = domain_key
+                self._post_output(f"Domain set to: [bold cyan]{cfg['label']}[/bold cyan]")
+            else:
+                self._post_output(f"Unknown domain: {domain_key}. Use /domains to see available domains.")
+
+        elif command == "domains":
+            from discovery.domains import list_domains
+            lines = ["", "Available domains:"]
+            for d in list_domains():
+                lines.append(f"  [bold]{d['key']}[/bold] — {d['label']}: {d['description']}")
+            self._post_output("\n".join(lines))
 
     async def _mine_hypotheses(self, graph, topic: str):
         self._post_output("Mining existing graph for new hypotheses...")
@@ -3053,63 +3123,86 @@ Output ONLY valid JSON as a list of objects with this structure:
         save_hypotheses(hypotheses)
         self._post_output(format_hypotheses(hypotheses))
 
-    async def _enrich_drug_entities(self, graph):
-        """Enrich all drug entities in the graph with PubChem and OpenFDA data."""
-        from discovery.pubchem import search_compound, get_targets
-        from discovery.openfda import get_side_effects, get_labeling
-
-        drug_entities = {
-            eid: ent for eid, ent in graph.entities.items()
-            if ent["type"] == "drug"
-        }
-        if not drug_entities:
-            self._post_output("No drug entities found to enrich.")
+    async def _enrich_entities(self, graph, domain: str = "drug_discovery"):
+        """Enrich entities in graph based on domain configuration."""
+        domain_cfg = get_domain(domain)
+        if not domain_cfg:
+            self._post_output("Unknown domain. Skipping enrichment.")
+            return
+        enrich_sources = domain_cfg.get("enrichment", [])
+        if not enrich_sources:
+            self._post_output(f"No enrichment sources configured for {domain_cfg['label']}.")
             return
 
-        enriched = 0
-        for eid, ent in drug_entities.items():
-            drug_name = ent["name"]
+        total_enriched = 0
 
-            pc = search_compound(drug_name)
-            if pc and pc["molecular_formula"]:
-                prop_eid = f"property_{drug_name.lower().replace(' ', '_')}_mw"
-                if prop_eid not in graph.entities:
-                    graph.entities[prop_eid] = {
-                        "id": prop_eid, "type": "property",
-                        "name": f"{drug_name} MW: {pc['molecular_weight']}",
-                        "papers": [],
-                    }
-                targets = get_targets(drug_name)
-                for t in targets:
-                    if t["name"]:
-                        tid = f"{'gene' if t['type'] == 'GENE' else 'protein'}_{t['name'].lower()}"
-                        if tid not in graph.entities:
-                            graph.entities[tid] = {
-                                "id": tid, "type": "gene" if t["type"] == "GENE" else "protein",
-                                "name": t["name"], "papers": [],
-                            }
-                        graph.relationships.append({
-                            "source": eid, "relation": "has_target",
-                            "target": tid, "confidence": 0.8, "papers": [],
-                        })
+        if "pubchem" in enrich_sources:
+            from discovery.pubchem import search_compound, get_targets
+            chem_types = {"drug", "compound", "material"}
+            chem_entities = {
+                eid: ent for eid, ent in graph.entities.items()
+                if ent["type"] in chem_types
+            }
+            for eid, ent in chem_entities.items():
+                name = ent["name"]
+                pc = search_compound(name)
+                if pc and pc.get("molecular_formula"):
+                    prop_eid = f"property_{name.lower().replace(' ', '_')}_mw"
+                    if prop_eid not in graph.entities:
+                        graph.entities[prop_eid] = {
+                            "id": prop_eid, "type": "property",
+                            "name": f"{name} MW: {pc['molecular_weight']}",
+                            "papers": [],
+                        }
+                    graph.relationships.append({
+                        "source": eid, "relation": "has_property",
+                        "target": prop_eid, "confidence": 0.8, "papers": [],
+                    })
+                    targets = get_targets(name)
+                    for t in targets:
+                        if t["name"]:
+                            tid = f"{'gene' if t['type'] == 'GENE' else 'protein'}_{t['name'].lower()}"
+                            if tid not in graph.entities:
+                                graph.entities[tid] = {
+                                    "id": tid, "type": "gene" if t["type"] == "GENE" else "protein",
+                                    "name": t["name"], "papers": [],
+                                }
+                            graph.relationships.append({
+                                "source": eid, "relation": "has_target",
+                                "target": tid, "confidence": 0.8, "papers": [],
+                            })
+                    total_enriched += 1
 
-            se_list = get_side_effects(drug_name)
-            for se in se_list[:10]:
-                seid = f"side_effect_{se['reaction'].lower().replace(' ', '_')}"
-                if seid not in graph.entities:
-                    graph.entities[seid] = {
-                        "id": seid, "type": "side_effect",
-                        "name": se["reaction"], "papers": [],
-                    }
-                graph.relationships.append({
-                    "source": eid, "relation": "has_side_effect",
-                    "target": seid, "confidence": 0.7,
-                    "papers": [], "count": se["count"],
-                })
-            enriched += 1
+        if "openfda" in enrich_sources:
+            from discovery.openfda import get_side_effects
+            drug_entities = {
+                eid: ent for eid, ent in graph.entities.items()
+                if ent["type"] == "drug"
+            }
+            for eid, ent in drug_entities.items():
+                drug_name = ent["name"]
+                se_list = get_side_effects(drug_name)
+                for se in se_list[:10]:
+                    seid = f"side_effect_{se['reaction'].lower().replace(' ', '_')}"
+                    if seid not in graph.entities:
+                        graph.entities[seid] = {
+                            "id": seid, "type": "side_effect",
+                            "name": se["reaction"], "papers": [],
+                        }
+                    graph.relationships.append({
+                        "source": eid, "relation": "has_side_effect",
+                        "target": seid, "confidence": 0.7,
+                        "papers": [], "count": se["count"],
+                    })
+                total_enriched += 1
+
+        if "uniprot" in enrich_sources:
+            from discovery.uniprot import enrich_entities as enrich_uniprot
+            enriched = enrich_uniprot(graph)
+            total_enriched += enriched
 
         graph.save()
-        self._post_output(f"Enriched {enriched} drug entit{( 'y' if enriched == 1 else 'ies')} with PubChem + OpenFDA data.")
+        self._post_output(f"Enriched {total_enriched} entities with {', '.join(e.capitalize() for e in enrich_sources)} data.")
 
     def _format_contradictions(self, contradictions: list[dict]) -> str:
         lines = ["", "=" * 70, "  CONTRADICTIONS DETECTED", "=" * 70, ""]
@@ -3185,20 +3278,44 @@ Output ONLY valid JSON as a list of objects with this structure:
             lines.append("")
         return "\n".join(lines)
 
-    async def _generate_molecules(self, target: str):
-        self._post_output(f"[bold cyan]Generating molecules for target: {target}...[/bold cyan]")
-        from discovery.graph import KnowledgeGraph
-        from discovery.molecule import generate_candidates, format_candidates
-        kg = KnowledgeGraph.load()
-        graph = kg if kg.entities else None
-        candidates = generate_candidates(target, graph)
-        if not candidates:
-            self._post_output("No valid molecules generated. Try a different target.")
-            return
-        md = Path(__file__).resolve().parent / "discovery" / "molecules"
-        md.mkdir(parents=True, exist_ok=True)
-        (md / "active.json").write_text(json.dumps(candidates, indent=2), encoding="utf-8")
-        self._post_output(format_candidates(candidates))
+    async def _generate(self, target: str, domain: str = "drug_discovery"):
+        """Generate domain-specific output (molecules, materials, hypotheses, etc.)."""
+        domain_cfg = get_domain(domain)
+        if not domain_cfg:
+            domain_cfg = get_domain("general")
+        gen_type = domain_cfg.get("generation", "hypothesis")
+
+        if gen_type == "molecule":
+            from discovery.graph import KnowledgeGraph
+            from discovery.molecule import generate_candidates, format_candidates
+            self._post_output(f"[bold cyan]Designing molecules for target: {target}...[/bold cyan]")
+            kg = KnowledgeGraph.load()
+            graph = kg if kg.entities else None
+            candidates = generate_candidates(target, graph)
+            if not candidates:
+                self._post_output("No valid molecules generated. Try a different target.")
+                return
+            md = Path(__file__).resolve().parent / "discovery" / "molecules"
+            md.mkdir(parents=True, exist_ok=True)
+            (md / "active.json").write_text(json.dumps(candidates, indent=2), encoding="utf-8")
+            self._post_output(format_candidates(candidates))
+
+        elif gen_type == "hypothesis":
+            self._post_output(f"[bold cyan]Generating hypotheses for {target} in {domain_cfg['label']}...[/bold cyan]")
+            from discovery.graph import KnowledgeGraph
+            graph = KnowledgeGraph.load()
+            if not graph.entities:
+                self._post_output("No knowledge graph found. Run /discover first.")
+                return
+            prompt = self._build_hypothesis_prompt(graph, target, domain)
+            result = await self._call_llm(prompt, json_mode=True)
+            hypotheses = self._parse_hypotheses(result)
+            from discovery.output import format_hypotheses, save_hypotheses
+            save_hypotheses(hypotheses)
+            self._post_output(format_hypotheses(hypotheses))
+
+        else:
+            self._post_output(f"No generation method configured for {domain_cfg['label']}.")
 
     def shutdown_executors(self):
         """Shut down all thread pool executors."""

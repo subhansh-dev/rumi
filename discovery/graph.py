@@ -10,6 +10,7 @@ class KnowledgeGraph:
         self.entities: dict[str, dict] = {}
         self.relationships: list[dict] = []
         self.papers: dict[str, dict] = {}
+        self.domain: str = "drug_discovery"
 
     def add_paper_entities(self, entities: list[dict], pmid: str):
         for ent in entities:
@@ -66,6 +67,7 @@ class KnowledgeGraph:
             "entities": self.entities,
             "relationships": self.relationships,
             "papers": self.papers,
+            "domain": self.domain,
         }
 
     @classmethod
@@ -74,6 +76,7 @@ class KnowledgeGraph:
         g.entities = data.get("entities", {})
         g.relationships = data.get("relationships", [])
         g.papers = data.get("papers", {})
+        g.domain = data.get("domain", "drug_discovery")
         return g
 
     def save(self):

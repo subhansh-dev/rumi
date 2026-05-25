@@ -82,7 +82,8 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 | **Reasoning** | Single-pass generation | Multi-pass: cognitive gating, causal (Pearl), analogical (Gentner), neurosymbolic, first-principles |
 | **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring |
 | **Learning** | No feedback loop | Error-driven updates, experience replay, dreaming-based consolidation, meta-learning |
-| **Research** | Search-and-summarize | Full Scientist AI pipeline: novelty check, hypothesis generation, experiment design, knowledge graph, reproducibility, paper generation, peer review |
+| **Research** | Search-and-summarize | Discovery Engine (5-phase drug discovery + multi-domain science: materials, neuroscience, molbio, climate), knowledge graph, mathematical metrics, contradiction detection, molecule design |
+| **Discovery** | None | Domain-aware pipeline: auto-detect domain (drug/materials/neuro/molbio/climate/general), PubMed → entity extraction → knowledge graph → PubChem/OpenFDA/UniProt enrichment → graph metrics → hypotheses → domain-specific generation |
 | **Cognition** | None | Dual-process (System 1/2), IIT-inspired integrated information (Φ), global workspace coordination |
 
 ---
@@ -175,18 +176,33 @@ RUMI's cognitive architecture is grounded in peer-reviewed research:
 
 ## 🔬 Discovery Engine
 
-RUMI's **Discovery Engine** is an autonomous drug discovery pipeline — from literature mining to molecule design. All 5 phases run in-terminal with zero cloud dependencies.
+RUMI's **Discovery Engine** is a multi-domain scientific discovery pipeline — from literature mining to generated candidates. Supports 6 domains with auto-detection.
+
+### Domains
+
+| Domain | Key | Entity Types | Enrichment | Generation |
+|--------|-----|-------------|------------|------------|
+| Drug Discovery | `drug_discovery` | drug, disease, gene, protein, mechanism, pathway, cell_type | PubChem + OpenFDA | Molecules |
+| Materials Science | `materials_science` | material, compound, property, synthesis_method, application, element | PubChem | Materials |
+| Neuroscience | `neuroscience` | brain_region, neurotransmitter, disorder, gene, behavior, neuron_type | UniProt | Hypotheses |
+| Molecular Biology | `molecular_biology` | gene, protein, pathway, organism, phenotype, cell_type | UniProt | Hypotheses |
+| Climate & Energy | `climate_energy` | emission_source, technology, policy, impact, region, resource | — | Hypotheses |
+| General Science | `general` | concept, method, finding, technology, organism, material | — | Hypotheses |
+
+Auto-detect: `/discover battery cathodes` → materials science  
+Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 
 ### Pipeline
 
 ```
 /discover <topic>
+  → Auto-detect domain (or manual: /discover <domain>: <topic>)
   → PubMed search & fetch
-  → LLM entity extraction (drugs, diseases, genes, proteins, mechanisms)
-  → Knowledge graph build & persist
-  → PubChem + OpenFDA enrichment (MW, formula, targets, side effects)
+  → LLM entity extraction (domain-specific types)
+  → Knowledge graph build & persist with domain metadata
+  → Domain-specific enrichment (PubChem / OpenFDA / UniProt)
   → Mathematical graph metrics (Jaccard, betweenness, degree, density, entropy, clustering, edge strength)
-  → Pattern mining + hypothesis generation with node/edge definitions
+  → Pattern mining + hypothesis generation with domain-aware definitions
   → Web dashboard (vis-network graph + hypothesis browser)
 
 /contradictions
@@ -195,10 +211,12 @@ RUMI's **Discovery Engine** is an autonomous drug discovery pipeline — from li
 /generate <target>
   → Gemini SMILES generation → RDKit validation → PubChem lookup → graph novelty scoring
 
-/enrich       — Enrich existing graph with PubChem + OpenFDA
+/enrich       — Enrich existing graph (source depends on domain)
 /hypothesize  — Re-mine hypotheses from existing graph
 /dashboard    — Open interactive web dashboard
 /discoveries  — List past discovery sessions
+/domain       — Show or set current domain
+/domains      — List all available domains
 ```
 
 ### Modules
@@ -206,9 +224,11 @@ RUMI's **Discovery Engine** is an autonomous drug discovery pipeline — from li
 | Module | Location | Purpose |
 |--------|----------|---------|
 | **PubMed Miner** | `discovery/pubmed.py` | ESearch + EFetch, rate-limited, XML parsing |
-| **Knowledge Graph** | `discovery/graph.py` | Entities, relationships, merge, metrics, contradiction detection |
+| **Knowledge Graph** | `discovery/graph.py` | Entities, relationships, merge, metrics, contradiction detection, domain metadata |
+| **Domain Config** | `discovery/domains.py` | 6 domain definitions with entity types, colors, enrichment sources, generation type |
 | **PubChem Enrichment** | `discovery/pubchem.py` | Compound search, targets, properties via PUG REST |
 | **OpenFDA Enrichment** | `discovery/openfda.py` | Side effects, labeling via openFDA API |
+| **UniProt Enrichment** | `discovery/uniprot.py` | Gene/protein lookup (free REST, no key needed) |
 | **Molecule Designer** | `discovery/molecule.py` | Gemini SMILES → RDKit validation → PubChem → scoring |
 | **Output** | `discovery/output.py` | Terminal formatting, session saving |
 | **Dashboard** | `discovery/dashboard/index.html` | vis-network graph + tabs for hypotheses, contradictions, molecules |
@@ -297,7 +317,7 @@ RUMI's **Discovery Engine** is an autonomous drug discovery pipeline — from li
 
 | Category | Description |
 |----------|-------------|
-| 🔬 **Discovery Engine** | 5-phase drug discovery: PubMed mining, knowledge graph with mathematical metrics, PubChem/OpenFDA enrichment, contradiction detection, molecule design (Gemini + RDKit + PubChem) |
+| 🔬 **Discovery Engine** | 6-domain scientific discovery: drug, materials, neuroscience, molbio, climate, general. PubMed → domain-specific extraction → graph → enrichment (PubChem/OpenFDA/UniProt) → metrics → hypotheses → molecules. Auto-detect or manual domain. |
 | 🧠 **Cognition** | 60+ brain modules — causal reasoning, analogy, active inference, curiosity, metacognition, dreaming, learning |
 | 🌐 **Research** | Paper search (arXiv + Semantic Scholar), deep web research, scientific knowledge graphs |
 | 🧠 **Memory** | 9 memory types — neural, episodic, vector, procedural, working, global workspace, associative, predictive, consolidated |
@@ -782,11 +802,13 @@ rumi/
 ├── TOOLS.md                     # Tool documentation
 ├── HEARTBEAT.md                 # Periodic health checks
 │
-├── discovery/                   # 🔬 Drug Discovery Engine
+├── discovery/                   # 🔬 Multi-Domain Discovery Engine
+│   ├── domains.py               #   6 domain configs (entity types, colors, enrichment, generation)
 │   ├── pubmed.py                #   PubMed search + abstract fetch
-│   ├── graph.py                 #   Knowledge graph + metrics + contradictions
+│   ├── graph.py                 #   Knowledge graph + metrics + contradictions + domain metadata
 │   ├── pubchem.py               #   PubChem compound/target lookup
 │   ├── openfda.py               #   OpenFDA side effects + labeling
+│   ├── uniprot.py               #   UniProt gene/protein lookup (free REST API)
 │   ├── molecule.py              #   Molecule design (Gemini + RDKit + PubChem)
 │   ├── output.py                #   Terminal formatting + file output
 │   └── dashboard/
