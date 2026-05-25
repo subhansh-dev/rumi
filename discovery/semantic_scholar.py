@@ -1,0 +1,86 @@
+"""Semantic Scholar API — free REST API, no key needed.
+
+For all domains. Provides: paper citations, influence scores, embeddings.
+Rate limit: 100 req/min without key, 1000 req/min with free key.
+"""
+
+import json
+import time
+import urllib.request
+import urllib.parse
+
+S2_BASE = "https://api.semanticscholar.org/graph/v1"
+_LAST_CALL = 0.0
+
+
+def _rate_limit():
+    global _LAST_CALL
+    now = time.time()
+    if now - _LAST_CALL < 0.6:
+        time.sleep(0.6 - (now - _LAST_CALL))
+    _LAST_CALL = time.time()
+
+
+def _fetch(url: str) -> dict | None:
+    _rate_limit()
+    try:
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return None
+
+
+def search_papers(query: str, limit: int = 5) -> list[dict]:
+    """Search papers with citation influence metrics."""
+    q = urllib.parse.quote(query)
+    url = f"{S2_BASE}/paper/search?query={q}&limit={limit}&fields=title,year,citationCount,influentialCitationCount,authors"
+    data = _fetch(url)
+    if not data:
+        return []
+    return [
+        {
+            "title": p.get("title", ""),
+            "year": p.get("year"),
+            "citation_count": p.get("citationCount", 0),
+            "influential_citations": p.get("influentialCitationCount", 0),
+            "authors": [a.get("name", "") for a in p.get("authors", [])[:5]],
+        }
+        for p in data.get("data", [])
+    ]
+
+
+def get_paper_influence(title: str) -> dict | None:
+    """Get citation influence for a specific paper by title."""
+    q = urllib.parse.quote(title)
+    url = f"{S2_BASE}/paper/search?query={q}&limit=1&fields=title,citationCount,influentialCitationCount,embedding"
+    data = _fetch(url)
+    if not data or not data.get("data"):
+        return None
+    p = data["data"][0]
+    result = {
+        "title": p.get("title", ""),
+        "citation_count": p.get("citationCount", 0),
+        "influential_citations": p.get("influentialCitationCount", 0),
+    }
+    embed = p.get("embedding")
+    if embed and embed.get("vector"):
+        result["has_embedding"] = True
+    return result
+
+
+def enrich_entities(graph) -> int:
+    """Enrich paper entities in graph with Semantic Scholar citation data.
+
+    Returns count of enriched papers.
+    """
+    enriched = 0
+    for pmid, paper in list(graph.papers.items()):
+        title = paper.get("title", "")
+        if not title:
+            continue
+        info = get_paper_influence(title)
+        if info:
+            paper["citation_count"] = info.get("citation_count", 0)
+            paper["influential_citations"] = info.get("influential_citations", 0)
+            enriched += 1
+    return enriched

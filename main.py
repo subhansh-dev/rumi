@@ -3215,6 +3215,26 @@ Output ONLY valid JSON as a list of objects with this structure:
             enriched = enrich_uniprot(graph)
             total_enriched += enriched
 
+        if "pdb" in enrich_sources:
+            from discovery.pdb import enrich_entities as enrich_pdb
+            enriched = enrich_pdb(graph)
+            total_enriched += enriched
+
+        if "semantic_scholar" in enrich_sources:
+            from discovery.semantic_scholar import enrich_entities as enrich_s2
+            enriched = enrich_s2(graph)
+            total_enriched += enriched
+
+        if "materials_project" in enrich_sources:
+            from discovery.materials_project import enrich_entities as enrich_mp
+            enriched = enrich_mp(graph)
+            total_enriched += enriched
+
+        if "nasa_power" in enrich_sources:
+            from discovery.nasa_power import enrich_entities as enrich_power
+            enriched = enrich_power(graph)
+            total_enriched += enriched
+
         graph.save()
         self._post_output(f"Enriched {total_enriched} entities with {', '.join(e.capitalize() for e in enrich_sources)} data.")
 
@@ -3293,13 +3313,20 @@ Output ONLY valid JSON as a list of objects with this structure:
         return "\n".join(lines)
 
     async def _generate(self, target: str, domain: str = "drug_discovery"):
-        """Generate domain-specific output (molecules, materials, hypotheses, etc.)."""
+        """Generate domain-specific output for any domain."""
         domain_cfg = get_domain(domain)
         if not domain_cfg:
             domain_cfg = get_domain("general")
+        label = domain_cfg["label"]
         gen_type = domain_cfg.get("generation", "hypothesis")
+        from discovery.groq_client import call as groq_call
 
-        if gen_type == "molecule":
+        def _save_output(data: list, folder: str, filename: str = "active.json"):
+            out_dir = Path(__file__).resolve().parent / "discovery" / folder
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / filename).write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        if domain == "drug_discovery":
             from discovery.graph import KnowledgeGraph
             from discovery.molecule import generate_candidates, format_candidates
             self._post_output(f"[bold cyan]Designing molecules for target: {target}...[/bold cyan]")
@@ -3309,27 +3336,127 @@ Output ONLY valid JSON as a list of objects with this structure:
             if not candidates:
                 self._post_output("No valid molecules generated. Try a different target.")
                 return
-            md = Path(__file__).resolve().parent / "discovery" / "molecules"
-            md.mkdir(parents=True, exist_ok=True)
-            (md / "active.json").write_text(json.dumps(candidates, indent=2), encoding="utf-8")
+            _save_output(candidates, "molecules")
             self._post_output(format_candidates(candidates))
 
-        elif gen_type == "hypothesis":
-            self._post_output(f"[bold cyan]Generating hypotheses for {target} in {domain_cfg['label']}...[/bold cyan]")
-            from discovery.graph import KnowledgeGraph
-            graph = KnowledgeGraph.load()
-            if not graph.entities:
-                self._post_output("No knowledge graph found. Run /discover first.")
+        elif domain == "materials_science":
+            self._post_output(f"[bold cyan]Designing novel materials for: {target}...[/bold cyan]")
+            prompt = f"""You are a computational materials scientist. Design 5 novel materials or compounds for: {target}
+
+For EACH candidate, provide:
+1. Name/composition (formula or systematic name)
+2. Predicted crystal structure type (if applicable)
+3. Key predicted properties (band gap, conductivity, strength, etc.)
+4. Synthesis approach
+5. Why it is novel compared to existing materials
+
+Output ONLY valid JSON as a list of objects with keys: name, composition, structure, properties, synthesis, novelty"""
+            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            candidates = json.loads(result) if result else []
+            if not candidates:
+                self._post_output("No materials generated. Try a different target.")
                 return
-            prompt = self._build_hypothesis_prompt(graph, target, domain)
-            result = await self._call_llm(prompt, json_mode=True, provider="groq")
-            hypotheses = self._parse_hypotheses(result)
-            from discovery.output import format_hypotheses, save_hypotheses
-            save_hypotheses(hypotheses)
-            self._post_output(format_hypotheses(hypotheses))
+            _save_output(candidates, "materials")
+            for i, m in enumerate(candidates, 1):
+                self._post_output(f"\n  [bold]Candidate {i}: {m.get('name', '?')}[/bold]")
+                self._post_output(f"  Composition: {m.get('composition', '?')}")
+                self._post_output(f"  Structure: {m.get('structure', '?')}")
+                self._post_output(f"  Properties: {m.get('properties', '?')}")
+                self._post_output(f"  Synthesis: {m.get('synthesis', '?')}")
+                self._post_output(f"  Novelty: {m.get('novelty', '?')}")
+
+        elif domain == "neuroscience":
+            self._post_output(f"[bold cyan]Designing neuroscience experiments for: {target}...[/bold cyan]")
+            prompt = f"""You are a neuroscientist. Design 3 detailed experimental protocols to investigate: {target}
+
+For EACH experiment, provide:
+1. Title
+2. Hypothesis being tested
+3. Experimental design (techniques, controls, variables)
+4. Expected outcomes and interpretation
+5. Potential confounds and how to control them
+
+Output ONLY valid JSON as a list of objects with keys: title, hypothesis, design, outcomes, confounds"""
+            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            experiments = json.loads(result) if result else []
+            if not experiments:
+                self._post_output("No experiments generated. Try a different target.")
+                return
+            _save_output(experiments, "experiments")
+            for i, exp in enumerate(experiments, 1):
+                self._post_output(f"\n  [bold]Experiment {i}: {exp.get('title', '?')}[/bold]")
+                self._post_output(f"  Hypothesis: {exp.get('hypothesis', '?')}")
+                self._post_output(f"  Design: {exp.get('design', '?')}")
+
+        elif domain == "molecular_biology":
+            self._post_output(f"[bold cyan]Designing gene circuit / protocol for: {target}...[/bold cyan]")
+            prompt = f"""You are a molecular biologist. Design 3 molecular biology strategies or gene circuit designs for: {target}
+
+For EACH design, provide:
+1. Title
+2. Biological components (genes, promoters, vectors, etc.)
+3. Design rationale
+4. Expected results
+5. Validation approach
+
+Output ONLY valid JSON as a list of objects with keys: title, components, rationale, results, validation"""
+            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            designs = json.loads(result) if result else []
+            if not designs:
+                self._post_output("No designs generated. Try a different target.")
+                return
+            _save_output(designs, "designs")
+            for i, d in enumerate(designs, 1):
+                self._post_output(f"\n  [bold]Design {i}: {d.get('title', '?')}[/bold]")
+                self._post_output(f"  Components: {d.get('components', '?')}")
+                self._post_output(f"  Rationale: {d.get('rationale', '?')}")
+
+        elif domain == "climate_energy":
+            self._post_output(f"[bold cyan]Generating climate/energy proposals for: {target}...[/bold cyan]")
+            prompt = f"""You are a climate scientist and policy analyst. Generate 3 actionable proposals for: {target}
+
+For EACH proposal, provide:
+1. Title
+2. Problem statement
+3. Proposed solution (policy, technology, or both)
+4. Expected impact (quantified where possible)
+5. Implementation roadmap
+
+Output ONLY valid JSON as a list of objects with keys: title, problem, solution, impact, roadmap"""
+            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            proposals = json.loads(result) if result else []
+            if not proposals:
+                self._post_output("No proposals generated. Try a different target.")
+                return
+            _save_output(proposals, "proposals")
+            for i, p in enumerate(proposals, 1):
+                self._post_output(f"\n  [bold]Proposal {i}: {p.get('title', '?')}[/bold]")
+                self._post_output(f"  Problem: {p.get('problem', '?')}")
+                self._post_output(f"  Solution: {p.get('solution', '?')}")
 
         else:
-            self._post_output(f"No generation method configured for {domain_cfg['label']}.")
+            # general science
+            self._post_output(f"[bold cyan]Generating research proposals for: {target}...[/bold cyan]")
+            prompt = f"""You are a research scientist. Generate 3 research proposals for investigating: {target}
+
+For EACH proposal, provide:
+1. Title
+2. Research question
+3. Methodology
+4. Expected outcomes
+5. Required resources
+
+Output ONLY valid JSON as a list of objects with keys: title, question, methodology, outcomes, resources"""
+            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            proposals = json.loads(result) if result else []
+            if not proposals:
+                self._post_output("No proposals generated. Try a different target.")
+                return
+            _save_output(proposals, "proposals")
+            for i, p in enumerate(proposals, 1):
+                self._post_output(f"\n  [bold]Proposal {i}: {p.get('title', '?')}[/bold]")
+                self._post_output(f"  Question: {p.get('question', '?')}")
+                self._post_output(f"  Methodology: {p.get('methodology', '?')}")
 
     def shutdown_executors(self):
         """Shut down all thread pool executors."""

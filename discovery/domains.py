@@ -16,13 +16,13 @@ DOMAINS = {
             "side_effect": {"color": "#e879f9", "description": "Adverse drug reaction"},
             "property":    {"color": "#fcd34d", "description": "Molecular property or attribute"},
         },
-        "enrichment": ["pubchem", "openfda"],
+        "enrichment": ["pubchem", "openfda", "pdb", "semantic_scholar"],
         "generation": "molecule",
     },
 
     "materials_science": {
         "label": "Materials Science",
-        "description": "Materials, compounds, properties, synthesis methods, applications — with PubChem enrichment",
+        "description": "Materials, compounds, properties, synthesis methods, applications — with PubChem + Materials Project enrichment",
         "aliases": ["materials", "material", "chemistry", "nanotech"],
         "entity_types": {
             "material":        {"color": "#ff6b6b", "description": "Engineered substance with specific properties"},
@@ -32,13 +32,13 @@ DOMAINS = {
             "application":     {"color": "#96ceb4", "description": "Use case or application domain"},
             "element":         {"color": "#ffeaa7", "description": "Chemical element"},
         },
-        "enrichment": ["pubchem"],
+        "enrichment": ["pubchem", "materials_project", "semantic_scholar"],
         "generation": "material",
     },
 
     "neuroscience": {
         "label": "Neuroscience",
-        "description": "Brain regions, neurotransmitters, disorders, genes, behaviors — with UniProt gene enrichment",
+        "description": "Brain regions, neurotransmitters, disorders, genes, behaviors — with UniProt + PDB enrichment",
         "aliases": ["neuro", "neuroscience", "brain"],
         "entity_types": {
             "brain_region":     {"color": "#dda0dd", "description": "Specific brain area or nucleus"},
@@ -50,13 +50,13 @@ DOMAINS = {
             "neuron_type":      {"color": "#20b2aa", "description": "Type of neuron"},
             "mechanism":        {"color": "#fb923c", "description": "Neural mechanism or process"},
         },
-        "enrichment": ["uniprot"],
+        "enrichment": ["uniprot", "pdb", "semantic_scholar"],
         "generation": "hypothesis",
     },
 
     "molecular_biology": {
         "label": "Molecular Biology",
-        "description": "Genes, proteins, pathways, organisms, phenotypes — with UniProt enrichment",
+        "description": "Genes, proteins, pathways, organisms, phenotypes — with UniProt + PDB enrichment",
         "aliases": ["molbio", "molecular", "biology", "genetics", "genomics"],
         "entity_types": {
             "gene":      {"color": "#60a5fa", "description": "Gene or genetic locus"},
@@ -66,13 +66,13 @@ DOMAINS = {
             "phenotype": {"color": "#f87171", "description": "Observable trait or characteristic"},
             "cell_type": {"color": "#4ade80", "description": "Cell type or line"},
         },
-        "enrichment": ["uniprot"],
+        "enrichment": ["uniprot", "pdb", "semantic_scholar"],
         "generation": "hypothesis",
     },
 
     "climate_energy": {
         "label": "Climate & Energy",
-        "description": "Emissions, technologies, policies, environmental impacts, regions",
+        "description": "Emissions, technologies, policies, environmental impacts, regions — with NASA POWER climate data + Semantic Scholar",
         "aliases": ["climate", "energy", "environment", "climate change"],
         "entity_types": {
             "emission_source": {"color": "#ff7675", "description": "Source of greenhouse gas or pollutant"},
@@ -82,13 +82,13 @@ DOMAINS = {
             "region":          {"color": "#55efc4", "description": "Geographic region or country"},
             "resource":        {"color": "#ffeaa7", "description": "Natural resource or fuel type"},
         },
-        "enrichment": [],
+        "enrichment": ["nasa_power", "semantic_scholar"],
         "generation": "hypothesis",
     },
 
     "general": {
         "label": "General Science",
-        "description": "Any scientific topic — entities auto-detected from paper content, no specialized enrichment",
+        "description": "Any scientific topic — entities auto-detected from paper content, with Semantic Scholar citation enrichment",
         "aliases": ["general", "science", "any"],
         "entity_types": {
             "concept":       {"color": "#dfe6e9", "description": "General scientific concept or term"},
@@ -98,7 +98,7 @@ DOMAINS = {
             "organism":      {"color": "#e17055", "description": "Organism or biological system"},
             "material":      {"color": "#00cec9", "description": "Substance or material"},
         },
-        "enrichment": [],
+        "enrichment": ["semantic_scholar"],
         "generation": "hypothesis",
     },
 }
