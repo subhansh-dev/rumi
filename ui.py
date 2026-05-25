@@ -27,15 +27,41 @@ try:
     from prompt_toolkit import prompt as _pt_prompt
     from prompt_toolkit.history import InMemoryHistory
     from prompt_toolkit.styles import Style as PtStyle
+    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.formatted_text import HTML
     HAVE_PT = True
 except ImportError:
     HAVE_PT = False
+    KeyBindings = None
+    HTML = None
 
 
 console = Console()
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = BASE_DIR / "config"
 API_FILE = CONFIG_DIR / "api_keys.json"
+
+# ── Status Bar ──────────────────────────────────────────────────
+SPINNER_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+RUMI_WORDS = [
+    "scientifying...", "hypothesizing...", "synthesizing wovingly...",
+    "calculating...", "weasoning...", "analyzing...",
+    "expewimenting...", "discovewing...", "wesearching...",
+    "thinking vewy hard...", "pwocessing...", "computing...",
+    "formulating...", "investigating...", "examining...",
+    "vawidating...", "connecting the dots...", "doing the science...",
+    "conceptuawizing...", "theowizing...", "postulating...",
+    "simulating...", "optimizing...", "vewifying...",
+    "calibwating...", "initiawizing...", "woading...",
+    "awakening the bwain...", "wewaxing...", "thinking...",
+    "sowwying...", "twying my best...", "making senpai pwaud...",
+    "uwu-ing...", "being a good AI...", "wubbing my widdle bwain...",
+    "synthesizing...", "deducing...", "inferwing...",
+    "extwapolating...", "bwaistorming...", "wuminating...",
+    "conjuring science...", "weading the code...", "witing code...",
+    "fixing bugs...", "adding featuwes...", "wefactowing...",
+    "cweating something awesome...", "pwepawing wesponse...",
+]
 
 # ── Colour Palette ──────────────────────────────────────────────
 C_CYAN   = "#00d4ff"
@@ -157,9 +183,20 @@ class RumiUI:
         self._running = True
         self._input_lock = threading.Lock()
 
+        # ── Interrupt & Message Queue ──
+        self._interrupt_requested = threading.Event()
+        self._is_busy = False
+        self._message_queue_count = 0
+        self._current_spin_idx = 0
+        self._current_word_idx = 0
+
         # Input history & completion
         self._pt_history = InMemoryHistory() if HAVE_PT else None
         self._message_count = 0
+
+        # ── Status bar updater thread ──
+        self._status_thread = threading.Thread(target=self._status_updater, daemon=True)
+        self._status_thread.start()
 
         # ── Animated Startup ──────────────────────────────────────
         self._show_startup()
@@ -176,6 +213,39 @@ class RumiUI:
         # Start heartbeat for thinking indicator
         self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()
+
+    def _status_updater(self):
+        """Background thread: cycles spinner & random words for status bar."""
+        while self._running:
+            self._current_spin_idx = (self._current_spin_idx + 1) % len(SPINNER_CHARS)
+            if self._current_spin_idx == 0:
+                self._current_word_idx = (self._current_word_idx + 1) % len(RUMI_WORDS)
+            time.sleep(0.15)
+
+    def _get_toolbar(self):
+        if not HAVE_PT:
+            return ""
+        if self._is_busy:
+            parts = []
+            parts.append(SPINNER_CHARS[self._current_spin_idx])
+            parts.append(RUMI_WORDS[self._current_word_idx])
+            parts.append(f"| {self._rumi_state}")
+            if self._message_queue_count:
+                parts.append(f"| ◈ queue: {self._message_queue_count}")
+            if self._interrupt_requested.is_set():
+                parts.append("| ⛔ press ESC to intawupt" if not self._interrupt_requested.is_set() else "| ⛔ intawupting...")
+            return HTML(f"<style fg='#10b981' bold>{' '.join(parts)}</style>")
+        else:
+            words = ["weady... ^_^", "wistening...", "awaiting senpai... :3"]
+            word = words[self._current_word_idx % len(words)]
+            spin = SPINNER_CHARS[self._current_spin_idx]
+            return HTML(f"<style fg='#6b7280'>{spin} {word} | {self._rumi_state}</style>")
+
+    def interrupt_requested(self):
+        return self._interrupt_requested.is_set()
+
+    def clear_interrupt(self):
+        self._interrupt_requested.clear()
 
     # ── Startup ─────────────────────────────────────────────────
     def _show_startup(self):
@@ -240,6 +310,16 @@ class RumiUI:
             ('prompt', f'bold {C_CYAN}'),
         ]) if HAVE_PT else None
 
+        # Set up ESC key binding for interrupt
+        kb = KeyBindings() if HAVE_PT else None
+        if kb:
+            @kb.add('escape')
+            def _(event):
+                self._interrupt_requested.set()
+            @kb.add('c-c')
+            def _(event):
+                self._interrupt_requested.set()
+
         while self._running:
             try:
                 if HAVE_PT and self._pt_history is not None:
@@ -251,6 +331,8 @@ class RumiUI:
                         style=pt_style,
                         completer=_completer,
                         complete_while_typing=True,
+                        bottom_toolbar=self._get_toolbar,
+                        key_bindings=kb,
                     )
                 else:
                     value = input("⚗  ")

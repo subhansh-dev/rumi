@@ -2229,6 +2229,8 @@ class RumiLive:
 
         self._last_text_cmd = ("", 0.0)
         self._last_send_content_time = 0.0
+        self._tool_executing = False
+        self._queued_texts = []
 
         self._schedule_shutdown = False
         self._turn_done_event = None
@@ -2560,6 +2562,13 @@ class RumiLive:
         if text == self._last_text_cmd[0] and now - self._last_text_cmd[1] < 1.0:
             return
         self._last_text_cmd = (text, now)
+
+        # ── Message queue: if a tool is executing, queue instead of send ──
+        if self._tool_executing:
+            self._queued_texts.append(text)
+            self.ui._message_queue_count = len(self._queued_texts)
+            self.ui.write_log(f"SYS: ◈ Message queued ({len(self._queued_texts)} pending)")
+            return
 
         self._action_source = "text"
         processed_text = text
@@ -2918,6 +2927,16 @@ class RumiLive:
     async def _execute_tool(self, fc) -> types.FunctionResponse:
         name = fc.name
         args = dict(fc.args or {})
+
+        # ── Interrupt check: if user pressed ESC, skip tool ──
+        if self.ui.interrupt_requested():
+            print(f"[RUMI] {name} cancelled by user interrupt", flush=True)
+            self.ui.clear_interrupt()
+            self.ui.set_state("LISTENING")
+            return types.FunctionResponse(
+                id=fc.id, name=name,
+                response={"result": "[CANCELLED] Tool execution interrupted by user."})
+
         print(f"[RUMI] {name} {redact_params(args)}", flush=True)
         self.ui.set_state("THINKING")
 
@@ -5831,6 +5850,10 @@ class RumiLive:
         if not fcs:
             return
 
+        self._tool_executing = True
+        self.ui._is_busy = True
+        self.ui._interrupt_requested.clear()
+
         # Single tool — run directly (no overhead)
         if len(fcs) == 1:
             try:
@@ -5870,6 +5893,9 @@ class RumiLive:
         if self._session_dead or not self.session:
             if not self.ui.muted:
                 self.ui.set_state("LISTENING")
+            self._tool_executing = False
+            self.ui._is_busy = False
+            self.ui._message_queue_count = 0
             return
         try:
             await session.send_tool_response(function_responses=fn_responses)
@@ -5901,6 +5927,9 @@ class RumiLive:
                     self._write_health()
                     self._session_dead = True
                 threading.Thread(target=_shutdown_err, daemon=True).start()
+            self._tool_executing = False
+            self.ui._is_busy = False
+            self.ui._message_queue_count = 0
             return
         if self._schedule_shutdown:
             self._schedule_shutdown = False
@@ -5923,6 +5952,17 @@ class RumiLive:
                 self._write_health()
                 self._session_dead = True
             threading.Thread(target=_shutdown, daemon=True).start()
+
+        # ── Cleanup: reset busy, drain message queue ──
+        self._tool_executing = False
+        self.ui._is_busy = False
+        self.ui._message_queue_count = 0
+        if self._queued_texts:
+            q = list(self._queued_texts)
+            self._queued_texts.clear()
+            for qt in q:
+                self._on_text_command(qt)
+
     async def _send_realtime(self):
         try:
             while True:
