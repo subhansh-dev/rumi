@@ -30,6 +30,10 @@ rumi
 scientist_pipeline(action="run", topic="emergent abilities in large language models")
 ```
 
+<p align="center">
+  <img src="assets/rumi_demo.gif" alt="RUMI Quick Start Demo" width="800" />
+</p>
+
 ---
 
 ## Features
@@ -75,15 +79,9 @@ Idea → Novelty Check → Hypothesis Generation → Experiment Design
 | **Scientist Search** | Search papers by famous researchers with citation analysis |
 | **Pipeline Orchestrator** | 12-phase enhanced pipeline with active learning loop, BibTeX, self-improvement |
 
----
-
-## Demo
-
-<video autoplay loop muted playsinline width="100%">
-  <source src="assets/rumi_demo.gif" type="image/gif">
-</video>
-
-*Autonomous cognitive loop — RUMI running research pipeline, memory recall, and real-time reasoning.*
+<p align="center">
+  <img src="assets/rumi_pipeline.gif" alt="RUMI 12-Phase Research Pipeline" width="800" />
+</p>
 
 ---
 
