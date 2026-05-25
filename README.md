@@ -27,12 +27,16 @@
   Terminal-native. 60+ Brain Modules. 15 Scientist Modules. Zero bloat.
 </p>
 
+<p align="center">
+  <img src="assets/rumi_intro.gif" alt="RUMI Startup Demo" width="800" />
+  <br><em>RUMI booting up and responding to a greeting</em>
+</p>
+
 ---
 
 ## 📋 Table of Contents
 
 - [About RUMI](#-about-rumi)
-- [Demo](#-demo)
 - [Motivation](#-motivation)
 - [Cognitive Architecture](#-cognitive-architecture)
 - [Scientist AI Pipeline](#-scientist-ai-pipeline)

@@ -380,9 +380,80 @@ def optimize_ffmpeg(input_path):
     print(f"Optimized: {os.path.getsize(out)} bytes")
 
 
+def create_intro_gif():
+    """Create intro GIF: RUMI startup → user types 'haiii :3'"""
+    frames = []
+    all_lines = []
+
+    # 1: Boot screen
+    lines = [
+        ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN, "body"),
+        ("[BOOT] Initializing cognitive architecture...", MUTED, "body"),
+        ("[BOOT] Loading brain modules...", MUTED, "body"),
+    ]
+    all_lines.append(lines)
+
+    # 2: Systems online
+    lines = [
+        ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN, "body"),
+        ("[BOOT] All systems nominal.", GREEN, "body"),
+        ("  ✓  60+ brain modules               [ONLINE]", GREEN, "body"),
+        ("  ✓  15 scientist modules            [ONLINE]", GREEN, "body"),
+        ("  ✓  11 research agents              [READY]", GREEN, "body"),
+        ("", None, "body"),
+        ("  System ready.", CYAN, "body"),
+        ("", None, "body"),
+        ("  ───────────────────────────────────────", MUTED, "small"),
+        ("  RUMI v2.0  |  Gemini 2.5 Flash  |  ~200MB RAM", MUTED, "small"),
+        ("  ───────────────────────────────────────", MUTED, "small"),
+    ]
+    all_lines.append(lines)
+
+    # 3: Prompt
+    lines = [
+        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("║     🧬  RUMI  —  Ready to chat               ║", ORANGE, "body"),
+        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  hai", PINK, "heading"),
+    ]
+    all_lines.append(lines)
+
+    # 4: continuing typing
+    lines = [
+        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  haiiii :3", PINK, "heading"),
+    ]
+    all_lines.append(lines)
+
+    # 5: RUMI responds
+    lines = [
+        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  haiiii :3", PINK, "heading"),
+        ("", None, "body"),
+        ("  hewwo!! 🧪✨ how can i help wiff your", CYAN, "body"),
+        ("  science today~? 🔬", CYAN, "body"),
+    ]
+    all_lines.append(lines)
+
+    for ls in all_lines:
+        frames.append(frame_from_lines(ls))
+    path = os.path.join(OUT_DIR, "rumi_intro.gif")
+    durs = [80, 100, 80, 80, 350]
+    frames[0].save(path, save_all=True, append_images=frames[1:],
+                   duration=durs, loop=0, optimize=True, disposal=2)
+    print(f"Intro GIF: {os.path.getsize(path)} bytes")
+    return path
+
+
 if __name__ == "__main__":
+    g_intro = create_intro_gif()
     g1 = create_quickstart_gif()
     g2 = create_pipeline_gif()
     g3 = create_install_gif()
-    for g in [g1, g2, g3]:
+    for g in [g_intro, g1, g2, g3]:
         optimize_ffmpeg(g)
