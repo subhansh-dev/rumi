@@ -1,333 +1,388 @@
 """
 Generate professional terminal demo GIFs for RUMI README.
-Uses Pillow for frame generation and ffmpeg for GIF optimization.
+Rounded corners, black bg, shiny effects, deep colors.
+Uses Pillow for frames and ffmpeg for optimization.
 """
-import os
-import subprocess
+import os, math, subprocess
 from PIL import Image, ImageDraw, ImageFont
 
-# ── Config ──────────────────────────────────────────────────────────
 WIDTH, HEIGHT = 900, 580
 FONT_PATH = "C:/Windows/Fonts/consola.ttf"
-FONT_SIZE = 18
-BG = (18, 18, 28)        # dark terminal bg
-TEXT = (200, 200, 200)    # light gray text
-GREEN = (80, 220, 120)    # success/ready
-CYAN = (80, 180, 240)     # commands
-YELLOW = (240, 210, 80)   # warnings/loading
-RED = (240, 100, 100)     # errors
-MUTED = (120, 120, 140)   # dim text
-BLUE = (100, 140, 255)    # phase labels
-ORANGE = (255, 170, 60)   # RUMI brand
-PROMPT_COLOR = (80, 220, 120)  # green prompt
-
+FONT_PATH_BOLD = "C:/Windows/Fonts/consolab.ttf"
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets")
+
+FONT_SIZES = {"title": 26, "heading": 20, "body": 17, "small": 13}
+fonts = {k: ImageFont.truetype(FONT_PATH, v) for k, v in FONT_SIZES.items()}
+font_bold = ImageFont.truetype(FONT_PATH_BOLD, 18)
+
+BG = (0, 0, 0)            # true black
+TITLE_BG = (10, 10, 20)   # near-black title bar
+TEXT = (210, 210, 220)     # soft white
+GREEN = (60, 230, 140)     # vibrant green
+CYAN = (50, 190, 255)      # bright cyan
+YELLOW = (255, 210, 50)    # warm yellow
+RED = (255, 80, 80)        # vibrant red
+MUTED = (100, 100, 130)    # dim blue-gray
+ORANGE = (255, 160, 50)    # RUMI brand orange
+PURPLE = (160, 100, 255)   # accent
+PINK = (255, 80, 180)      # accent
+PROMPT = (60, 230, 140)    # green prompt
+
+RADIUS = 16  # rounded corner radius
+
 os.makedirs(OUT_DIR, exist_ok=True)
 
-font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
-font_small = ImageFont.truetype(FONT_PATH, 14)
-font_big = ImageFont.truetype(FONT_PATH, 28)
-font_title = ImageFont.truetype(FONT_PATH, 22)
+
+def rounded_rect(draw, xy, radius, fill, outline=None):
+    """Draw a rounded rectangle."""
+    x1, y1, x2, y2 = xy
+    draw.rounded_rectangle(xy, radius=radius, fill=fill, outline=outline)
 
 
-def make_frame(draw, lines, cursor_line=None, cursor_pos=None):
-    draw.rectangle([0, 0, WIDTH, HEIGHT], fill=BG)
-    # Terminal title bar
-    draw.rectangle([0, 0, WIDTH, 30], fill=(30, 30, 45))
-    draw.ellipse([10, 10, 20, 20], fill=(240, 100, 100))
-    draw.ellipse([26, 10, 36, 20], fill=(240, 210, 80))
-    draw.ellipse([42, 10, 52, 20], fill=(80, 220, 120))
-    draw.text((WIDTH // 2 - 40, 6), "RUMI  v2.0", font=font_small, fill=MUTED)
-    # Content
-    y = 44
-    for i, (text, color) in enumerate(lines):
-        draw.text((20, y), text, font=font, fill=color)
-        y += 26
-    # Cursor
-    if cursor_line is not None:
-        cy = 44 + cursor_line * 26
-        cx = 20 + (cursor_pos or 0) * 10
-        draw.rectangle([cx, cy, cx + 10, cy + 20], fill=TEXT)
-    return y
+def add_shiny_overlay(draw, x1, y1, x2, y2):
+    """Add a subtle glossy highlight at the top of the terminal."""
+    for i in range(20):
+        alpha = int(12 * (1 - i / 20))
+        draw.rectangle([x1 + 30, y1 + 35 + i, x2 - 30, y1 + 36 + i],
+                       fill=(255, 255, 255, 0))
+
+
+def make_terminal_frame(draw, img, lines, title="RUMI v2.0"):
+    """Draw the terminal window with rounded corners and shiny effects."""
+    w, h = WIDTH, HEIGHT
+    margin = 20
+    # Glow effect behind terminal
+    for g in range(3, 0, -1):
+        glow = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
+        gdraw = ImageDraw.Draw(glow)
+        gdraw.rounded_rectangle(
+            (margin - g, margin - g, w - margin + g, h - margin + g),
+            radius=RADIUS + g, outline=(50, 50, 80, 20 - g * 5), width=2)
+        img.alpha_composite(glow)
+    # Terminal body
+    rounded_rect(draw, (margin, margin, w - margin, h - margin), RADIUS, fill=BG)
+    # Title bar
+    rounded_rect(draw, (margin, margin, w - margin, margin + 34), RADIUS,
+                 fill=TITLE_BG)
+    draw.rectangle([margin, margin + 20, w - margin, margin + 34], fill=TITLE_BG)
+    # Window buttons
+    for bx, bc in [(margin + 14, (255, 80, 80)), (margin + 34, (255, 210, 50)),
+                   (margin + 54, (60, 230, 140))]:
+        draw.ellipse([bx, margin + 11, bx + 12, margin + 23], fill=bc)
+        # button shine
+        draw.ellipse([bx + 2, margin + 13, bx + 6, margin + 17], fill=(255, 255, 255, 40))
+    # Title text
+    draw.text((w // 2 - 50, margin + 10), title, font=fonts["small"], fill=MUTED)
+    # Shiny horizontal highlight on title bar
+    draw.rectangle([margin + 60, margin + 3, w - margin - 60, margin + 4],
+                   fill=(255, 255, 255, 12))
+    # Content area
+    y = margin + 50
+    for text, color, font_key in lines:
+        fnt = fonts.get(font_key, fonts["body"])
+        draw.text((margin + 16, y), text, font=fnt, fill=color)
+        y += 24
+    # Bottom shine
+    draw.rectangle([margin + 40, h - margin - 6, w - margin - 40, h - margin - 5],
+                   fill=(255, 255, 255, 6))
+
+
+def frame_from_lines(lines, title="RUMI v2.0"):
+    img = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    # Subtle radial background glow
+    for r in range(200, 0, -4):
+        alpha = max(0, 3 - r // 80)
+        c = (20, 20, 50)
+        draw.ellipse([WIDTH // 2 - r, HEIGHT // 2 - r,
+                      WIDTH // 2 + r, HEIGHT // 2 + r],
+                     fill=(*c, alpha))
+    make_terminal_frame(draw, img, lines, title)
+    return img
 
 
 def create_quickstart_gif():
     frames = []
-    lines_list = []
+    all_lines = []
 
-    # Frame 1: Terminal boot
+    # 1: Boot screen
     lines = [
-        ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN),
-        ("[BOOT] Initializing cognitive architecture...", MUTED),
+        ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN, "body"),
+        ("[BOOT] Initializing cognitive architecture...", MUTED, "body"),
+        ("[BOOT] Loading brain modules...", MUTED, "body"),
     ]
-    lines_list.append(list(lines))
+    all_lines.append(lines)
 
-    # Frame 2-5: Modules loading
-    modules = [
-        ("neural_memory", "OK"),
-        ("episodic_memory", "OK"),
-        ("vector_memory", "OK"),
-        ("active_inference", "OK"),
-        ("causal_reasoner", "OK"),
-        ("analogy_engine", "OK"),
-        ("curiosity", "OK"),
-        ("creativity_engine", "OK"),
+    # 2-6: Memory modules loading
+    mem_modules = [
+        "neural_memory", "episodic_memory", "vector_memory",
+        "active_inference", "curiosity_engine"
     ]
-    for i in range(1, len(modules) + 1):
+    for i, mod in enumerate(mem_modules):
         lines = [
-            ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN),
-            ("[BOOT] Initializing cognitive architecture...", MUTED),
+            ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN, "body"),
+            ("[BOOT] Initializing cognitive architecture...", MUTED, "body"),
         ]
-        for name, status in modules[:i]:
-            color = GREEN if status == "OK" else MUTED
-            lines.append((f"  ✓ {name:30s} [{status}]", color))
-        lines.append(("", MUTED))
-        lines.append((f"  [{i}/{len(modules)}] modules online...", MUTED))
-        lines_list.append(list(lines))
+        for j in range(i + 1):
+            c = GREEN if j < i else YELLOW
+            st = "OK" if j < i else "RUNNING"
+            lines.append((f"  ✓ {mem_modules[j]:30s} [{st}]", c, "body"))
+        lines.append(("", None, "body"))
+        lines.append((f"  [{i+1}/{len(mem_modules)}] memory modules online...", MUTED, "body"))
+        all_lines.append(lines)
 
-    # Frame 6: All modules loaded + scientist modules
+    # 7: All modules + scientist ready
     lines = [
-        ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN),
-        ("[BOOT] Initializing cognitive architecture...", MUTED),
+        ("[BOOT] RUMI v2.0 — Research & Unified Machine Intelligence", CYAN, "body"),
+        ("[BOOT] All systems nominal.", GREEN, "body"),
+        ("  ✓ 9 memory systems              [ONLINE]", GREEN, "body"),
+        ("  ✓ 8 reasoning modules            [ONLINE]", GREEN, "body"),
+        ("  ✓ 6 planning modules             [ONLINE]", GREEN, "body"),
+        ("  ✓ 15 scientist modules           [ONLINE]", GREEN, "body"),
+        ("  ✓ 11 research agents             [READY]", GREEN, "body"),
+        ("  ✓ 40+ tool actions               [ARMED]", GREEN, "body"),
+        ("", None, "body"),
+        ("  System ready. 60+ modules online.", CYAN, "body"),
+        ("", None, "body"),
+        ("  ───────────────────────────────────────", MUTED, "small"),
+        ("  RUMI v2.0  |  Gemini 2.5 Flash  |  ~200MB RAM", MUTED, "small"),
+        ("  ───────────────────────────────────────", MUTED, "small"),
     ]
-    for name, status in modules:
-        lines.append((f"  ✓ {name:30s} [{status}]", GREEN))
-    lines.append(("  ✓ discovery_engine       [ONLINE]", GREEN))
-    lines.append(("  ✓ novelty_checker        [ONLINE]", GREEN))
-    lines.append(("  ✓ experiment_designer    [ONLINE]", GREEN))
-    lines.append(("  ✓ paper_generator        [ONLINE]", GREEN))
-    lines.append(("  ✓ knowledge_graph        [ONLINE]", GREEN))
-    lines.append(("  ✓ 11 scientist agents    [READY]", GREEN))
-    lines.append(("", MUTED))
-    lines.append(("System ready. All 60+ modules online.", GREEN))
-    lines_list.append(list(lines))
+    all_lines.append(lines)
 
-    # Frame 7: Prompt appears
+    # 8: Prompt
     lines = [
-        ("╔══════════════════════════════════════════════════════╗", ORANGE),
-        ("║     🧬  RUMI  —  Research & Unified Machine Int    ║", ORANGE),
-        ("╚══════════════════════════════════════════════════════╝", ORANGE),
-        ("", None),
-        ("How can I help with your research today?", TEXT),
-        ("", None),
-        ("rumi > ", PROMPT_COLOR),
+        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("║     🧬  RUMI  —  Ready for research          ║", ORANGE, "body"),
+        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  How can I help with your research today?", TEXT, "body"),
+        ("", None, "body"),
+        ("  rumi > ", PROMPT, "heading"),
     ]
-    lines_list.append(list(lines))
+    all_lines.append(lines)
 
-    # Frame 8-11: Typing pipeline command
-    cmd = 'scientist_pipeline(action="run", topic="attention mechanisms in transformers")'
-    for i in range(1, len(cmd) + 1):
-        visible = cmd[:i]
+    # 9-14: Typing command
+    cmd = 'scientist_pipeline(action="run", topic="attention mechanisms")'
+    parts = ["g"] + list(cmd[1:])
+    for i, ch in enumerate(parts):
+        visible = cmd[:i+1]
+        rest = "█" if i < len(cmd) - 1 else ""
         lines = [
-            ("╔══════════════════════════════════════════════════════╗", ORANGE),
-            ("║     🧬  RUMI  —  Research & Unified Machine Int    ║", ORANGE),
-            ("╚══════════════════════════════════════════════════════╝", ORANGE),
-            ("", None),
-            ("How can I help with your research today?", TEXT),
-            ("", None),
-            (f"rumi > {visible}", PROMPT_COLOR),
+            ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+            ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+            ("", None, "body"),
+            ("  rumi > ", PROMPT, "heading"),
         ]
-        lines_list.append(list(lines))
+        # Show typed so far + cursor
+        typed_text = f"  rumi > {visible}{rest}"
+        lines = [
+            ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+            ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+            ("", None, "body"),
+            (typed_text, PROMPT if i < len(parts)-1 else CYAN, "heading"),
+        ]
+        all_lines.append(lines)
 
-    # Frame 12: Pipeline starts
+    # 15: Pipeline starts
     lines = [
-        ("╔══════════════════════════════════════════════════════╗", ORANGE),
-        ("╚══════════════════════════════════════════════════════╝", ORANGE),
-        ("", None),
-        ("[PIPELINE] Starting enhanced research pipeline...", CYAN),
-        ("[PIPELINE] Topic: attention mechanisms in transformers", TEXT),
-        ("", None),
-        ("  Phase 1/12  Literature Review        [RUNNING]", YELLOW),
+        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  [PIPELINE] Starting enhanced research pipeline...", CYAN, "body"),
+        ("  [PIPELINE] Topic: attention mechanisms in transformers", TEXT, "body"),
+        ("", None, "body"),
+        ("    Phase 1/12  Literature Review       [RUNNING]  ▶", YELLOW, "body"),
+        ("    Phase 2/12  Knowledge Graph         [PENDING]   ", MUTED, "body"),
+        ("    Phase 3/12  Novelty Assessment      [PENDING]   ", MUTED, "body"),
+        ("", None, "body"),
+        ("  ═══  Searching arXiv, Semantic Scholar...  ═══", MUTED, "small"),
     ]
-    lines_list.append(list(lines))
+    all_lines.append(lines)
 
-    # Frame 13: Phase progression
-    phases = [
-        ("Literature Review", "DONE", GREEN),
-        ("Knowledge Graph Retrieval", "DONE", GREEN),
-        ("Novelty Assessment", "DONE", GREEN),
-        ("Hypothesis Generation", "DONE", GREEN),
-        ("Experiment Design", "RUNNING", YELLOW),
-    ]
+    # 16: Pipeline progress
+    phases_done = ["Literature Review", "Knowledge Graph Retrieval",
+                   "Novelty Assessment", "Hypothesis Generation",
+                   "Experiment Design"]
     lines = [
-        ("╔══════════════════════════════════════════════════════╗", ORANGE),
-        ("╚══════════════════════════════════════════════════════╝", ORANGE),
-        ("", None),
-        ("[PIPELINE] Enhanced research pipeline — active learning loop", CYAN),
+        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  [PIPELINE] Enhanced research pipeline — active learning", CYAN, "body"),
     ]
-    for name, status, color in phases:
-        icon = "✓" if status == "DONE" else "▶"
-        lines.append((f"  Phase {icon}  {name:35s} [{status}]", color))
-    lines.append(("", None))
-    lines.append(("  Active learning: 3 experiment iterations queued", MUTED))
-    lines_list.append(list(lines))
+    for i, ph in enumerate(phases_done):
+        icon, c, st = ("✅", GREEN, "DONE") if i < 4 else ("▶ ", YELLOW, "RUNNING")
+        lines.append((f"    {icon}  {ph:35s} [{st}]", c, "body"))
+    lines.append(("", None, "body"))
+    bar = "████████████████░░░░░░░░░░░  5/12 phases"
+    lines.append((f"    {bar}", YELLOW, "small"))
+    all_lines.append(lines)
 
-    # Frame 14: Results
+    # 17: Results
     lines = [
-        ("╔══════════════════════════════════════════════════════╗", ORANGE),
-        ("╚══════════════════════════════════════════════════════╝", ORANGE),
-        ("", None),
-        ("[PIPELINE] Pipeline complete — 12/12 phases finished", GREEN),
-        ("", None),
-        ("  Key Findings:", TEXT),
-        ("  • Attention heads specialize in specific syntactic patterns", TEXT),
-        ("  • Multi-head attention shows emergent hierarchical processing", TEXT),
-        ("  • Sparse attention reduces compute by 40% with minimal loss", TEXT),
-        ("", None),
-        ("  Paper draft generated: attention_mechanisms_2026.pdf", GREEN),
-        ("  BibTeX citation ready. Knowledge graph updated.", MUTED),
-        ("", None),
-        ("rumi > ", PROMPT_COLOR),
+        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  [PIPELINE] 12/12 phases complete — SUCCESS", GREEN, "heading"),
+        ("", None, "body"),
+        ("    📄  Paper:    attention_mechanisms_2026.pdf", TEXT, "body"),
+        ("    📊  Data:     4 experiments, 12 charts", TEXT, "body"),
+        ("    🧠  KG:       47 new entities, 128 relationships", TEXT, "body"),
+        ("    🔄  Learning: 3 new strategies extracted", TEXT, "body"),
+        ("    📚  BibTeX:   citation ready", TEXT, "body"),
+        ("", None, "body"),
+        ("  ▸  Run complete. Ready for next question.", GREEN, "body"),
+        ("", None, "body"),
+        ("  rumi > ", PROMPT, "heading"),
     ]
-    lines_list.append(list(lines))
+    all_lines.append(lines)
 
-    # Render frames
-    for lines in lines_list:
-        img = Image.new("RGB", (WIDTH, HEIGHT), BG)
-        draw = ImageDraw.Draw(img)
-        make_frame(draw, lines)
-        frames.append(img)
+    for lines in all_lines:
+        frames.append(frame_from_lines(lines))
 
     path = os.path.join(OUT_DIR, "rumi_demo.gif")
-    base_dur = 60
     durs = []
-    for i, _ in enumerate(frames):
-        if i < 10:
-            durs.append(60)
-        elif i < len(frames) - 12:
-            durs.append(40)
-        elif i < len(frames) - 3:
-            durs.append(200)
-        else:
-            durs.append(400)
-    frames[0].save(
-        path,
-        save_all=True,
-        append_images=frames[1:],
-        duration=durs,
-        loop=0,
-        optimize=True,
-        disposal=2,
-    )
-    print(f"Created: {path} ({os.path.getsize(path)} bytes)")
+    for i in range(len(frames)):
+        if i < 2: durs.append(80)
+        elif i < 8: durs.append(100)
+        elif i == 8: durs.append(120)
+        elif i < len(frames) - 20: durs.append(30)
+        elif i < len(frames) - 4: durs.append(180)
+        else: durs.append(350)
+    frames[0].save(path, save_all=True, append_images=frames[1:],
+                   duration=durs, loop=0, optimize=True, disposal=2)
+    print(f"Quickstart GIF: {os.path.getsize(path)} bytes")
     return path
 
 
 def create_pipeline_gif():
-    frames = []
     phases = [
-        ("1/12  Literature Review", "Searching arXiv, Semantic Scholar, PubMed...", 0),
-        ("2/12  Knowledge Graph", "Extracting entities, building relationships...", 0),
-        ("3/12  Novelty Assessment", "Comparing against 1,247 related papers...", 0),
-        ("4/12  Hypothesis Generation", "GFlowNet tournament — 50 candidates...", 0),
-        ("5/12  Experiment Design", "Bayesian optimal design — 3 iterations...", 0),
-        ("6/12  Experiment Execution", "Running simulations, collecting data...", 0),
-        ("7/12  Analysis", "Statistical testing, effect size, visualization...", 0),
-        ("8/12  Reproducibility", "Cross-validation, sensitivity analysis...", 0),
-        ("9/12  Paper Generation", "Writing abstract, methods, results...", 0),
-        ("10/12 Peer Review", "Self-review: methodology, claims, citations...", 0),
-        ("11/12 Knowledge Update", "Merging findings into knowledge graph...", 0),
-        ("12/12 Self-Improvement", "Extracting lessons, updating strategies...", 0),
+        ("Literature Review", "Searching 1,247 papers across arXiv, Semantic Scholar..."),
+        ("Knowledge Graph", "Extracting 89 entities, building relationship map..."),
+        ("Novelty Assessment", "Comparing against prior work — computing novelty score..."),
+        ("Hypothesis Generation", "GFlowNet tournament — 50 candidates, 5 generations..."),
+        ("Experiment Design", "Bayesian optimal design — 3 iterations, 12 conditions..."),
+        ("Experiment Execution", "Running simulations — collecting metrics..."),
+        ("Analysis", "Statistical testing, effect size, visualization..."),
+        ("Reproducibility", "Cross-validation, sensitivity analysis, ablation..."),
+        ("Paper Generation", "Writing abstract, methods, results, discussion..."),
+        ("Peer Review", "Self-review: rigor, claims, citations, limitations..."),
+        ("Knowledge Update", "Merging 47 entities, 128 relationships into KG..."),
+        ("Self-Improvement", "Extracting 3 learning strategies from this run..."),
     ]
+    n = len(phases)
+    frames = []
 
-    # Opening frame
+    # Opening
     lines = [
-        ("╔══════════════════════════════════════════════════════╗", ORANGE),
-        ("║   🔬  RUMI Scientist AI  —  12-Phase Pipeline       ║", ORANGE),
-        ("╚══════════════════════════════════════════════════════╝", ORANGE),
+        ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+        ("║     🔬  RUMI Scientist AI  —  12-Phase Pipeline  ║", ORANGE, "body"),
+        ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+        ("", None, "body"),
+        ("  Initializing research pipeline...", CYAN, "body"),
+        ("  Mode: Full autonomous (active learning loop)", MUTED, "small"),
     ]
-    img = Image.new("RGB", (WIDTH, HEIGHT), BG)
-    draw = ImageDraw.Draw(img)
-    make_frame(draw, lines)
-    frames.append(img)
+    frames.append(frame_from_lines(lines, "RUMI Scientist AI Pipeline"))
 
-    # Progress frames
-    for done_count in range(1, len(phases) + 1):
+    for done in range(1, n + 1):
         lines = [
-            ("╔══════════════════════════════════════════════════════╗", ORANGE),
-            ("║   🔬  RUMI Scientist AI  —  12-Phase Pipeline       ║", ORANGE),
-            ("╚══════════════════════════════════════════════════════╝", ORANGE),
+            ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+            ("║     🔬  RUMI Scientist AI  —  12-Phase Pipeline  ║", ORANGE, "body"),
+            ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
         ]
-        for i, (name, desc, _) in enumerate(phases):
-            if i < done_count:
-                icon = "✅"
-                color = GREEN
-            elif i == done_count:
-                icon = "▶ "
-                color = YELLOW
+        for i, (name, desc) in enumerate(phases):
+            if i < done:
+                icon, c = "✅", GREEN
+                st = "DONE"
+            elif i == done:
+                icon, c = "▶ ", YELLOW
+                st = "RUNNING"
             else:
-                icon = "  "
-                color = MUTED
-            status = "DONE" if i < done_count else ("RUNNING" if i == done_count else "PENDING")
-            name_display = f"{icon} Phase {name}"
-            lines.append((f"  {name_display:45s} [{status}]", color))
-            if i == done_count and done_count < len(phases):
-                lines.append((f"  {'':44s}{phases[done_count][1]}", MUTED))
+                icon, c = "  ", MUTED
+                st = "PENDING"
+            lines.append((f"  {icon}  Phase {i+1:2d}  {name:30s}  [{st}]", c, "body"))
+            if i == done and done < n:
+                lines.append((f"          {phases[done][1]}", MUTED, "small"))
 
-        # Progress bar
-        pct = done_count / len(phases)
-        bar_w = 50
-        filled = int(bar_w * pct)
-        bar = "█" * filled + "░" * (bar_w - filled)
-        lines.append(("", None))
-        lines.append((f"  {bar}  {done_count}/{len(phases)} phases", GREEN))
+        pct = done / n
+        bw = 42
+        filled = int(bw * pct)
+        bar = "█" * filled + "░" * (bw - filled)
+        lines.append(("", None, "body"))
+        lines.append((f"  {bar}  {done}/{n} phases  ({int(pct*100)}%)", GREEN if done == n else YELLOW, "small"))
+        if done == n:
+            lines.append(("", None, "body"))
+            lines.append(("  ✅  Pipeline complete — all modules synchronized.", GREEN, "heading"))
 
-        img = Image.new("RGB", (WIDTH, HEIGHT), BG)
-        draw = ImageDraw.Draw(img)
-        make_frame(draw, lines)
-        frames.append(img)
+        frames.append(frame_from_lines(lines, "RUMI Scientist AI Pipeline"))
 
-    # Final frame with results
-    lines = [
-        ("╔══════════════════════════════════════════════════════╗", ORANGE),
-        ("║   🔬  RUMI Scientist AI  —  12-Phase Pipeline       ║", ORANGE),
-        ("╚══════════════════════════════════════════════════════╝", ORANGE),
-        ("", None),
-        ("  ✅  All 12 phases complete successfully!", GREEN),
-        ("", None),
-        ("  📄  Paper:    attention_mechanisms_2026.pdf", TEXT),
-        ("  📊  Data:     4 experiment results, 12 charts", TEXT),
-        ("  🧠  KG:       47 new entities, 128 relationships", TEXT),
-        ("  🔄  Learning: 3 new strategies extracted", TEXT),
-        ("", None),
-        ("  Run complete. Ready for next research question.", GREEN),
-        ("", None),
-        ("rumi > ", PROMPT_COLOR),
-    ]
-    img = Image.new("RGB", (WIDTH, HEIGHT), BG)
-    draw = ImageDraw.Draw(img)
-    make_frame(draw, lines)
-    frames.append(img)
-
+    durs = [200] + [180] * (n - 1) + [400]
     path = os.path.join(OUT_DIR, "rumi_pipeline.gif")
-    durs = [300] + [160] * len(phases) + [500]
-    frames[0].save(
-        path,
-        save_all=True,
-        append_images=frames[1:],
-        duration=durs,
-        loop=0,
-        optimize=True,
-        disposal=2,
-    )
-    print(f"Created: {path} ({os.path.getsize(path)} bytes)")
+    frames[0].save(path, save_all=True, append_images=frames[1:],
+                   duration=durs, loop=0, optimize=True, disposal=2)
+    print(f"Pipeline GIF: {os.path.getsize(path)} bytes")
     return path
 
 
-def optimize_with_ffmpeg(input_path, output_path=None, max_colors=128):
-    if output_path is None:
-        name, ext = os.path.splitext(input_path)
-        output_path = f"{name}_opt.gif"
+def create_install_gif():
+    steps = [
+        ("git clone https://github.com/subhansh-dev/Rumi", "Cloning repository...", "OK"),
+        ("cd rumi", "Entering project directory", "OK"),
+        ("python -m venv rumi_env", "Creating virtual environment...", "OK"),
+        ("rumi_env\\Scripts\\activate", "Activating environment", "OK"),
+        ("pip install -e .", "Installing 120+ dependencies...", "OK"),
+        ("playwright install chromium", "Downloading browser engine...", "OK"),
+        ("# Edit config/api_keys.json", "Add your Gemini API key", "OK"),
+        ("rumi", "Launching RUMI...", "OK"),
+    ]
+    frames = []
+    for i, (cmd, desc, status) in enumerate(steps):
+        lines = [
+            ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
+            ("║     📦  RUMI  —  Installation Guide          ║", ORANGE, "body"),
+            ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+            ("", None, "body"),
+            ("  Setting up RUMI on your machine...", CYAN, "body"),
+            ("", None, "body"),
+        ]
+        for j in range(i + 1):
+            icon = "✅" if j < i else "▶ "
+            c = GREEN if j < i else YELLOW
+            st = "DONE" if j < i else "RUNNING"
+            lines.append((f"  {icon}  {steps[j][0]:50s}  [{st}]", c, "small"))
+        lines.append(("", None, "body"))
+        if i < len(steps) - 1:
+            lines.append((f"  {steps[i+1][1]}", MUTED, "body"))
+        else:
+            lines.append(("  🚀  RUMI is ready! Type anything to begin.", GREEN, "heading"))
+        # Progress
+        pct = (i + 1) / len(steps)
+        bw = 40
+        bar = "█" * int(bw * pct) + "░" * (bw - int(bw * pct))
+        lines.append(("", None, "body"))
+        lines.append((f"  {bar}  {i+1}/{len(steps)} steps", GREEN, "small"))
+        frames.append(frame_from_lines(lines, "RUMI Installation"))
+    path = os.path.join(OUT_DIR, "rumi_install.gif")
+    durs = [150] * (len(steps) - 1) + [500]
+    frames[0].save(path, save_all=True, append_images=frames[1:],
+                   duration=durs, loop=0, optimize=True, disposal=2)
+    print(f"Install GIF: {os.path.getsize(path)} bytes")
+    return path
+
+
+def optimize_ffmpeg(input_path):
+    out = os.path.join(OUT_DIR, os.path.basename(input_path))
     subprocess.run([
         "ffmpeg", "-y", "-i", input_path,
-        "-vf", f"split[s0][s1];[s0]palettegen=max_colors={max_colors}[p];[s1][p]paletteuse=dither=bayer",
-        "-loop", "0", output_path
+        "-vf", "fps=12,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer",
+        "-loop", "0", out
     ], capture_output=True)
-    print(f"Optimized: {input_path} -> {output_path} ({os.path.getsize(output_path)} bytes)")
+    print(f"Optimized: {os.path.getsize(out)} bytes")
 
 
 if __name__ == "__main__":
-    gif1 = create_quickstart_gif()
-    gif2 = create_pipeline_gif()
-    optimize_with_ffmpeg(gif1, os.path.join(OUT_DIR, "rumi_demo.gif"))
-    optimize_with_ffmpeg(gif2, os.path.join(OUT_DIR, "rumi_pipeline.gif"))
+    g1 = create_quickstart_gif()
+    g2 = create_pipeline_gif()
+    g3 = create_install_gif()
+    for g in [g1, g2, g3]:
+        optimize_ffmpeg(g)
