@@ -63,6 +63,43 @@ RUMI_WORDS = [
     "cweating something awesome...", "pwepawing wesponse...",
 ]
 
+# ── Personality System ──────────────────────────────────────────
+PERSONALITIES = {
+    "cutesy": {
+        "label": "Cutesy / UwU",
+        "desc": "Playful, cute scientist — 'hewwoo!! let's do science!!'",
+        "soul_file": "SOUL_cutesy.md",
+        "rumi_file": "RUMI_cutesy.md",
+    },
+    "professional": {
+        "label": "Professional / Sharp",
+        "desc": "Direct, analytical scientist — 'Hypothesis formed. Let me verify.'",
+        "soul_file": "SOUL_professional.md",
+        "rumi_file": "RUMI_professional.md",
+    },
+}
+def _set_personality(choice: str):
+    """Copy chosen personality template over active SOUL.md and RUMI.md."""
+    p = PERSONALITIES.get(choice)
+    if not p:
+        return False
+    for dest, src_key in [("SOUL.md", "soul_file"), ("RUMI.md", "rumi_file")]:
+        src = BASE_DIR / p[src_key]
+        dst = BASE_DIR / dest
+        if src.exists():
+            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    # Update config
+    cfg = BASE_DIR / "config" / "api_keys.json"
+    if cfg.exists():
+        try:
+            data = json.loads(cfg.read_text(encoding="utf-8"))
+            data["personality"] = choice
+            cfg.write_text(json.dumps(data, indent=4), encoding="utf-8")
+        except Exception:
+            pass
+    return True
+
+
 # ── Colour Palette ──────────────────────────────────────────────
 C_CYAN   = "#00d4ff"
 C_BLUE   = "#3b82f6"
@@ -96,6 +133,7 @@ HELP_TEXT = """
   [cyan]/clear[/cyan]       Clear the screen
   [cyan]/status[/cyan]      Show system status and uptime
   [cyan]/stats[/cyan]       Show session statistics
+  [cyan]/personality[/cyan] Switch RUMI's personality (cutesy / professional)
   [cyan]/exit[/cyan]        Exit RUMI
 
 [bold]Modes:[/bold]
@@ -129,6 +167,7 @@ SLASH_COMMANDS = [
     "/mute", "/status", "/stats", "/model", "/exit",
     "/science", "/discover", "/hypothesize", "/experiment",
     "/papers", "/review", "/graph", "/notebook", "/domains",
+    "/personality",
 ]
 
 # ── Utility Functions ──────────────────────────────────────────
@@ -172,6 +211,7 @@ class RumiUI:
         self._rumi_state = "INITIALISING"
         self.status_text = "INITIALISING"
         self._start_time = time.time()
+        self._personality = "professional"
 
         # Callbacks
         self.on_text_command = None
@@ -495,6 +535,9 @@ class RumiUI:
         elif cmd == "/domains":
             self._show_domains()
 
+        elif cmd == "/personality":
+            self._handle_personality()
+
         elif cmd == "/exit":
             self.write_log("SYS: Shutting down RUMI...")
             self._running = False
@@ -687,6 +730,38 @@ class RumiUI:
         console.print(Text("  Use: 'Find analogies between [concept] in [domain1] and [domain2]'", style=f"dim {C_DIM}"))
         console.print()
 
+    def _handle_personality(self):
+        """Handle /personality command — switch between personalities."""
+        console.print()
+        console.print(Text("  Current personality:", style=C_DIM), end="")
+        console.print(Text(f" {self._personality}", style=f"bold {C_CYAN}"))
+        console.print()
+        console.print(Text("  Choose a personality:", style=C_CYAN))
+        console.print()
+        pers_keys = list(PERSONALITIES.keys())
+        for i, k in enumerate(pers_keys):
+            p = PERSONALITIES[k]
+            console.print(Text(f"  [{i+1}] {p['label']:30s} {p['desc']}", style=C_WHITE))
+        console.print()
+        console.print(Text("  Enter number, or 0 to cancel:", style=C_DIM))
+        choice = input("  > ").strip()
+        try:
+            idx = int(choice) - 1
+            if idx < 0:
+                console.print(Text("  Cancelled.", style=C_DIM))
+                return
+            chosen = pers_keys[idx]
+        except (ValueError, IndexError):
+            console.print(Text("  Invalid choice.", style=f"bold {C_RED}"))
+            return
+        if _set_personality(chosen):
+            self._personality = chosen
+            console.print(Text(f"  ◈ Personality switched to: {PERSONALITIES[chosen]['label']}", style=f"bold {C_GREEN}"))
+            console.print(Text("  Changes take effect on next session (or reload SOUL.md).", style=C_DIM))
+        else:
+            console.print(Text("  Failed to switch personality.", style=f"bold {C_RED}"))
+        console.print()
+
     # ── API Key Setup ───────────────────────────────────────────
     def _show_setup_ui(self):
         """Terminal-based first-time setup for API keys."""
@@ -712,6 +787,26 @@ class RumiUI:
         console.print(Text(f"  Your callsign (default: OPERATOR):", style=C_CYAN))
         user_name = input("  👤 ").strip().upper() or "OPERATOR"
 
+        # ── Personality selection ──
+        console.print()
+        console.print(Text("  Choose RUMI's personality:", style=C_CYAN))
+        console.print()
+        pers_keys = list(PERSONALITIES.keys())
+        for i, k in enumerate(pers_keys):
+            p = PERSONALITIES[k]
+            console.print(Text(f"  [{i+1}] {p['label']:30s} {p['desc']}", style=C_WHITE))
+        console.print()
+        pers_choice = input("  Personality [1]: ").strip()
+        if not pers_choice:
+            pers_choice = "1"
+        try:
+            idx = int(pers_choice) - 1
+            chosen_pers = pers_keys[idx] if 0 <= idx < len(pers_keys) else "professional"
+        except (ValueError, IndexError):
+            chosen_pers = "professional"
+        _set_personality(chosen_pers)
+        self._personality = chosen_pers
+
         # Save config
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(API_FILE, "w", encoding="utf-8") as f:
@@ -722,6 +817,7 @@ class RumiUI:
                 "os_system": detected,
                 "camera_index": 0,
                 "user_name": user_name,
+                "personality": chosen_pers,
             }, f, indent=4)
 
         from brain import model_router as mr_module

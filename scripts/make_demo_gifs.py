@@ -325,45 +325,108 @@ def create_pipeline_gif():
 
 
 def create_install_gif():
-    steps = [
-        ("git clone https://github.com/subhansh-dev/Rumi", "Cloning repository...", "OK"),
-        ("cd rumi", "Entering project directory", "OK"),
-        ("python -m venv rumi_env", "Creating virtual environment...", "OK"),
-        ("rumi_env\\Scripts\\activate", "Activating environment", "OK"),
-        ("pip install -e .", "Installing 120+ dependencies...", "OK"),
-        ("playwright install chromium", "Downloading browser engine...", "OK"),
-        ("# Edit config/api_keys.json", "Add your Gemini API key", "OK"),
-        ("rumi", "Launching RUMI...", "OK"),
-    ]
+    """Show installation commands being typed in a real terminal."""
     frames = []
-    for i, (cmd, desc, status) in enumerate(steps):
+    all_lines = []
+    PS = "  PS C:\\Users\\Researcher>"
+    steps = [
+        "git clone https://github.com/subhansh-dev/Rumi",
+        "cd rumi",
+    ]
+    outputs = [
+        ("Cloning into 'Rumi'...", "Receiving objects: 100% (528/528), done."),
+        ("", ""),
+    ]
+
+    # 1-20: Type "git clone ..." char by char
+    cmd = steps[0]
+    for i in range(1, len(cmd) + 1):
+        typed = cmd[:i]
+        cursor = "█" if i < len(cmd) else " "
         lines = [
-            ("╔══════════════════════════════════════════════╗", ORANGE, "body"),
-            ("║     📦  RUMI  —  Installation Guide          ║", ORANGE, "body"),
-            ("╚══════════════════════════════════════════════╝", ORANGE, "body"),
+            ("", None, "body"), ("", None, "body"), ("", None, "body"),
             ("", None, "body"),
-            ("  Setting up RUMI on your machine...", CYAN, "body"),
-            ("", None, "body"),
+            (f"{PS} {typed}{cursor}", GREEN, "heading"),
         ]
-        for j in range(i + 1):
-            icon = "✅" if j < i else "▶ "
-            c = GREEN if j < i else YELLOW
-            st = "DONE" if j < i else "RUNNING"
-            lines.append((f"  {icon}  {steps[j][0]:50s}  [{st}]", c, "small"))
+        all_lines.append(lines)
+
+    # 21: show git clone output
+    lines = [
+        (f"{PS} {cmd}", GREEN, "heading"),
+        ("", None, "body"),
+        ("  Cloning into 'Rumi'...", MUTED, "body"),
+        ("  Receiving objects: 100% (528/528), 1.2 MiB | 2.3 MiB/s", MUTED, "small"),
+        ("  Resolving deltas: 100% (312/312), done.", MUTED, "small"),
+        ("", None, "body"),
+        ("  ✅  Repository cloned successfully.", GREEN, "body"),
+    ]
+    all_lines.append(lines)
+
+    # 22-30: Type "cd rumi"
+    cmd2 = steps[1]
+    for i in range(1, len(cmd2) + 1):
+        typed = cmd2[:i]
+        cursor = "█" if i < len(cmd2) else " "
+        lines = [
+            (f"{PS} {steps[0]}", GREEN, "heading"),
+            ("", None, "body"),
+            ("  Cloning into 'Rumi'...", MUTED, "body"),
+            ("  Receiving objects: 100% (528/528), 1.2 MiB | 2.3 MiB/s", MUTED, "small"),
+            ("  Resolving deltas: 100% (312/312), done.", MUTED, "small"),
+            ("", None, "body"),
+            (f"{PS} {typed}{cursor}", GREEN, "heading"),
+        ]
+        all_lines.append(lines)
+
+    # 31: show cd done
+    lines = [
+        (f"{PS} {steps[0]}", GREEN, "heading"),
+        ("  Cloning into 'Rumi'...", MUTED, "body"),
+        ("  Receiving objects: 100% (528/528), 1.2 MiB | 2.3 MiB/s", MUTED, "small"),
+        ("  Resolving deltas: 100% (312/312), done.", MUTED, "small"),
+        ("", None, "body"),
+        (f"{PS} cd rumi", GREEN, "heading"),
+        ("", None, "body"),
+        ("  ✅  Entered project directory.", GREEN, "body"),
+        ("", None, "body"),
+        ("  ═══  Next: python -m venv rumi_env  ═══", MUTED, "small"),
+    ]
+    all_lines.append(lines)
+
+    # 32-55: Show venv + pip install + playwright + config + launch
+    step_fast = [
+        ("python -m venv rumi_env", "Virtual environment created.", "✅"),
+        ("rumi_env\\Scripts\\activate", "Environment activated.", "✅"),
+        ("pip install -e .", "Installing 120+ dependencies... done.", "✅"),
+        ("playwright install chromium", "Browser engine downloaded.", "✅"),
+        ("# Edit config/api_keys.json", "Add your Gemini API key", "▶ "),
+    ]
+    base_history = [
+        (f"{PS} {steps[0]}", GREEN, "heading"),
+        ("  Cloning into 'Rumi'...", MUTED, "body"),
+        ("  Receiving objects: 100% (528/528)...", MUTED, "small"),
+        ("", None, "body"),
+        (f"{PS} cd rumi", GREEN, "heading"),
+        ("", None, "body"),
+    ]
+    for idx, (st_cmd, st_desc, icon) in enumerate(step_fast):
+        lines = list(base_history)
+        prev_done = step_fast[:idx]
+        for p_cmd, p_desc, _ in prev_done:
+            lines.append((f"  ✅  {p_desc}", GREEN, "body"))
         lines.append(("", None, "body"))
-        if i < len(steps) - 1:
-            lines.append((f"  {steps[i+1][1]}", MUTED, "body"))
-        else:
-            lines.append(("  🚀  RUMI is ready! Type anything to begin.", GREEN, "heading"))
-        # Progress
-        pct = (i + 1) / len(steps)
-        bw = 40
-        bar = "█" * int(bw * pct) + "░" * (bw - int(bw * pct))
+        lines.append((f"  {icon}  {st_cmd}", YELLOW if icon == "▶ " else GREEN, "heading"))
         lines.append(("", None, "body"))
-        lines.append((f"  {bar}  {i+1}/{len(steps)} steps", GREEN, "small"))
-        frames.append(frame_from_lines(lines, "RUMI Installation"))
+        lines.append((f"  {st_desc}", MUTED if icon == "▶ " else GREEN, "body"))
+        if icon == "▶ ":
+            lines.append(("", None, "body"))
+            lines.append(("  🚀  RUMI is ready! Type /personality or just start chatting.", GREEN, "heading"))
+        all_lines.append(lines)
+
+    for ls in all_lines:
+        frames.append(frame_from_lines(ls))
     path = os.path.join(OUT_DIR, "rumi_install.gif")
-    durs = [150] * (len(steps) - 1) + [500]
+    durs = [50]*46 + [250] + [50]*7 + [350] + [250]*5
     frames[0].save(path, save_all=True, append_images=frames[1:],
                    duration=durs, loop=0, optimize=False, disposal=1)
     print(f"Install GIF: {os.path.getsize(path)} bytes")
