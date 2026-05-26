@@ -12,14 +12,16 @@ build/
 brain/*.json
 brain/hypothesis_state.json
 !brain/__init__.py
+discovery/graph/*.json
+discovery/sessions/
+discovery/topics.json
 memory/*.json
 scientist/*.json
 *.log
 logs/
 
 # ── Config & Secrets ──────────────────────────────
-
-
+config/api_keys.json
 .env
 *.env
 secrets.py

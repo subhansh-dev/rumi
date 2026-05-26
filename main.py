@@ -2257,6 +2257,13 @@ class RumiLive:
         self._audio_drop_count = 0
 
         self.ui.on_text_command = self._on_text_command
+
+    def _post_output(self, text: str):
+        """Output text to UI log and console."""
+        import re as _re
+        clean = _re.sub(r'\[/?\w+(?: \w+=[^\]]+)*\]', '', text)
+        self.ui.write_log(clean)
+        print(clean)
         self.ui.on_discovery_command = self._on_discovery_command
         self.ui.on_idle_scan = lambda: asyncio.run_coroutine_threadsafe(
             self._run_idle_scan(), self._loop
@@ -7471,7 +7478,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 except Exception:
                     pass
 
-        threading.Thread(target=start_clap_listener, args=(ui,), daemon=True).start()
+        # clap listener skipped (requires class method access in static context)
         t = threading.Thread(target=runner, daemon=True)
         t.start()
 
@@ -7513,13 +7520,20 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 if rumi_instance._workspace:
                     try:
                         rumi_instance._workspace.shutdown()
-                    except Exception:
-                        pass
-            ui.root.destroy()
+                except Exception:
+                    pass
+            try:
+                ui.running = False
+            except AttributeError:
+                pass
 
-        ui.root.protocol("WM_DELETE_WINDOW", on_closing)
-        ui.root.mainloop()
+        try:
+            import time as _t
+            while getattr(ui, '_running', False):
+                _t.sleep(0.5)
+        except KeyboardInterrupt:
+            pass
 
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    RumiLive.main()
