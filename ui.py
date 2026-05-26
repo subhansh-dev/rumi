@@ -894,6 +894,22 @@ class RumiUI:
             console.print(Text("  (Get from https://t.me/userinfobot)", style=f"dim {C_DIM}"))
             tg_user = input("  ? ").strip()
 
+        # ── Enrichment API keys (optional, domain-specific) ──
+        console.print()
+        console.print(Text("  Enrichment API keys (optional, domain-specific):", style=f"bold {C_PURPLE}"))
+        console.print()
+
+        console.print(Text("  Enter your NASA API key (free):", style=C_CYAN))
+        console.print(Text("  (Required for space_astronomy enrichment. Get at https://api.nasa.gov/)", style=f"dim {C_DIM}))
+        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}))
+        nasa_key = input("  🛸 ").strip()
+
+        console.print()
+        console.print(Text("  Enter your Materials Project API key (free):", style=C_CYAN))
+        console.print(Text("  (Required for materials_science enrichment. Get at https://materialsproject.org/api)", style=f"dim {C_DIM}))
+        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}))
+        mp_key = input("  🔬 ").strip()
+
         # Save config
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(API_FILE, "w", encoding="utf-8") as f:
@@ -908,6 +924,8 @@ class RumiUI:
                 "telegram_allowed_user": tg_user,
                 "user_name": user_name,
                 "personality": chosen_pers,
+                "nasa_api_key": nasa_key,
+                "materials_project_api_key": mp_key,
             }, f, indent=4)
 
         from brain import model_router as mr_module
