@@ -2057,6 +2057,7 @@ TOOL_DECLARATIONS = [
                 },
                 "tags": {
                     "type": "ARRAY",
+                    "items": {"type": "STRING"},
                     "description": "Tags for categorization"
                 },
                 "entry_id": {

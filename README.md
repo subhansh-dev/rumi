@@ -427,6 +427,10 @@ This installs all dependencies from `requirements.txt` and registers the `rumi` 
 playwright install chromium
 ```
 
+> **macOS/Linux users:** Replace `python` with `python3` and `pip` with `pip3` in all commands below.
+> On Debian/Ubuntu, you may need `sudo apt install libnss3 libnspr4 libatk1.0-0` for Playwright.
+> On macOS (Apple Silicon), ensure `playwright install chromium` runs natively (no Rosetta issues).
+
 ### Step 4 — Launch RUMI
 
 ```bash
@@ -436,8 +440,15 @@ rumi
 Or directly:
 
 ```bash
+# Windows:
 python rumi_launcher.py
+
+# macOS / Linux:
+python3 rumi_launcher.py
 ```
+
+> **First launch on any OS** — RUMI detects your platform automatically and prompts for API keys.
+> The same codebase works on Windows, macOS, and Linux with no modifications.
 
 On first launch, RUMI will prompt you for your Gemini API key and Groq API key, then save them to `config/api_keys.json`. Get your free keys beforehand:
 
@@ -452,12 +463,15 @@ On first launch, RUMI will prompt you for your Gemini API key and Groq API key, 
 
 | Problem | Solution |
 |---------|----------|
-| `ModuleNotFoundError` | Run `pip install -e .` from the project root |
+| `ModuleNotFoundError` | Run `pip install -e .` (Windows) or `pip3 install -e .` (macOS/Linux) from the project root |
 | First launch setup doesn't appear | Delete `config/api_keys.json` and restart |
 | `playwright not found` | Run `playwright install chromium` |
 | `No module named 'brain.*'` | Make sure you're running from the `rumi/` project root |
 | `No module named 'rumi_launcher'` | Run `pip install -e .` to register the `rumi` CLI command |
-| Groq rate limit errors | Normal for free tier — pipeline auto-retries with backoff
+| Groq rate limit errors | Normal for free tier — pipeline auto-retries with backoff |
+| `sounddevice` fails on Linux | Install PortAudio: `sudo apt install portaudio19-dev` (Debian) or `brew install portaudio` (macOS) |
+| `pip install -e .` fails on macOS | Use `pip3 install -e .` and ensure Xcode CLI tools are installed: `xcode-select --install` |
+| KeyboardInterrupt on exit | Normal — press Ctrl+C again to force quit
 
 
 ---

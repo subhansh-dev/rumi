@@ -301,20 +301,35 @@ class RumiUI:
         """Display animated startup sequence."""
         console.clear()
 
-        # Print logo with fade-in effect
+        # Top decorative border
+        console.print(Rule(style=f"bold {C_PURPLE}"))
+        console.print(Text("✦  RESEARCH & UNIFIED MACHINE INTELLIGENCE  ✦", style=f"bold {C_VIOLET}"), justify="center")
+        console.print(Rule(style=f"bold {C_PURPLE}"))
+
         console.print()
+
+        # Print logo with fade-in effect
         lines = RUMI_LOGO.split('\n')
         for line in lines:
             console.print(Text(line, style=f"bold {C_CYAN}"), justify="center")
             time.sleep(0.03)
 
         console.print()
-        console.print(Text("SCIENTIST AI", style=f"bold {C_WHITE}"), justify="center")
-        console.print(Text("Autonomous Scientific Research System", style=f"dim {C_CYAN}"), justify="center")
-        console.print(
-            Text(f"14 Scientist Modules  •  60+ Brain Modules  •  {platform.system().upper()}", style=f"dim {C_DIM}"),
-            justify="center"
-        )
+        console.print(Text("SCIENTIST AI  •  v2.0", style=f"bold {C_WHITE}"), justify="center")
+        console.print(Text("Autonomous Scientific Discovery Framework", style=f"bold {C_CYAN}"), justify="center")
+
+        # Subtitle tags
+        tags_style = Style(color="#6b7280", bold=False)
+        tags_text = Text("  ", style=tags_style)
+        tags = [" Discovery Pipeline ", " Knowledge Graph ", " Hypothesis Engine ",
+                " Tournament Evolution ", " Cross-Domain Analysis "]
+        colors = [C_CYAN, C_GREEN, C_PURPLE, C_YELLOW, C_BLUE]
+        for i, (tag, color) in enumerate(zip(tags, colors)):
+            if i > 0:
+                tags_text.append("  ", style=tags_style)
+            tags_text.append(tag, style=f"bold {color}")
+        console.print(tags_text, justify="center")
+
         console.print()
 
         # Animated loading indicator
@@ -337,19 +352,22 @@ class RumiUI:
 
         console.print()
 
-        # System info grid
+        # System info panel with colored border
         info = Table.grid(padding=(0, 2))
-        info.add_column(style=f"dim {C_DIM}")
+        info.add_column(style=f"bold {C_WHITE}")
         info.add_column(style=C_CYAN)
-        info.add_row("◆ Model:", "Gemini 2.5 Flash")
-        info.add_row("◆ Scientist:", "15 modules (discovery, tournament, KG, reproducibility, notebook, ...)")
-        info.add_row("◆ Brain:", "60+ cognitive modules")
-        info.add_row("◆ Mode:", "Interactive")
-        info.add_row("◆ Status:", "Ready")
-        console.print(info)
+        info.add_row("  Model:", "  Gemini 2.5 Flash + Groq (Llama 3.3 70B)")
+        info.add_row("  Scientist:", "  15 modules (discovery, tournament, KG, ...)")
+        info.add_row("  Brain:", "  60+ cognitive modules")
+        info.add_row("  Platform:", f"  {platform.system().upper()}  |  Python 3.11+")
+        info.add_row("  Status:", "  Ready")
+        console.print(Panel(info, title="[bold]System Status[/bold]",
+                           border_style=C_PURPLE, box=ROUNDED, padding=(1, 2)))
+
         console.print()
         console.print(Rule(style=f"dim {C_VIOLET}"))
-        console.print(Text(f"  Type /help for commands  •  /science for capabilities   —   {datetime.now().strftime('%H:%M:%S')}", style=f"dim {C_DIM}"))
+        console.print(Text(f"  /help for commands  •  /discover <topic> to start research  —  {datetime.now().strftime('%H:%M:%S')}",
+                          style=f"dim {C_DIM}"), justify="center")
         console.print()
 
     # ── Input Loop ──────────────────────────────────────────────
