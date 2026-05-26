@@ -17,8 +17,8 @@
   <a href="https://github.com/subhansh-dev/Rumi/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/subhansh-dev/Rumi" alt="License" />
   </a>
-  <a href="https://python.org/versions/3.12">
-    <img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python" />
+  <a href="https://python.org/versions/3.11">
+    <img src="https://img.shields.io/badge/Python-3.11+-blue" alt="Python" />
   </a>
 </p>
 
@@ -377,7 +377,7 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 | Layer | Technology |
 |-------|-----------|
 | **AI Models** | Gemini 2.5 Flash, multi-model routing |
-| **Language** | Python 3.12+ |
+| **Language** | Python 3.11+ |
 | **Terminal UI** | Rich (markdown, panels, tables) + prompt_toolkit |
 | **Browser** | Playwright |
 | **System** | psutil, pywin32 |
@@ -427,7 +427,7 @@ This installs all dependencies from `requirements.txt` and registers the `rumi` 
 playwright install chromium
 ```
 
-### Step 3 — Launch RUMI
+### Step 4 — Launch RUMI
 
 ```bash
 rumi
@@ -456,6 +456,7 @@ On first launch, RUMI will prompt you for your Gemini API key and Groq API key, 
 | First launch setup doesn't appear | Delete `config/api_keys.json` and restart |
 | `playwright not found` | Run `playwright install chromium` |
 | `No module named 'brain.*'` | Make sure you're running from the `rumi/` project root |
+| `No module named 'rumi_launcher'` | Run `pip install -e .` to register the `rumi` CLI command |
 | Groq rate limit errors | Normal for free tier — pipeline auto-retries with backoff
 
 
@@ -465,7 +466,7 @@ On first launch, RUMI will prompt you for your Gemini API key and Groq API key, 
 
 | File | Purpose |
 |------|---------|
-| `config/api_keys.json` | Gemini API key and optional settings |
+| `config/api_keys.json` | Gemini API key, Groq API key, and optional Telegram settings (auto-generated on first launch) |
 | `core/prompt.txt` | System personality prompt |
 | `RUMI.md` | Identity and behavioral guidelines |
 | `SOUL.md` | Core directives and red lines |
@@ -797,7 +798,6 @@ force_learning()
 rumi/
 ├── main.py                      # Entry point (~3000 lines)
 ├── ui.py                        # Terminal UI (Rich + prompt_toolkit)
-├── rumi_launcher.py             # Console entry point
 ├── rumi_launcher.py             # Console entry point
 ├── thinking_loop.py             # Multi-pass reasoning engine
 ├── telegram_bot.py              # Telegram bridge

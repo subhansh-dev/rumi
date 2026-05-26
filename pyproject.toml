@@ -8,7 +8,7 @@ version = "2.0.0"
 description = "RUMI — Autonomous Cognitive AI for Scientific Research"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "RUMI License v1.0"}
+license = "MIT"
 
 authors = [
     {name = "Subhansh"},
@@ -27,7 +27,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Information Technology",
-    "License :: Other/Proprietary License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -41,6 +40,13 @@ classifiers = [
 ]
 
 dynamic = ["dependencies"]
+
+[tool.setuptools.packages.find]
+include = ["discovery*", "brain*", "scientist*", "actions*", "agent*", "security*", "skills*", "memory*", "core*", "models*", "settings*"]
+exclude = ["data*", "logs*", "assets*"]
+
+[tool.setuptools]
+py-modules = ["rumi_launcher", "main", "ui", "telegram_bot", "thinking_loop"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
