@@ -876,6 +876,24 @@ class RumiUI:
         _set_personality(chosen_pers)
         self._personality = chosen_pers
 
+        # ── Telegram setup ──
+        console.print()
+        console.print(Text("  Do you want to connect RUMI to Telegram?", style=C_CYAN))
+        console.print(Text("  (Send/receive messages via Telegram bot)", style=f"dim {C_DIM}"))
+        console.print(Text("  [y/N]:", style=C_CYAN))
+        tg_choice = input("  📱 ").strip().lower()
+        tg_token = ""
+        tg_user = ""
+        if tg_choice in ("y", "yes"):
+            console.print()
+            console.print(Text("  Enter your Telegram bot token:", style=C_CYAN))
+            console.print(Text("  (Get from https://t.me/botfather)", style=f"dim {C_DIM}"))
+            tg_token = input("  🤖 ").strip()
+            console.print()
+            console.print(Text("  Enter your Telegram user ID:", style=C_CYAN))
+            console.print(Text("  (Get from https://t.me/userinfobot)", style=f"dim {C_DIM}"))
+            tg_user = input("  ? ").strip()
+
         # Save config
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(API_FILE, "w", encoding="utf-8") as f:
@@ -886,6 +904,8 @@ class RumiUI:
                 "groq_api_key": groq_key,
                 "os_system": detected,
                 "camera_index": 0,
+                "telegram_bot_token": tg_token,
+                "telegram_allowed_user": tg_user,
                 "user_name": user_name,
                 "personality": chosen_pers,
             }, f, indent=4)
