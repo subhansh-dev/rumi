@@ -3250,6 +3250,31 @@ Output ONLY valid JSON as a list of objects with this structure:
             enriched = enrich_gbif(graph)
             total_enriched += enriched
 
+        if "github" in enrich_sources:
+            from discovery.github_api import enrich_entities as enrich_github
+            enriched = enrich_github(graph)
+            total_enriched += enriched
+
+        if "usgs" in enrich_sources:
+            from discovery.usgs_api import enrich_entities as enrich_usgs
+            enriched = enrich_usgs(graph)
+            total_enriched += enriched
+
+        if "noaa" in enrich_sources:
+            from discovery.noaa_api import enrich_entities as enrich_noaa
+            enriched = enrich_noaa(graph)
+            total_enriched += enriched
+
+        if "world_bank" in enrich_sources:
+            from discovery.world_bank_api import enrich_entities as enrich_wb
+            enriched = enrich_wb(graph)
+            total_enriched += enriched
+
+        if "who" in enrich_sources:
+            from discovery.who_api import enrich_entities as enrich_who
+            enriched = enrich_who(graph)
+            total_enriched += enriched
+
         graph.save()
         self._post_output(f"Enriched {total_enriched} entities with {', '.join(e.capitalize() for e in enrich_sources)} data.")
 

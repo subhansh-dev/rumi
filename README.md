@@ -82,8 +82,8 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 | **Reasoning** | Single-pass generation | Multi-pass: cognitive gating, causal (Pearl), analogical (Gentner), neurosymbolic, first-principles |
 | **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring |
 | **Learning** | No feedback loop | Error-driven updates, experience replay, dreaming-based consolidation, meta-learning |
-| **Research** | Search-and-summarize | Discovery Engine (5-phase drug discovery + multi-domain science: materials, neuroscience, molbio, climate), knowledge graph, mathematical metrics, contradiction detection, molecule design |
-| **Discovery** | None | Domain-aware pipeline: auto-detect domain (drug/materials/neuro/molbio/climate/general), PubMed → entity extraction → knowledge graph → PubChem/OpenFDA/UniProt enrichment → graph metrics → hypotheses → domain-specific generation |
+| **Research** | Search-and-summarize | Discovery Engine (5-phase drug discovery + 13 multi-domain science fields), knowledge graph, mathematical metrics, contradiction detection, molecule design |
+| **Discovery** | None | Domain-aware pipeline: auto-detect domain (14 domains: drug, materials, neuro, molbio, climate, space, ecology, physics, CS, earth, ocean, economics, health, general), PubMed → entity extraction → knowledge graph → domain-specific enrichment (12+ APIs) → graph metrics → hypotheses → domain-specific generation |
 | **Cognition** | None | Dual-process (System 1/2), IIT-inspired integrated information (Φ), global workspace coordination |
 
 ---
@@ -188,6 +188,11 @@ RUMI's **Discovery Engine** is a multi-domain scientific discovery pipeline — 
 | Molecular Biology | `molecular_biology` | gene, protein, pathway, organism, phenotype, cell_type | UniProt + PDB + Semantic Scholar | Gene circuits |
 | Climate & Energy | `climate_energy` | emission_source, technology, policy, impact, region, resource | NASA POWER + Semantic Scholar | Policy proposals |
 | Space & Astronomy | `space_astronomy` | celestial_body, mission, telescope, exoplanet, galaxy, star, phenomenon, theory | NASA API + arXiv + Semantic Scholar | Mission concepts |
+| Computer Science | `computer_science` | algorithm, framework, dataset, model, technique, architecture, language | GitHub + Semantic Scholar | Research proposals |
+| Earth Science | `earth_science` | geological_feature, mineral, process, event, region, formation | USGS + Semantic Scholar | Research proposals |
+| Oceanography | `oceanography` | ocean_region, current, marine_species, phenomenon, chemical, basin | NOAA + Semantic Scholar | Research proposals |
+| Economics | `economics` | economic_indicator, market, policy, sector, country, institution | World Bank + Semantic Scholar | Research proposals |
+| Public Health | `public_health` | disease, risk_factor, intervention, population, region | WHO + Semantic Scholar | Research proposals |
 | Ecology | `ecology` | species, habitat, ecosystem, organism, threat, conservation_action, region | GBIF + Semantic Scholar | Conservation plans |
 | Physics | `physics` | particle, force, theory, experiment, phenomenon, constant, material | arXiv + Semantic Scholar | Research proposals |
 | General Science | `general` | concept, method, finding, technology, organism, material | Semantic Scholar | Research proposals |

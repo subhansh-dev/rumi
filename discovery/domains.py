@@ -138,6 +138,86 @@ DOMAINS = {
         "generation": "hypothesis",
     },
 
+    "computer_science": {
+        "label": "Computer Science",
+        "description": "Algorithms, frameworks, datasets, benchmarks, models — with GitHub repo search + Semantic Scholar enrichment",
+        "aliases": ["cs", "computer science", "software", "programming", "coding", "ai", "ml"],
+        "entity_types": {
+            "algorithm":   {"color": "#00b894", "description": "Algorithm or computational method"},
+            "framework":   {"color": "#74b9ff", "description": "Software framework or library"},
+            "dataset":     {"color": "#fdcb6e", "description": "Dataset or benchmark"},
+            "model":       {"color": "#a29bfe", "description": "Computational model or architecture"},
+            "technique":   {"color": "#55efc4", "description": "Programming or ML technique"},
+            "architecture": {"color": "#fd79a8", "description": "System architecture or design pattern"},
+            "language":    {"color": "#ffeaa7", "description": "Programming language"},
+        },
+        "enrichment": ["github", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
+    "earth_science": {
+        "label": "Earth Science & Geology",
+        "description": "Geological features, minerals, earthquakes, volcanoes, formations — with USGS data + Semantic Scholar",
+        "aliases": ["earth", "geology", "geoscience", "earthquake", "volcano", "mineral"],
+        "entity_types": {
+            "geological_feature": {"color": "#e17055", "description": "Geological formation or feature"},
+            "mineral":            {"color": "#00cec9", "description": "Mineral or rock type"},
+            "process":            {"color": "#fdcb6e", "description": "Geological process"},
+            "event":              {"color": "#ff7675", "description": "Geological event (earthquake, eruption)"},
+            "region":             {"color": "#55efc4", "description": "Geographic or geologic region"},
+            "formation":          {"color": "#a29bfe", "description": "Rock formation or stratigraphic unit"},
+        },
+        "enrichment": ["usgs", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
+    "oceanography": {
+        "label": "Oceanography & Marine Science",
+        "description": "Ocean regions, currents, marine species, chemistry — with NOAA tides + Semantic Scholar",
+        "aliases": ["ocean", "marine", "oceanography", "sea", "coastal"],
+        "entity_types": {
+            "ocean_region":  {"color": "#00cec9", "description": "Ocean or sea region"},
+            "current":       {"color": "#74b9ff", "description": "Ocean current or circulation"},
+            "marine_species": {"color": "#55efc4", "description": "Marine species or organism"},
+            "phenomenon":    {"color": "#fdcb6e", "description": "Oceanographic phenomenon"},
+            "chemical":      {"color": "#a29bfe", "description": "Marine chemical or nutrient"},
+            "basin":         {"color": "#81ecec", "description": "Ocean basin or trench"},
+        },
+        "enrichment": ["noaa", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
+    "economics": {
+        "label": "Economics & Finance",
+        "description": "Economic indicators, markets, policies, countries — with World Bank data + Semantic Scholar",
+        "aliases": ["economics", "economy", "finance", "trade", "market"],
+        "entity_types": {
+            "economic_indicator": {"color": "#fdcb6e", "description": "Economic metric (GDP, inflation, etc.)"},
+            "market":             {"color": "#74b9ff", "description": "Market or economic sector"},
+            "policy":             {"color": "#a29bfe", "description": "Economic or fiscal policy"},
+            "sector":             {"color": "#55efc4", "description": "Industry or economic sector"},
+            "country":            {"color": "#00b894", "description": "Country or economy"},
+            "institution":        {"color": "#fd79a8", "description": "Economic institution or organization"},
+        },
+        "enrichment": ["world_bank", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
+    "public_health": {
+        "label": "Public Health & Epidemiology",
+        "description": "Diseases, risk factors, interventions, populations — with WHO disease data + Semantic Scholar",
+        "aliases": ["health", "public health", "epidemiology", "disease", "medicine"],
+        "entity_types": {
+            "disease":     {"color": "#ff7675", "description": "Disease or health condition"},
+            "risk_factor": {"color": "#e17055", "description": "Health risk factor or exposure"},
+            "intervention": {"color": "#00b894", "description": "Health intervention or treatment"},
+            "population":  {"color": "#74b9ff", "description": "Population or demographic group"},
+            "region":      {"color": "#55efc4", "description": "Geographic region"},
+        },
+        "enrichment": ["who", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
     "general": {
         "label": "General Science",
         "description": "Any scientific topic — entities auto-detected from paper content, with Semantic Scholar citation enrichment",
