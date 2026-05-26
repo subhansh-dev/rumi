@@ -413,35 +413,21 @@ git clone https://github.com/subhansh-dev/Rumi
 cd rumi
 ```
 
-### Step 2 — Create a Virtual Environment
-
-**Windows:**
-```powershell
-python -m venv rumi_env
-rumi_env\Scripts\activate
-```
-
-**Linux/macOS:**
-```bash
-python3 -m venv rumi_env
-source rumi_env/bin/activate
-```
-
-### Step 3 — Install Dependencies
+### Step 2 — Install Dependencies
 
 ```bash
 pip install -e .
 ```
 
-This installs all dependencies from `requirements.txt`. The `setup.py` / `pyproject.toml` registers the `rumi` CLI command.
+This installs all dependencies from `requirements.txt` and registers the `rumi` CLI command.
 
-### Step 4 — Install Playwright Browser
+### Step 3 — Install Playwright Browser
 
 ```bash
 playwright install chromium
 ```
 
-### Step 5 — Configure Your API Keys
+### Step 4 — Configure Your API Keys
 
 Edit `config/api_keys.json`:
 
@@ -461,7 +447,7 @@ Edit `config/api_keys.json`:
 | `gemini_api_key_fallback` | No | Second Gemini key for fallback |
 | `telegram_bot_token` | No | [t.me/botfather](https://t.me/botfather) |
 
-### Step 6 — Launch RUMI
+### Step 5 — Launch RUMI
 
 ```bash
 rumi
@@ -483,7 +469,7 @@ On first launch, RUMI checks your configuration and initializes all cognitive mo
 
 | Problem | Solution |
 |---------|----------|
-| `ModuleNotFoundError` | Ensure virtual environment is activated and `pip install -e .` was run |
+| `ModuleNotFoundError` | Run `pip install -e .` from the project root |
 | `gemini_api_key not found` | Check `config/api_keys.json` has the correct key format |
 | `playwright not found` | Run `playwright install chromium` |
 | `No module named 'brain.*'` | Make sure you're running from the `rumi/` project root |

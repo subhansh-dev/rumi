@@ -29,11 +29,6 @@ RUMI is a complex system with 60+ brain modules, 15 Scientist AI modules, 40+ ac
 git clone https://github.com/subhansh-dev/Rumi
 cd Rumi
 
-# Virtual environment
-python -m venv rumi_env
-rumi_env\Scripts\activate    # Windows
-# source rumi_env/bin/activate  # Linux/macOS
-
 # Install
 pip install -e .
 playwright install chromium
