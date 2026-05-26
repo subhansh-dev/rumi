@@ -6,11 +6,14 @@ GRAPH_FILE = Path(__file__).resolve().parent.parent / "discovery" / "graph" / "k
 
 
 class KnowledgeGraph:
-    def __init__(self):
+    def __init__(self, persist=True):
         self.entities: dict[str, dict] = {}
         self.relationships: list[dict] = []
         self.papers: dict[str, dict] = {}
         self.domain: str = "drug_discovery"
+        self._session_count = 0
+        if persist:
+            self._merge_previous()
 
     def add_paper_entities(self, entities: list[dict], pmid: str):
         for ent in entities:
@@ -62,6 +65,33 @@ class KnowledgeGraph:
             "top_entities": top_entities,
         }
 
+    def _merge_previous(self):
+        """Merge entities/papers from the last saved graph so knowledge accumulates across sessions."""
+        if GRAPH_FILE.exists():
+            try:
+                prev = json.loads(GRAPH_FILE.read_text(encoding="utf-8"))
+                prev_entities = prev.get("entities", {})
+                prev_papers = prev.get("papers", {})
+                prev_rels = prev.get("relationships", [])
+                for eid, e in prev_entities.items():
+                    if eid not in self.entities:
+                        self.entities[eid] = e
+                for pmid, p in prev_papers.items():
+                    if pmid not in self.papers:
+                        self.papers[pmid] = p
+                existing_keys = set(
+                    (r["source"], r["relation"], r["target"]) for r in self.relationships
+                )
+                for r in prev_rels:
+                    key = (r["source"], r["relation"], r["target"])
+                    if key not in existing_keys:
+                        self.relationships.append(r)
+                        existing_keys.add(key)
+                prev_sessions = prev.get("sessions", 0)
+                self._session_count = prev_sessions if isinstance(prev_sessions, (int, float)) else len(prev_sessions)
+            except Exception:
+                pass
+
     def to_dict(self) -> dict:
         return {
             "entities": self.entities,
@@ -72,24 +102,28 @@ class KnowledgeGraph:
 
     @classmethod
     def from_dict(cls, data: dict) -> "KnowledgeGraph":
-        g = cls()
+        g = cls(persist=False)
         g.entities = data.get("entities", {})
         g.relationships = data.get("relationships", [])
         g.papers = data.get("papers", {})
         g.domain = data.get("domain", "drug_discovery")
         return g
 
-    def save(self):
+    def save(self, session_id=""):
         GRAPH_FILE.parent.mkdir(parents=True, exist_ok=True)
+        data = self.to_dict()
+        if session_id:
+            data["last_session"] = session_id
+            data["sessions"] = self._session_count + 1
         GRAPH_FILE.write_text(
-            json.dumps(self.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
     @classmethod
-    def load(cls) -> "KnowledgeGraph":
+    def load(cls, persist=True) -> "KnowledgeGraph":
         if GRAPH_FILE.exists():
             return cls.from_dict(json.loads(GRAPH_FILE.read_text(encoding="utf-8")))
-        return cls()
+        return cls(persist=persist)
 
     def merge(self, other: "KnowledgeGraph"):
         self.entities.update(other.entities)

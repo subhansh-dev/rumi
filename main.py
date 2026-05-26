@@ -2786,6 +2786,7 @@ class RumiLive:
         from discovery.metrics_tracker import MetricsTracker
         from discovery.hypothesis_memory import HypothesisMemory
         from discovery.retrieval_filter import RetrievalFilter
+        from discovery.hypothesis_tournament import HypothesisTournament
         from datetime import datetime
 
         # Detect domain
@@ -2836,7 +2837,11 @@ class RumiLive:
             graph.add_paper_entities(entities, papers[0]["pmid"])
         if relationships:
             graph.add_relationships(relationships, papers[0]["pmid"])
-        graph.save()
+
+        # Merge with persisted knowledge from prior runs
+        self._post_output(f"[dim]Knowledge graph now spans {len(graph.entities)} entities across "
+                          f"{graph._session_count + 1} sessions[/dim]")
+        graph.save(session_id=run_id)
 
         enrichment_label = get_domain(domain).get("enrichment", []) if get_domain(domain) else []
         if enrichment_label:
@@ -2919,6 +2924,48 @@ class RumiLive:
                 h["experiment_plan"] = plan
                 hypothesis_memory.update_status(h["id"], "experiment_planned")
         metrics.record("experiment_planning", "ok", time.time() - t0)
+
+        # Stage 10: Hypothesis Tournament Evolution
+        self._post_output("[bold cyan]Running hypothesis tournament evolution...[/bold cyan]")
+        t0 = time.time()
+        tournament = HypothesisTournament(hypothesis_memory)
+        if len(hypotheses) >= 2:
+            hypotheses = await tournament.run(
+                hypotheses, graph, query, domain,
+                generations=3, population_size=6
+            )
+            self._post_output(f"[green]Tournament complete — {len(hypotheses)} evolved hypotheses[/green]")
+        else:
+            self._post_output("[yellow]Too few hypotheses for tournament — skipping[/yellow]")
+        metrics.record("tournament_evolution", "ok", time.time() - t0)
+
+        # Stage 11: Deep-Research Iterative Improvement Loop
+        self._post_output("[bold cyan]Deep-research improvement loop...[/bold cyan]")
+        t0 = time.time()
+        deep_rounds = 2
+        for d_round in range(deep_rounds):
+            self._post_output(f"[dim]  Improvement round {d_round + 1}/{deep_rounds}[/dim]")
+            improved = []
+            for h in hypotheses[:3]:
+                review = await skeptic.review(h, contradictions[:5] if contradictions else None)
+                if review.get("recommendation") == "reject":
+                    h["confidence"] = max(0.0, h.get("confidence", 0.5) - 0.15)
+                    h["novelty"] = "low"
+                elif review.get("recommendation") == "accept":
+                    h["confidence"] = min(1.0, h.get("confidence", 0.5) + 0.1)
+                    h["status"] = "deep_verified"
+                if review and d_round == deep_rounds - 1:
+                    nv = await novelty.check(h, graph)
+                    if nv.get("novelty_probability", 0) > 0.7:
+                        h["novelty"] = "high"
+                    plan = await experiment.plan(h)
+                    if plan.get("design"):
+                        h["experiment_plan"] = plan
+                        h["status"] = "deep_experiment_planned"
+                improved.append(h)
+            hypotheses = improved
+        self._post_output(f"[green]Deep-research loop complete — {len(hypotheses)} hypotheses refined[/green]")
+        metrics.record("deep_research_loop", "ok", time.time() - t0)
 
         metrics.save(run_id)
 
@@ -3300,10 +3347,36 @@ Output ONLY valid JSON as a list of objects with this structure:
         from discovery.hypothesis_engine import HypothesisEngine
         from discovery.hypothesis_memory import HypothesisMemory
         from discovery.metrics_tracker import MetricsTracker
+        from discovery.hypothesis_tournament import HypothesisTournament
+        from discovery.skeptic_agent import SkepticAgent
+        from discovery.novelty_detector import NoveltyDetector
+        from discovery.experiment_planner import ExperimentPlanner
         from datetime import datetime
-        engine = HypothesisEngine(HypothesisMemory())
+        memory = HypothesisMemory()
+        engine = HypothesisEngine(memory)
         run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        hypotheses = await engine.generate(graph, topic, self.current_domain or "general", run_id)
+        domain = self.current_domain or "general"
+        hypotheses = await engine.generate(graph, topic, domain, run_id)
+        if len(hypotheses) >= 2:
+            tournament = HypothesisTournament(memory)
+            hypotheses = await tournament.run(hypotheses, graph, topic, domain,
+                                               generations=2, population_size=4)
+            skeptic = SkepticAgent()
+            novelty = NoveltyDetector(memory)
+            experiment = ExperimentPlanner()
+            for d_round in range(2):
+                for h in hypotheses[:3]:
+                    review = await skeptic.review(h)
+                    if review:
+                        h["confidence"] = max(0.0, min(1.0,
+                            h.get("confidence", 0.5) + (0.1 if review.get("recommendation") == "accept" else -0.1)))
+                    nv = await novelty.check(h, graph)
+                    if nv.get("novelty_probability", 0) > 0.7:
+                        h["novelty"] = "high"
+                    plan = await experiment.plan(h)
+                    if plan.get("design"):
+                        h["experiment_plan"] = plan
+            self._post_output(f"[green]Tournament + deep loop complete — {len(hypotheses)} hypotheses refined[/green]")
         from discovery.output import format_hypotheses, save_hypotheses
         save_hypotheses(hypotheses)
         self._post_output(format_hypotheses(hypotheses))
