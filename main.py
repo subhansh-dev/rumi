@@ -1980,6 +1980,7 @@ TOOL_DECLARATIONS = [
                 },
                 "hypothesis_ids": {
                     "type": "ARRAY",
+                    "items": {"type": "STRING"},
                     "description": "List of hypothesis IDs the experiment tests"
                 },
                 "cost": {
@@ -7520,10 +7521,10 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 if rumi_instance._workspace:
                     try:
                         rumi_instance._workspace.shutdown()
-                except Exception:
-                    pass
+                    except Exception:
+                        pass
             try:
-                ui.running = False
+                ui._running = False
             except AttributeError:
                 pass
 
