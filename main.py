@@ -2864,8 +2864,13 @@ class RumiLive:
             self._post_output("No contradictions detected.")
         metrics.record("contradiction_mining", "ok", time.time() - t0)
 
-        # Stage 5: Latent Discovery (placeholder — graph algorithms later)
-        latent_candidates = []
+        # Stage 5: Latent Discovery — cross-paper relationship inference
+        self._post_output("[bold cyan]Mining latent cross-paper relationships...[/bold cyan]")
+        t0 = time.time()
+        latent_candidates = self._find_latent_relationships(graph)
+        if latent_candidates:
+            self._post_output(f"[yellow]Found {len(latent_candidates)} latent relationship candidates[/yellow]")
+        metrics.record("latent_discovery", "ok", time.time() - t0)
 
         # Stage 6: Hypothesis Generation
         self._post_output("[bold cyan]Generating scientific hypotheses...[/bold cyan]")
@@ -3239,6 +3244,56 @@ Output ONLY valid JSON as a list of objects with this structure:
             for d in list_domains():
                 lines.append(f"  [bold]{d['key']}[/bold] — {d['label']}: {d['description']}")
             self._post_output("\n".join(lines))
+
+    def _find_latent_relationships(self, graph, top_k=15):
+        """Cross-paper latent inference: find entity pairs that co-occur but lack direct edges."""
+        if not graph or not hasattr(graph, "entities") or not hasattr(graph, "relationships"):
+            return []
+        entities = graph.entities
+        rels = graph.relationships
+
+        # Build co-occurrence index: entity -> set of papers
+        ent_papers = {}
+        for eid, ent in entities.items():
+            papers = ent.get("papers", [])
+            ep = set()
+            for p in papers:
+                if isinstance(p, str):
+                    ep.add(p)
+                elif isinstance(p, dict):
+                    ep.add(p.get("pmid", ""))
+            ent_papers[eid] = ep
+
+        # Build existing edges set
+        existing_pairs = set()
+        for r in rels:
+            existing_pairs.add((r.get("source"), r.get("target")))
+
+        # Find co-occurring entity pairs without direct edges
+        candidates = []
+        ent_ids = list(ent_papers.keys())
+        for i in range(len(ent_ids)):
+            for j in range(i + 1, len(ent_ids)):
+                a, b = ent_ids[i], ent_ids[j]
+                if (a, b) in existing_pairs or (b, a) in existing_pairs:
+                    continue
+                shared = ent_papers[a] & ent_papers[b]
+                if len(shared) >= 1:
+                    jaccard = len(shared) / len(ent_papers[a] | ent_papers[b]) if (ent_papers[a] | ent_papers[b]) else 0
+                    if jaccard >= 0.1:
+                        ent_a = entities.get(a, {})
+                        ent_b = entities.get(b, {})
+                        candidates.append({
+                            "entity_a": ent_a.get("name", a),
+                            "entity_a_type": ent_a.get("type", ""),
+                            "entity_b": ent_b.get("name", b),
+                            "entity_b_type": ent_b.get("type", ""),
+                            "shared_papers": list(shared)[:5],
+                            "cooccurrence_jaccard": round(jaccard, 3),
+                            "type": "latent_link",
+                        })
+        candidates.sort(key=lambda c: c["cooccurrence_jaccard"], reverse=True)
+        return candidates[:top_k]
 
     async def _mine_hypotheses(self, graph, topic: str):
         self._post_output("Mining existing graph for new hypotheses...")

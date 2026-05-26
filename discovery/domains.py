@@ -163,6 +163,7 @@ DOMAINS = {
         },
         "enrichment": ["github", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC computer science entities: exact algorithm names (Transformer, ResNet-50, BERT), named frameworks (PyTorch, TensorFlow), specific datasets (ImageNet, CIFAR-10, SQuAD), architecture names with parameter counts, performance metrics (BLEU, F1, accuracy %), programming language versions, benchmark names (GLUE, HumanEval). AVOID generic categories like 'ML model' or 'neural network' without specific name or architecture.",
     },
 
     "earth_science": {

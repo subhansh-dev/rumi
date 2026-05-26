@@ -29,7 +29,6 @@ class HypothesisEngine:
             return self._fallback_hypothesis(topic, domain, f"LLM unavailable ({provider})")
 
         raw = raw.strip()
-        # Strip markdown code block if present
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
             raw = raw.rsplit("```", 1)[0].strip()
@@ -47,6 +46,9 @@ class HypothesisEngine:
             h["created_at"] = datetime.utcnow().isoformat()
             h["status"] = "draft"
 
+            # Apply scientific formatting cleanup
+            h = _clean_scientific_notation(h)
+
             # Algorithmic confidence scoring
             score_result = self.scorer.score(h, graph, contradictions)
             h["confidence"] = score_result["confidence"]
@@ -59,6 +61,10 @@ class HypothesisEngine:
                 h["similar_existing"] = similar
             else:
                 h["novelty"] = h.get("novelty", "medium")
+                h["novelty"] = "medium"  # Cap default — no hypothesis is "high" without evidence
+
+            # Downrank novelty: the LLM consistently overestimates
+            self._cap_novelty(h)
 
             # Persist
             self.memory.save_hypothesis(h, run_id)
@@ -68,6 +74,16 @@ class HypothesisEngine:
             return self._fallback_hypothesis(topic, domain, "All hypotheses were duplicates")
 
         return enriched
+
+    def _cap_novelty(self, h):
+        """Prevent LLM from overclaiming novelty — downrank by one level."""
+        n = h.get("novelty", "medium")
+        order = ["high", "medium", "low"]
+        if n == "high":
+            h["novelty"] = "medium"
+            h["novelty_override"] = "downranked_from_high"
+        elif n == "medium":
+            h["novelty_override"] = "kept_medium"
 
     def _build_prompt(self, graph, topic, domain, contradictions, latent_candidates):
         from discovery.domains import get_domain
@@ -90,7 +106,7 @@ class HypothesisEngine:
         if latent_candidates:
             latent_text = "\n=== LATENT RELATIONSHIP CANDIDATES ===\n" + json.dumps(latent_candidates, indent=2, default=str)
 
-        return f"""You are an AI research scientist in {domain_label} generating novel scientific hypotheses.
+        prompt = f"""You are a rigorous, skeptical AI research scientist in {domain_label}. You NEVER overclaim novelty, NEVER present speculation as fact, and ALWAYS consider contradictory evidence.
 
 Topic: {topic}
 Domain: {domain_label}
@@ -102,24 +118,55 @@ Entity types: {entity_types}
 {latent_text}
 
 === HYPOTHESIS GENERATION RULES ===
-Generate 2-4 hypotheses. For EACH hypothesis:
+Generate 2-4 hypotheses. For EACH hypothesis you MUST produce ALL 12 fields below.
 
-1. IDENTIFY a testable, non-obvious scientific claim
-2. DEFINE all entities involved (name, type, role)
-3. SPECIFY mechanistic relationships (NOT just "X associated with Y" — explain HOW)
-4. ESTIMATE confidence based on evidence strength
-5. DESCRIBE how to experimentally test it
-6. RATE novelty (high = not obviously in literature, medium = plausible extension, low = well-known)
+SCIENTIFIC HUMILITY RULES:
+- NEVER claim a hypothesis is "high" novelty unless you are certain it contradicts established literature
+- ALWAYS include contradictory evidence and alternative explanations
+- NEVER present speculative mechanisms as established fact
+- BE CONSERVATIVE with confidence estimates
+- PREFER "medium" or "low" novelty over "high"
 
-DO NOT generate:
-- Generic literature summaries
-- Obvious known facts
-- Untestable claims
-- Vague "further research needed" statements
+MECHANISTIC REASONING REQUIREMENTS:
+You MUST reason about:
+- WHY each relationship exists (causal mechanism, not just correlation)
+- HOW environmental conditions modulate the mechanism
+- WHEN the mechanism breaks down or reverses
+- WHICH variables dominate the system behavior
+
+CROSS-PAPER SYNTHESIS:
+Combine evidence from MULTIPLE papers in the graph. Look for:
+- Entities that co-occur across papers but have no direct relationship edge
+- Chains: A→B in paper 1, B→C in paper 2 → hypothesize A→C
+- Contradictory findings that suggest unexplored boundary conditions
+- Environmental or contextual variables that might resolve contradictions
+
+BAD (shallow):
+"X may be associated with Y in condition Z."
+
+GOOD (mechanistic):
+"X phosphorylates Y at residue S473 via PI3K-AKT pathway activation, but only under hypoxic conditions (<5% O2) where HIF-1alpha stabilizes the X-Y complex — this suggests an unexplored O2-dependent regulatory checkpoint."
+
+=== OUTPUT FIELDS (produce ALL 12) ===
+
+1. title: Short, specific testable claim
+2. mechanistic_rationale: Deep causal explanation (why, how, when, which conditions)
+3. supporting_evidence: List of specific evidence items from the graph papers
+4. contradictory_evidence: Evidence AGAINST the hypothesis (must always include at least 1)
+5. alternative_explanations: 2-3 alternative mechanistic explanations
+6. novelty: "low" | "medium" — never "high" (be conservative)
+7. confidence: 0.0-1.0 estimate (be conservative)
+8. environmental_constraints: Conditions under which the hypothesis holds vs breaks
+9. failure_conditions: Specific scenarios where the mechanism would fail
+10. experimental_validation: Detailed experimental design to test
+11. observational_requirements: Specific measurements, instruments, detection limits needed
+12. source_traceability: PMIDs or specific papers supporting each claim
 
 === OUTPUT SCHEMA ===
 Output ONLY valid JSON as a list:
-[{{"title": "string", "description": "string", "pattern_type": "bridge_node|contradiction|low_cooccurrence|novel_mechanism|latent_link", "nodes": [{{"name": "string", "type": "{entity_types.replace(', ', '|')}", "definition": "string", "conditions": "string"}}], "edges": [{{"source": "string", "relation": "string", "target": "string", "definition": "string", "papers": ["PMID..."]}}], "evidence": ["string"], "papers": ["PMIDs"], "testability": "string — detailed experimental design", "novelty": "high|medium|low"}}]"""
+[{{"title": "string", "mechanistic_rationale": "string", "pattern_type": "bridge_node|contradiction|low_cooccurrence|novel_mechanism|latent_link", "nodes": [{{"name": "string", "type": "{entity_types.replace(', ', '|')}", "definition": "string", "conditions": "string"}}], "edges": [{{"source": "string", "relation": "string", "target": "string", "definition": "string", "papers": ["PMID..."]}}], "supporting_evidence": ["string"], "contradictory_evidence": ["string"], "alternative_explanations": ["string"], "papers": ["PMIDs"], "environmental_constraints": "string", "failure_conditions": ["string"], "experimental_validation": "string", "observational_requirements": "string", "source_traceability": {{"claim": "string", "source": "PMID"}}[], "novelty": "low|medium", "confidence": 0.0}}]"""
+
+        return prompt
 
     def _parse(self, text):
         try:
@@ -137,16 +184,22 @@ Output ONLY valid JSON as a list:
         return [{
             "id": str(uuid.uuid4()),
             "title": f"Fallback analysis: {topic[:60]}",
-            "description": f"Hypothesis generation encountered an issue: {reason}. "
-                           f"The graph still contains valid entities and relationships — "
-                           f"consider exploring {topic} manually via the knowledge graph.",
+            "mechanistic_rationale": f"Hypothesis generation encountered an issue: {reason}. "
+                                     f"The graph still contains valid entities and relationships — "
+                                     f"consider exploring {topic} manually via the knowledge graph.",
             "pattern_type": "fallback",
             "confidence": 0.0,
             "nodes": [],
             "edges": [],
-            "evidence": [f"Error: {reason}"],
+            "supporting_evidence": [f"Error: {reason}"],
+            "contradictory_evidence": [],
+            "alternative_explanations": [],
             "papers": [],
-            "testability": "N/A — generation failed",
+            "environmental_constraints": "",
+            "failure_conditions": [],
+            "experimental_validation": "N/A — generation failed",
+            "observational_requirements": "",
+            "source_traceability": [],
             "novelty": "low",
             "topic": topic,
             "domain": domain,
@@ -159,29 +212,34 @@ Output ONLY valid JSON as a list:
         """Scientific reflection — critique a hypothesis."""
         critique_stage = LLMStage("skeptic_review", max_retries=2, backoff=[3, 10])
 
-        prompt = f"""You are a skeptical AI scientist reviewing a hypothesis.
+        prompt = f"""You are a skeptical AI scientist reviewing a hypothesis. Be adversarial — try to FALSIFY it.
 
 HYPOTHESIS:
 Title: {hypothesis.get('title')}
-Description: {hypothesis.get('description')}
+Mechanistic Rationale: {hypothesis.get('mechanistic_rationale') or hypothesis.get('description')}
 Pattern type: {hypothesis.get('pattern_type')}
 Confidence: {hypothesis.get('confidence')}
+Novelty: {hypothesis.get('novelty')}
 
-Nodes: {json.dumps(hypothesis.get('nodes', []), indent=2)}
-Edges: {json.dumps(hypothesis.get('edges', []), indent=2)}
-Evidence: {json.dumps(hypothesis.get('evidence', []), indent=2)}
-Testability: {hypothesis.get('testability')}
+Supporting Evidence: {json.dumps(hypothesis.get('supporting_evidence', []), indent=2)}
+Contradictory Evidence: {json.dumps(hypothesis.get('contradictory_evidence', []), indent=2)}
+Alternative Explanations: {json.dumps(hypothesis.get('alternative_explanations', []), indent=2)}
+Environmental Constraints: {hypothesis.get('environmental_constraints')}
+Failure Conditions: {json.dumps(hypothesis.get('failure_conditions', []), indent=2)}
+Experimental Validation: {hypothesis.get('experimental_validation') or hypothesis.get('testability')}
+Observational Requirements: {hypothesis.get('observational_requirements')}
 
-Critique this hypothesis for:
-1. Logical coherence — does the reasoning hold?
-2. Evidence strength — are the cited claims well-supported?
-3. Alternative explanations — what else could explain the observations?
-4. Testability — is the proposed experiment feasible?
-5. Novelty — is this genuinely new or already known?
-6. Weaknesses — what are the top 3 specific weaknesses?
+Critique for:
+1. Logical coherence — does the causal chain hold?
+2. Evidence strength — rate each claim strong/weak/absent
+3. Alternative mechanisms — what important alternatives are MISSING?
+4. Confounders — what unaccounted variables could invalidate the hypothesis?
+5. Testability — is the proposed experiment genuinely feasible?
+6. Novelty — is this genuinely underexplored or just rephrasing known concepts?
+7. Weaknesses — top 3 specific flaws
 
 Output JSON:
-{{"critique": "detailed critique", "weaknesses": ["weakness1", "weakness2", "weakness3"], "revised_confidence": 0.0-1.0, "alternative_explanations": ["alt1", "alt2"], "suggested_fixes": ["fix1", "fix2"]}}"""
+{{"critique": "detailed adversarial critique", "weaknesses": ["flaw1", "flaw2", "flaw3"], "revised_confidence": 0.0-1.0, "alternative_explanations": ["alt1", "alt2"], "suggested_fixes": ["fix1", "fix2"], "evidence_rating": "strong|moderate|weak", "recommendation": "accept|revise|reject"}}"""
 
         raw, provider = await critique_stage.call_with_retry(prompt, json_mode=True)
         if not raw:
@@ -198,3 +256,33 @@ Output JSON:
             return result
         except json.JSONDecodeError:
             return {"critique": "Failed to parse reflection", "weaknesses": [], "revised_confidence": hypothesis.get("confidence", 0.0)}
+
+
+def _clean_scientific_notation(h):
+    """Clean Unicode/scientific formatting in all text fields of a hypothesis."""
+    import re
+    replacements = {
+        "??m": "μm",
+        "??": "'",
+        "??": "'",
+        "—": " — ",
+        "–": "-",
+        "−": "-",
+    }
+    def _clean(text):
+        if not isinstance(text, str):
+            return text
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        return text
+
+    def _walk(obj):
+        if isinstance(obj, dict):
+            return {k: _walk(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_walk(item) for item in obj]
+        if isinstance(obj, str):
+            return _clean(obj)
+        return obj
+
+    return _walk(h)
