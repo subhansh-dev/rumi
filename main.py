@@ -2257,6 +2257,7 @@ class RumiLive:
         self._start_time = time.time()
         self._session_count = 0
         self._audio_drop_count = 0
+        self._workspace = None
 
         self.ui.on_text_command = self._on_text_command
 
@@ -2590,7 +2591,7 @@ class RumiLive:
         processed_text = text
 
         # Publish USER_INPUT to Global Workspace
-        if self._workspace and _brain_workspace_ok:
+        if _brain_workspace_ok and getattr(self, '_workspace', None):
             try:
                 asyncio.run_coroutine_threadsafe(
                     self._workspace.publish(
