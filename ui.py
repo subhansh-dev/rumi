@@ -317,6 +317,7 @@ class RumiUI:
         console.print()
         console.print(Text("SCIENTIST AI  •  v2.0", style=f"bold {C_WHITE}"), justify="center")
         console.print(Text("Autonomous Scientific Discovery Framework", style=f"bold {C_CYAN}"), justify="center")
+        console.print(Text("by subhansh", style=Style(color="#6b7280", italic=True)), justify="center")
 
         # Subtitle tags
         tags_style = Style(color="#6b7280", bold=False)
@@ -368,6 +369,8 @@ class RumiUI:
         console.print(Rule(style=f"dim {C_VIOLET}"))
         console.print(Text(f"  /help for commands  •  /discover <topic> to start research  —  {datetime.now().strftime('%H:%M:%S')}",
                           style=f"dim {C_DIM}"), justify="center")
+        console.print(Text("  Research by subhansh  ✦  RUMI v2.0",
+                          style=Style(color="#6b7280", italic=True)), justify="center")
         console.print()
 
     # ── Input Loop ──────────────────────────────────────────────
