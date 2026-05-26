@@ -399,12 +399,12 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 
 | Requirement | Details |
 |-------------|---------|
-| **Python** | 3.12 or higher ([download](https://python.org/downloads)) |
+| **Python** | 3.11 or higher ([download](https://python.org/downloads)) |
 | **Git** | Any recent version |
 | **OS** | Windows (primary), Linux/macOS (partial support) |
 | **RAM** | 4GB+ (8GB recommended) |
 | **Storage** | ~500MB for RUMI + ~400MB for Playwright browsers |
-| **API Key** | Gemini API key — free at [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| **API Keys** | Gemini (free) at [aistudio.google.com](https://aistudio.google.com/app/apikey) + Groq (free) at [console.groq.com/keys](https://console.groq.com/keys) |
 
 ### Step 1 — Clone the Repository
 
@@ -430,12 +430,10 @@ source rumi_env/bin/activate
 ### Step 3 — Install Dependencies
 
 ```bash
-# Core installation (all dependencies)
 pip install -e .
-
-# Or install from requirements.txt directly:
-pip install -r requirements.txt
 ```
+
+This installs all dependencies from `requirements.txt`. The `setup.py` / `pyproject.toml` registers the `rumi` CLI command.
 
 ### Step 4 — Install Playwright Browser
 
@@ -443,30 +441,45 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
-### Step 5 — Configure Your API Key
+### Step 5 — Configure Your API Keys
 
-Create or edit `config/api_keys.json`:
+Copy the template and fill in your keys:
+
+```bash
+cp config/api_keys.template.json config/api_keys.json
+```
+
+Edit `config/api_keys.json`:
 
 ```json
 {
-    "GOOGLE_API_KEY": "your-gemini-api-key-here",
+    "primary_provider": "gemini",
+    "gemini_api_key": "your-gemini-api-key-here",
+    "groq_api_key": "your-groq-api-key-here",
     "os_system": "windows"
 }
 ```
 
-Get a free Gemini API key: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+| Key | Required | Where to get it |
+|-----|----------|-----------------|
+| `gemini_api_key` | Yes | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
+| `groq_api_key` | Yes (free tier) | [console.groq.com/keys](https://console.groq.com/keys) |
+| `gemini_api_key_fallback` | No | Second Gemini key for fallback |
+| `telegram_bot_token` | No | [t.me/botfather](https://t.me/botfather) |
 
 ### Step 6 — Launch RUMI
 
 ```bash
-# Using the CLI command:
 rumi
+```
 
-# Or directly:
+Or directly:
+
+```bash
 python rumi_launcher.py
 ```
 
-On first launch, RUMI will check your configuration and initialize all cognitive modules. You should see the terminal UI with the RUMI logo and a prompt.
+On first launch, RUMI checks your configuration and initializes all cognitive modules. The terminal UI appears with the RUMI logo and a prompt.
 
 <p align="center">
   <img src="assets/rumi_install.gif" alt="RUMI Installation Steps" width="800" />
@@ -477,9 +490,10 @@ On first launch, RUMI will check your configuration and initialize all cognitive
 | Problem | Solution |
 |---------|----------|
 | `ModuleNotFoundError` | Ensure virtual environment is activated and `pip install -e .` was run |
-| `GOOGLE_API_KEY not found` | Check `config/api_keys.json` has the correct key |
+| `gemini_api_key not found` | Check `config/api_keys.json` has the correct key format |
 | `playwright not found` | Run `playwright install chromium` |
 | `No module named 'brain.*'` | Make sure you're running from the `rumi/` project root |
+| Groq rate limit errors | Normal for free tier — pipeline auto-retries with backoff
 
 
 ---

@@ -18,6 +18,7 @@ if friday_path.exists():
         or friday.get("gemini_api_key4")
         or friday.get("gemini_api_key3")
         or friday.get("gemini_api_key2")
+        or friday.get("gemini_api_key_fallback")
     )
 else:
     API_KEY = None

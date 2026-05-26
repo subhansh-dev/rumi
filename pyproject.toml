@@ -7,7 +7,7 @@ name = "rumi"
 version = "2.0.0"
 description = "RUMI — Autonomous Cognitive AI for Scientific Research"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 license = {text = "RUMI License v1.0"}
 
 authors = [
@@ -31,6 +31,7 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
