@@ -443,12 +443,6 @@ playwright install chromium
 
 ### Step 5 — Configure Your API Keys
 
-Copy the template and fill in your keys:
-
-```bash
-cp config/api_keys.template.json config/api_keys.json
-```
-
 Edit `config/api_keys.json`:
 
 ```json
@@ -466,6 +460,8 @@ Edit `config/api_keys.json`:
 | `groq_api_key` | Yes (free tier) | [console.groq.com/keys](https://console.groq.com/keys) |
 | `gemini_api_key_fallback` | No | Second Gemini key for fallback |
 | `telegram_bot_token` | No | [t.me/botfather](https://t.me/botfather) |
+
+> **For contributors:** `config/api_keys.json` is gitignored. Use `.\scripts\push.ps1` to push — it automatically strips API keys, commits placeholders, pushes, then restores your real keys.
 
 ### Step 6 — Launch RUMI
 
