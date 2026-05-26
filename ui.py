@@ -855,7 +855,7 @@ class RumiUI:
         console.print()
         console.print(Text("  Add a second Groq key for better rate limiting? (optional)", style=C_CYAN))
         console.print(Text("  (Rotates between 2 keys to double your 12K TPM budget)", style=f"dim {C_DIM}"))
-        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}))
+        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}"))
         groq_key2 = input("  🔑 ").strip()
 
         console.print()
@@ -906,14 +906,14 @@ class RumiUI:
         console.print()
 
         console.print(Text("  Enter your NASA API key (free):", style=C_CYAN))
-        console.print(Text("  (Required for space_astronomy enrichment. Get at https://api.nasa.gov/)", style=f"dim {C_DIM}))
-        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}))
+        console.print(Text("  (Required for space_astronomy enrichment. Get at https://api.nasa.gov/)", style=f"dim {C_DIM}"))
+        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}"))
         nasa_key = input("  🛸 ").strip()
 
         console.print()
         console.print(Text("  Enter your Materials Project API key (free):", style=C_CYAN))
-        console.print(Text("  (Required for materials_science enrichment. Get at https://materialsproject.org/api)", style=f"dim {C_DIM}))
-        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}))
+        console.print(Text("  (Required for materials_science enrichment. Get at https://materialsproject.org/api)", style=f"dim {C_DIM}"))
+        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}"))
         mp_key = input("  🔬 ").strip()
 
         # Save config
