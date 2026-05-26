@@ -853,6 +853,12 @@ class RumiUI:
             groq_key = input("  🔑 ").strip()
 
         console.print()
+        console.print(Text("  Add a second Groq key for better rate limiting? (optional)", style=C_CYAN))
+        console.print(Text("  (Rotates between 2 keys to double your 12K TPM budget)", style=f"dim {C_DIM}"))
+        console.print(Text("  [Enter to skip]:", style=f"dim {C_DIM}))
+        groq_key2 = input("  🔑 ").strip()
+
+        console.print()
         console.print(Text(f"  Your callsign (default: OPERATOR):", style=C_CYAN))
         user_name = input("  👤 ").strip().upper() or "OPERATOR"
 
@@ -914,10 +920,11 @@ class RumiUI:
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(API_FILE, "w", encoding="utf-8") as f:
             json.dump({
-                "primary_provider": "gemini",
+                "primary_provider": "groq",
                 "gemini_api_key": gemini_key,
                 "gemini_api_key_fallback": "",
                 "groq_api_key": groq_key,
+                "groq_api_key2": groq_key2,
                 "os_system": detected,
                 "camera_index": 0,
                 "telegram_bot_token": tg_token,
