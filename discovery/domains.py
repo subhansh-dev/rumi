@@ -18,6 +18,7 @@ DOMAINS = {
         },
         "enrichment": ["pubchem", "openfda", "pdb", "semantic_scholar"],
         "generation": "molecule",
+        "extraction_guide": "Extract SPECIFIC scientific entities: named genes (KRAS, EGFR, TP53), specific proteins (EGFR T790M, KRAS G12C), named drugs (sotorasib, olaparib), specific mutations, cell lines, numerical properties (IC50, EC50), exact pathway names. AVOID generic categories like 'drug resistance' or 'cancer' without specific names.",
     },
 
     "materials_science": {
@@ -34,6 +35,7 @@ DOMAINS = {
         },
         "enrichment": ["pubchem", "materials_project", "semantic_scholar"],
         "generation": "material",
+        "extraction_guide": "Extract SPECIFIC materials: exact chemical formulae (TiO2, CH3NH3PbI3), named compounds, exact bandgap values (1.55 eV), synthesis parameters (temperature, pressure, time), characterization data (XRD peaks, SEM dimensions). AVOID generic categories like 'nanomaterial' or 'polymer' without specific names.",
     },
 
     "neuroscience": {
@@ -41,17 +43,18 @@ DOMAINS = {
         "description": "Brain regions, neurotransmitters, disorders, genes, behaviors — with UniProt + PDB enrichment",
         "aliases": ["neuro", "neuroscience", "brain"],
         "entity_types": {
-            "brain_region":     {"color": "#dda0dd", "description": "Specific brain area or nucleus"},
-            "neurotransmitter": {"color": "#98fb98", "description": "Neurotransmitter or neuromodulator"},
-            "disorder":         {"color": "#f08080", "description": "Neurological or psychiatric disorder"},
-            "gene":             {"color": "#60a5fa", "description": "Gene associated with neural function"},
-            "protein":          {"color": "#a78bfa", "description": "Neural protein or receptor"},
-            "behavior":         {"color": "#ffd700", "description": "Behavioral phenotype or response"},
-            "neuron_type":      {"color": "#20b2aa", "description": "Type of neuron"},
-            "mechanism":        {"color": "#fb923c", "description": "Neural mechanism or process"},
+            "brain_region":      {"color": "#dda0dd", "description": "Specific brain area or nucleus"},
+            "neurotransmitter":  {"color": "#98fb98", "description": "Neurotransmitter or neuromodulator"},
+            "disorder":          {"color": "#f08080", "description": "Neurological or psychiatric disorder"},
+            "gene":              {"color": "#60a5fa", "description": "Gene associated with neural function"},
+            "protein":           {"color": "#a78bfa", "description": "Neural protein or receptor"},
+            "behavior":          {"color": "#ffd700", "description": "Behavioral phenotype or response"},
+            "neuron_type":       {"color": "#20b2aa", "description": "Type of neuron"},
+            "mechanism":         {"color": "#fb923c", "description": "Neural mechanism or process"},
         },
         "enrichment": ["uniprot", "pdb", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC neural entities: named brain regions (ventral tegmental area, dorsolateral prefrontal cortex), specific neurotransmitters (dopamine, serotonin, glutamate), named receptors (DRD2, 5-HT2A, NMDA), exact genes (COMT, BDNF, DRD4), behavioral paradigms (Morris water maze, fear conditioning), channel types (Nav1.7, Kv4.2). AVOID generic categories without specific names.",
     },
 
     "molecular_biology": {
@@ -68,6 +71,7 @@ DOMAINS = {
         },
         "enrichment": ["uniprot", "pdb", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC molecular entities: exact gene names (TP53, BRCA1, MYC), named proteins with domains, specific pathways (Wnt/beta-catenin, MAPK/ERK), organisms by exact species name, quantitative phenotypes (expression fold-change, KD values). AVOID generic terms.",
     },
 
     "climate_energy": {
@@ -84,6 +88,7 @@ DOMAINS = {
         },
         "enrichment": ["nasa_power", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC climate entities: exact emission values (GtCO2, ppm), named technologies (perovskite solar cells, Li-ion batteries), specific policies (Paris Agreement Article 6, EU ETS Phase 4), named regions with quantitative data, temperature targets (1.5C, 2.0C), exact timeframes. AVOID generic terms like 'emissions' or 'technology' without specifics.",
     },
 
     "space_astronomy": {
@@ -91,17 +96,20 @@ DOMAINS = {
         "description": "Celestial bodies, missions, exoplanets, galaxies, stars — with NASA image + exoplanet archive + arXiv enrichment",
         "aliases": ["space", "astronomy", "astro", "nasa", "cosmos"],
         "entity_types": {
-            "celestial_body": {"color": "#e056fd", "description": "Planet, moon, asteroid, or other body"},
-            "mission":        {"color": "#00b894", "description": "Space mission or program"},
-            "telescope":      {"color": "#00cec9", "description": "Telescope or observatory"},
-            "exoplanet":      {"color": "#fdcb6e", "description": "Planet outside our solar system"},
-            "galaxy":         {"color": "#a29bfe", "description": "Galaxy or nebula"},
-            "star":           {"color": "#ffeaa7", "description": "Star or stellar object"},
-            "phenomenon":     {"color": "#fd79a8", "description": "Astrophysical phenomenon"},
-            "theory":         {"color": "#74b9ff", "description": "Astrophysical theory or model"},
+            "celestial_body":    {"color": "#e056fd", "description": "Planet, moon, asteroid, or other body"},
+            "mission":           {"color": "#00b894", "description": "Space mission or program"},
+            "telescope":         {"color": "#00cec9", "description": "Telescope or observatory"},
+            "exoplanet":         {"color": "#fdcb6e", "description": "Planet outside our solar system"},
+            "spectral_feature":  {"color": "#ff6b6b", "description": "Spectral line, band, or signature at specific wavelength"},
+            "molecule_gas":      {"color": "#a29bfe", "description": "Specific atmospheric molecule or gas (CH4, CO2, PH3, H2O, O2, NH3)"},
+            "stellar_property":  {"color": "#ffeaa7", "description": "Stellar radiation, UV flux, activity metric"},
+            "atmospheric_param": {"color": "#74b9ff", "description": "Atmospheric mixing ratio, pressure, temperature, composition metric"},
+            "phenomenon":        {"color": "#fd79a8", "description": "Astrophysical phenomenon"},
+            "theory":            {"color": "#74b9ff", "description": "Astrophysical theory or model"},
         },
         "enrichment": ["nasa_api", "arxiv", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC scientific variables: exact molecule names (CH4, CO2, PH3, H2O, O2, NH3, N2O), spectral line wavelengths (1.6um, 4.5um, 15um), atmospheric mixing ratios (1ppm, 0.1ppb), stellar UV flux values, planetary equilibrium temperatures (300K, 500K), transit depths (200ppm), orbital periods, stellar types (M-dwarf, G2V), instrument sensitivities (R=100,000), photochemical rates, biosignature metrics (DES, CDD). AVOID broad categories like 'exoplanet' or 'star' without specific type or property.",
     },
 
     "ecology": {
@@ -109,16 +117,17 @@ DOMAINS = {
         "description": "Species, habitats, ecosystems, conservation — with GBIF biodiversity + Semantic Scholar enrichment",
         "aliases": ["ecology", "environment", "biodiversity", "conservation", "nature"],
         "entity_types": {
-            "species":           {"color": "#55efc4", "description": "Species or taxon"},
-            "habitat":           {"color": "#00b894", "description": "Habitat or ecosystem type"},
-            "ecosystem":         {"color": "#81ecec", "description": "Ecosystem or biome"},
-            "organism":          {"color": "#74b9ff", "description": "Organism or life form"},
-            "threat":            {"color": "#ff7675", "description": "Environmental threat or stressor"},
+            "species":             {"color": "#55efc4", "description": "Species or taxon"},
+            "habitat":             {"color": "#00b894", "description": "Habitat or ecosystem type"},
+            "ecosystem":           {"color": "#81ecec", "description": "Ecosystem or biome"},
+            "organism":            {"color": "#74b9ff", "description": "Organism or life form"},
+            "threat":              {"color": "#ff7675", "description": "Environmental threat or stressor"},
             "conservation_action": {"color": "#fdcb6e", "description": "Conservation strategy or action"},
-            "region":            {"color": "#55efc4", "description": "Geographic region"},
+            "region":              {"color": "#55efc4", "description": "Geographic region"},
         },
         "enrichment": ["gbif", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC ecological entities: exact species by binomial name (Panthera tigris, Quercus robur), population numbers, habitat types with specific locations, conservation status (IUCN categories), threat levels, ecosystem service values. AVOID generic terms without specific names or values.",
     },
 
     "physics": {
@@ -136,6 +145,7 @@ DOMAINS = {
         },
         "enrichment": ["arxiv", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC physics entities: named particles (Higgs boson, neutrino, gluon), interaction cross-sections, coupling constants, experimental collaborations (ATLAS, LIGO), exact energy values (13 TeV, 125 GeV), detector names, physical constants with values. AVOID generic particle categories without specifics.",
     },
 
     "computer_science": {
@@ -169,6 +179,7 @@ DOMAINS = {
         },
         "enrichment": ["usgs", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC geological entities: named formations (Morrison Formation, Bakken Shale), specific minerals with formulae (Fe2O3, SiO2), exact magnitudes (Mw 6.7), named faults (San Andreas), eruption dates, specific locations with coordinates. AVOID generic geological terms.",
     },
 
     "oceanography": {
@@ -176,15 +187,16 @@ DOMAINS = {
         "description": "Ocean regions, currents, marine species, chemistry — with NOAA tides + Semantic Scholar",
         "aliases": ["ocean", "marine", "oceanography", "sea", "coastal"],
         "entity_types": {
-            "ocean_region":  {"color": "#00cec9", "description": "Ocean or sea region"},
-            "current":       {"color": "#74b9ff", "description": "Ocean current or circulation"},
+            "ocean_region":   {"color": "#00cec9", "description": "Ocean or sea region"},
+            "current":        {"color": "#74b9ff", "description": "Ocean current or circulation"},
             "marine_species": {"color": "#55efc4", "description": "Marine species or organism"},
-            "phenomenon":    {"color": "#fdcb6e", "description": "Oceanographic phenomenon"},
-            "chemical":      {"color": "#a29bfe", "description": "Marine chemical or nutrient"},
-            "basin":         {"color": "#81ecec", "description": "Ocean basin or trench"},
+            "phenomenon":     {"color": "#fdcb6e", "description": "Oceanographic phenomenon"},
+            "chemical":       {"color": "#a29bfe", "description": "Marine chemical or nutrient"},
+            "basin":          {"color": "#81ecec", "description": "Ocean basin or trench"},
         },
         "enrichment": ["noaa", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC oceanographic entities: named currents (Gulf Stream, Kuroshio), exact temperatures (SST anomalies), salinity values (35 PSU), pH levels, named basins, specific species by binomial name, nutrient concentrations (nitrate, phosphate uM). AVOID generic ocean terms.",
     },
 
     "economics": {
@@ -201,6 +213,7 @@ DOMAINS = {
         },
         "enrichment": ["world_bank", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC economic entities: exact GDP values (trillions USD), specific inflation rates, named policies by official name, specific market indices (S&P 500), elasticity estimates, country names with quantitative data. AVOID generic economic terms.",
     },
 
     "public_health": {
@@ -216,6 +229,7 @@ DOMAINS = {
         },
         "enrichment": ["who", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC public health entities: exact disease names (COVID-19, tuberculosis), incidence rates (per 100,000), named interventions (vaccine names, drug regimens), population demographics with values, risk ratios, odds ratios, confidence intervals. AVOID generic health terms.",
     },
 
     "mathematics": {
@@ -232,6 +246,7 @@ DOMAINS = {
         },
         "enrichment": ["oeis", "arxiv", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC mathematical entities: named theorems (Fermat's Last Theorem), exact sequences (OEIS A000045), named constants (pi, e, gamma), specific functions with domains, named conjectures with status, exact equations or identities. AVOID generic math terms.",
     },
 
     "social_science": {
@@ -248,6 +263,7 @@ DOMAINS = {
         },
         "enrichment": ["openalex", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC social science entities: named theories (Social Identity Theory, Rational Choice Theory), sample sizes and demographics, specific survey instruments (SES, Big Five), named institutions, effect sizes, p-values. AVOID generic social terms.",
     },
 
     "chemistry": {
@@ -264,6 +280,7 @@ DOMAINS = {
         },
         "enrichment": ["cir", "pubchem", "semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC chemical entities: exact compound names with formulae (C6H12O6, NaCl), named reactions (Friedel-Crafts, Suzuki coupling), specific techniques (HPLC, NMR), yields (85%), temperatures (150C), solvents (THF, DCM). AVOID generic chemical categories.",
     },
 
     "general": {
@@ -280,6 +297,7 @@ DOMAINS = {
         },
         "enrichment": ["semantic_scholar"],
         "generation": "hypothesis",
+        "extraction_guide": "Extract SPECIFIC entities: named concepts, specific methods, quantitative findings with values, named technologies, organisms by exact name. AVOID vague categories without specific identifiers.",
     },
 }
 

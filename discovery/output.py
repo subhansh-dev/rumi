@@ -1,7 +1,14 @@
 import json
+import re
 from pathlib import Path
 
 HYPOTHESES_DIR = Path(__file__).resolve().parent.parent / "discovery" / "hypotheses"
+
+
+def post_output(msg):
+    """Thread-safe output that strips Rich markup."""
+    plain = re.sub(r'\[/?\w+\]', '', msg) if msg else msg
+    print(f"  {plain}" if plain else "")
 
 
 def format_papers(papers: list[dict]) -> str:

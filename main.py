@@ -2777,6 +2777,16 @@ class RumiLive:
         from discovery.pubmed import search_and_fetch
         from discovery.graph import KnowledgeGraph
         from discovery.output import format_papers, save_session
+        from discovery.pipeline import DiscoveryPipeline, Stage, CheckpointManager
+        from discovery.hypothesis_engine import HypothesisEngine
+        from discovery.contradiction_miner import ContradictionMiner
+        from discovery.skeptic_agent import SkepticAgent
+        from discovery.novelty_detector import NoveltyDetector
+        from discovery.experiment_planner import ExperimentPlanner
+        from discovery.metrics_tracker import MetricsTracker
+        from discovery.hypothesis_memory import HypothesisMemory
+        from discovery.retrieval_filter import RetrievalFilter
+        from datetime import datetime
 
         # Detect domain
         if domain_override:
@@ -2794,16 +2804,31 @@ class RumiLive:
         if not papers:
             self._post_output("No papers found. Try a different query.")
             return
-        self._post_output(f"Found {len(papers)} papers.")
-        self._post_output(format_papers(papers[:5]))
+        self._post_output(f"Found {len(papers)} raw papers. Filtering by relevance...")
+
+        # Semantic relevance filtering
+        filter_ = RetrievalFilter()
+        papers = filter_.filter(papers, query, domain=domain, min_papers=3, max_papers=10)
+        if not papers:
+            self._post_output("No relevant papers after filtering. Try a different query.")
+            return
+        self._post_output(f"{len(papers)} relevant papers retained.")
+        self._post_output(format_papers(papers))
 
         self._post_output("[bold cyan]Extracting entities and relationships...[/bold cyan]")
         extraction_prompt = self._build_extraction_prompt(papers, domain)
-        extraction_result = await self._call_llm(extraction_prompt, json_mode=True, provider="groq")
-        entities, relationships = self._parse_extraction(extraction_result)
+        entities, relationships = [], []
+        for attempt in range(3):
+            extraction_result = await self._call_llm(extraction_prompt, json_mode=True, provider="groq", max_tokens=8192)
+            entities, relationships = self._parse_extraction(extraction_result)
+            if entities:
+                break
+            delay = (attempt + 1) * 5
+            self._post_output(f"[yellow]Extraction attempt {attempt+1} yielded 0 entities, retrying in {delay}s...[/yellow]")
+            await asyncio.sleep(delay)
 
         self._post_output("[bold cyan]Building knowledge graph...[/bold cyan]")
-        graph = KnowledgeGraph.load()
+        graph = KnowledgeGraph()
         graph.domain = domain
         for p in papers:
             graph.add_paper(p["pmid"], p["title"], p.get("abstract", ""), p["url"], p.get("year", ""))
@@ -2818,33 +2843,112 @@ class RumiLive:
             self._post_output(f"[bold cyan]Enriching entities with {', '.join(e.capitalize() for e in enrichment_label)}...[/bold cyan]")
             await self._enrich_entities(graph, domain)
 
-        self._post_output("[bold cyan]Mining patterns and generating hypotheses...[/bold cyan]")
-        hypothesis_prompt = self._build_hypothesis_prompt(graph, query, domain)
-        hypothesis_result = await self._call_llm(hypothesis_prompt, json_mode=True, provider="groq")
-        hypotheses = self._parse_hypotheses(hypothesis_result)
+        # === NEW COGNITIVE PIPELINE ===
+        run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        metrics = MetricsTracker()
+        hypothesis_memory = HypothesisMemory()
+        hypothesis_engine = HypothesisEngine(hypothesis_memory)
+        contradiction_miner = ContradictionMiner()
+        skeptic = SkepticAgent()
+        novelty = NoveltyDetector(hypothesis_memory)
+        experiment = ExperimentPlanner()
 
+        # Stage 4: Contradiction Mining
+        self._post_output("[bold cyan]Mining contradictions...[/bold cyan]")
+        t0 = time.time()
+        contradiction_result = contradiction_miner.mine(graph)
+        contradictions = contradiction_result.get("contradictions", [])
+        if contradictions:
+            self._post_output(f"[yellow]Found {len(contradictions)} contradictions ({contradiction_result['summary']})[/yellow]")
+        else:
+            self._post_output("No contradictions detected.")
+        metrics.record("contradiction_mining", "ok", time.time() - t0)
+
+        # Stage 5: Latent Discovery (placeholder — graph algorithms later)
+        latent_candidates = []
+
+        # Stage 6: Hypothesis Generation
+        self._post_output("[bold cyan]Generating scientific hypotheses...[/bold cyan]")
+        t0 = time.time()
+        hypotheses = await hypothesis_engine.generate(
+            graph, query, domain, run_id,
+            contradictions=contradictions[:10] if contradictions else None,
+            latent_candidates=latent_candidates
+        )
+        metrics.record("hypothesis_generation", "ok", time.time() - t0)
+        self._post_output(f"Generated {len(hypotheses)} hypotheses.")
+        h_stats = metrics.hypothesis_stats(hypotheses)
+        self._post_output(f"  Avg confidence: {h_stats['avg_confidence']} | "
+                         f"Novelty: {h_stats['novelty_distribution']}")
+
+        # Stage 7: Scientific Reflection (Skeptic Review)
+        self._post_output("[bold cyan]Running skeptic review...[/bold cyan]")
+        t0 = time.time()
+        for h in hypotheses[:3]:
+            review = await skeptic.review(h, contradictions[:5] if contradictions else None)
+            if review.get("recommendation") == "reject":
+                hypothesis_memory.update_status(h["id"], "rejected")
+                self._post_output(f"[yellow]Hypothesis rejected by skeptic: {h['title'][:60]}[/yellow]")
+            elif review:
+                hypothesis_memory.update_critique(h["id"], review.get("critique", ""),
+                                                   json.dumps(review.get("logical_flaws", [])))
+        metrics.record("skeptic_review", "ok", time.time() - t0)
+
+        # Stage 8: Novelty Verification
+        self._post_output("[bold cyan]Verifying novelty against literature...[/bold cyan]")
+        t0 = time.time()
+        for h in hypotheses[:5]:
+            novelty_result = await novelty.check(h, graph)
+            if novelty_result.get("novelty_probability", 0) > 0.7:
+                h["novelty"] = "high"
+                hypothesis_memory.update_status(h["id"], "verified")
+        metrics.record("novelty_verification", "ok", time.time() - t0)
+
+        # Stage 9: Experiment Planning
+        self._post_output("[bold cyan]Planning experiments...[/bold cyan]")
+        t0 = time.time()
+        top_hypotheses = sorted(hypotheses, key=lambda h: h.get("confidence", 0), reverse=True)[:2]
+        for h in top_hypotheses:
+            plan = await experiment.plan(h)
+            if plan.get("design"):
+                h["experiment_plan"] = plan
+                hypothesis_memory.update_status(h["id"], "experiment_planned")
+        metrics.record("experiment_planning", "ok", time.time() - t0)
+
+        metrics.save(run_id)
+
+        # Save & Output
         from discovery.output import format_hypotheses, save_hypotheses
         save_hypotheses(hypotheses)
         save_session(query, papers, hypotheses)
         self._track_discovery_topic(query, [p["pmid"] for p in papers])
         self._post_output(format_hypotheses(hypotheses))
+        self._post_output(metrics.summary())
         self._post_output("\nDone. Run /dashboard to explore visually.")
 
     def _build_extraction_prompt(self, papers: list[dict], domain: str = "drug_discovery") -> str:
+        papers = papers[:5]
         papers_text = "\n\n".join(
-            f"--- Paper {i+1} (PMID: {p['pmid']}) ---\nTitle: {p['title']}\nAbstract: {p.get('abstract', '')}"
+            f"--- Paper {i+1} (PMID: {p['pmid']}) ---\nTitle: {p['title']}\nAbstract: {p.get('abstract', '')[:1500]}"
             for i, p in enumerate(papers)
         )
         domain_cfg = get_domain(domain)
         if not domain_cfg:
             domain_cfg = get_domain("general")
         entity_types_str = ", ".join(sorted(domain_cfg["entity_types"].keys()))
-        return f"""You are a scientific entity extractor for the {domain_cfg['label']} domain. Extract ALL entities of these types from these papers: {entity_types_str}
+        extraction_guide = domain_cfg.get("extraction_guide", "Extract specific named entities with exact names and values.")
+        return f"""You are a scientific entity extractor for the {domain_cfg['label']} domain. Extract ALL specific scientific entities from these papers.
 
-For each paper, output a JSON array of entities and relationships.
+EXTRACTION GUIDE: {extraction_guide}
 
-Entity format: {{"type": "{entity_types_str.replace(', ', '|')}", "name": "exact name"}}
-Relationship format: {{"source": "entity name", "source_type": "entity type", "relation": "treats|causes|activates|inhibits|binds|expressed_in|regulates|associated_with|correlated_with|synthesized_by|measured_in|related_to", "target": "entity name", "target_type": "entity type", "confidence": 0.0-1.0}}
+Entity types: {entity_types_str}
+
+For each paper, output entities and relationships.
+
+Entity format: {{"type": "{entity_types_str.replace(', ', '|')}", "name": "exact specific name with value if applicable"}}
+Relationship format: {{"source": "entity name", "source_type": "entity type", "relation": "treats|causes|activates|inhibits|binds|expressed_in|regulates|associated_with|correlated_with|synthesized_by|measured_in|reactivates|blocks|reduces|increases|related_to", "target": "entity name", "target_type": "entity type", "confidence": 0.0-1.0}}
+
+IMPORTANT: Extract SPECIFIC scientific variables, named entities, and quantitative values. DO NOT extract broad categories.
 
 Papers:
 {papers_text}
@@ -2984,14 +3088,14 @@ Output ONLY valid JSON as a list of objects with this structure:
         except json.JSONDecodeError:
             return []
 
-    async def _call_llm(self, prompt: str, json_mode: bool = False, provider: str = "auto") -> str:
+    async def _call_llm(self, prompt: str, json_mode: bool = False, provider: str = "auto", max_tokens: int = 16384) -> str:
         """Call LLM. provider: 'auto' (Groq→Gemini fallback), 'groq', 'gemini'."""
         from discovery.groq_client import call as groq_call, is_available as groq_available
         cfg = json.loads(API_CONFIG_PATH.read_text(encoding="utf-8-sig"))
 
         if provider in ("auto", "groq"):
             if groq_available():
-                result = groq_call(prompt, json_mode=json_mode)
+                result = groq_call(prompt, json_mode=json_mode, max_tokens=max_tokens)
                 if result is not None:
                     return result
                 if provider == "groq":
@@ -3001,7 +3105,7 @@ Output ONLY valid JSON as a list of objects with this structure:
 
         # Fallback to Gemini
         client = genai.Client(api_key=cfg.get("gemini_api_key", ""))
-        kwargs = dict(temperature=0.3, max_output_tokens=16384)
+        kwargs = dict(temperature=0.3, max_output_tokens=min(max_tokens, 32768))
         if json_mode:
             kwargs["response_mime_type"] = "application/json"
         response = client.models.generate_content(
@@ -3138,9 +3242,13 @@ Output ONLY valid JSON as a list of objects with this structure:
 
     async def _mine_hypotheses(self, graph, topic: str):
         self._post_output("Mining existing graph for new hypotheses...")
-        hypothesis_prompt = self._build_hypothesis_prompt(graph, topic, self.current_domain)
-        result = await self._call_llm(hypothesis_prompt, json_mode=True, provider="groq")
-        hypotheses = self._parse_hypotheses(result)
+        from discovery.hypothesis_engine import HypothesisEngine
+        from discovery.hypothesis_memory import HypothesisMemory
+        from discovery.metrics_tracker import MetricsTracker
+        from datetime import datetime
+        engine = HypothesisEngine(HypothesisMemory())
+        run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        hypotheses = await engine.generate(graph, topic, self.current_domain or "general", run_id)
         from discovery.output import format_hypotheses, save_hypotheses
         save_hypotheses(hypotheses)
         self._post_output(format_hypotheses(hypotheses))

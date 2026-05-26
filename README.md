@@ -23,8 +23,8 @@
 </p>
 
 <p align="center">
-  <b>Autonomous Cognitive AI for Scientific Research & Software Engineering</b><br>
-  Terminal-native. 60+ Brain Modules. 15 Scientist Modules. Zero bloat.
+  <b>Autonomous Scientific Cognition Framework</b><br>
+  Terminal-native. 88 Brain Modules. 15 Scientist Modules. 10-Stage Hypothesis Discovery Pipeline. Zero bloat.
 </p>
 
 <p align="center">
@@ -55,17 +55,18 @@
 
 ## 🧪 About RUMI
 
-**RUMI** (Research & Unified Machine Intelligence) is a terminal-native autonomous cognitive AI assistant engineered specifically for scientists, engineers, and power users. It bridges the gap between raw LLM capability and autonomous scientific research by combining a sophisticated cognitive architecture — memory, reasoning, planning, consciousness modeling — with a dedicated Scientist AI pipeline for end-to-end research.
+**RUMI** (Research & Unified Machine Intelligence) is a terminal-native autonomous scientific cognition framework that generates novel, testable, evidence-grounded hypotheses via a 10-stage stage-based pipeline. It bridges the gap between raw LLM capability and autonomous scientific research by combining a sophisticated cognitive architecture — memory, reasoning, planning, consciousness modeling — with a modular discovery pipeline featuring entity extraction, knowledge graph construction, contradiction mining, confidence scoring, skeptic review, novelty verification, and experiment planning — all orchestrated through a checkpointed, retry-fault-tolerant stage-based system.
 
 | Dimension | RUMI |
 |-----------|------|
 | **Interface** | Terminal-native (Rich + prompt_toolkit) — no bloat |
-| **Model** | Gemini 2.5 Flash, multi-model routing for specialized scientific tasks |
-| **Architecture** | 60+ cognitive brain modules + 15 Scientist AI modules |
-| **Memory** | 9-type system: neural, episodic, vector, procedural, working, associative, predictive, consolidated, global workspace |
+| **Model** | Gemini 2.5 Flash + Groq (Llama 3.3 70B), multi-model routing with token-aware rate limiting |
+| **Architecture** | 88 cognitive brain modules + 15 Scientist AI modules + 10-stage discovery pipeline |
+| **Pipeline** | PubMed retrieval -> relevance filter -> entity extraction -> knowledge graph -> contradiction mining -> hypothesis generation -> skeptic review -> novelty verification -> experiment planning -> metrics logging |
+| **Memory** | 9-type system: neural, episodic, vector, procedural, working, associative, predictive, consolidated, global workspace; SQLite hypothesis memory for cross-session persistence |
 | **Learning** | Active inference, curiosity-driven exploration, dreaming (offline replay), meta-learning |
 | **Reasoning** | Causal (Pearl's hierarchy), analogical (Gentner's structure mapping), neurosymbolic, first-principles |
-| **Cognition** | Dual-process (System 1 fast / System 2 deliberate), integrated information (IIT-φ), metacognition |
+| **Cognition** | Dual-process (System 1 fast / System 2 deliberate), integrated information (IIT-phi), metacognition |
 
 ---
 
@@ -235,8 +236,18 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 | Module | Location | Purpose |
 |--------|----------|---------|
 | **PubMed Miner** | `discovery/pubmed.py` | ESearch + EFetch, rate-limited, XML parsing |
+| **Retrieval Filter** | `discovery/retrieval_filter.py` | Semantic relevance filtering, domain keyword scoring, LLM-based relevance checking |
 | **Knowledge Graph** | `discovery/graph.py` | Entities, relationships, merge, metrics, contradiction detection, domain metadata |
-| **Domain Config** | `discovery/domains.py` | 9 domain definitions with entity types, colors, enrichment, generation |
+| **Domain Config** | `discovery/domains.py` | 17 domain definitions with entity types, colors, enrichment, generation, extraction guides |
+| **Pipeline Orchestrator** | `discovery/pipeline.py` | Stage-based orchestration, checkpointing, retry with exponential backoff, provider failover |
+| **Hypothesis Engine** | `discovery/hypothesis_engine.py` | Hypothesis generation with Groq->Gemini->queue retry chain, algorithmic confidence scoring |
+| **Hypothesis Memory** | `discovery/hypothesis_memory.py` | SQLite-backed cross-session hypothesis persistence, dedup, status tracking |
+| **Contradiction Miner** | `discovery/contradiction_miner.py` | Algorithmic detection of direct, path, paper, and temporal contradictions |
+| **Confidence Scorer** | `discovery/confidence_scorer.py` | Evidence-weighted scoring (paper count, citation impact, recency, replication) |
+| **Novelty Detector** | `discovery/novelty_detector.py` | PubMed literature comparison, novelty probability estimation |
+| **Skeptic Agent** | `discovery/skeptic_agent.py` | Scientific reflection, logical flaw detection, alternative explanation generation |
+| **Experiment Planner** | `discovery/experiment_planner.py` | Experimental design generation with controls, biomarkers, failure mode analysis |
+| **Metrics Tracker** | `discovery/metrics_tracker.py` | Per-stage latency, token usage, retry/failure rates, hypothesis quality metrics |
 | **PubChem Enrichment** | `discovery/pubchem.py` | Compound search, targets, properties via PUG REST (drug, materials) |
 | **OpenFDA Enrichment** | `discovery/openfda.py` | Side effects, labeling via openFDA API (drug) |
 | **UniProt Enrichment** | `discovery/uniprot.py` | Gene/protein lookup, free REST, no key (neuro, molbio) |
@@ -247,7 +258,7 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 | **NASA API** | `discovery/nasa_api.py` | Image library, exoplanets, NEOs — free key (space/astro) |
 | **arXiv** | `discovery/arxiv_api.py` | Physics/astro/CS paper search — free, no key (physics, space) |
 | **GBIF** | `discovery/gbif_api.py` | Species/biodiversity data — free, no key (ecology) |
-| **Molecule Designer** | `discovery/molecule.py` | Groq SMILES → RDKit validation → PubChem → scoring (drug) |
+| **Molecule Designer** | `discovery/molecule.py` | Groq SMILES -> RDKit validation -> PubChem -> scoring (drug) |
 | **Output** | `discovery/output.py` | Terminal formatting, session saving |
 | **Dashboard** | `discovery/dashboard/index.html` | vis-network graph + tabs for hypotheses, contradictions, molecules |
 
@@ -820,10 +831,21 @@ rumi/
 ├── TOOLS.md                     # Tool documentation
 ├── HEARTBEAT.md                 # Periodic health checks
 │
-├── discovery/                   # 🔬 Multi-Domain Discovery Engine (9 domains)
-│   ├── domains.py               #   Domain configs (entity types, colors, enrichment, generation)
+├── discovery/                   # 🔬 Multi-Domain Scientific Cognition Engine (17 domains)
+│   ├── domains.py               #   Domain configs (entity types, colors, extraction guides)
 │   ├── pubmed.py                #   PubMed search + abstract fetch
-│   ├── graph.py                 #   Knowledge graph + metrics + contradictions
+│   ├── retrieval_filter.py      #   Semantic relevance filtering
+│   ├── graph.py                 #   Knowledge graph + metrics
+│   ├── pipeline.py              #   Stage-based orchestration + checkpointing
+│   ├── hypothesis_engine.py     #   Hypothesis generation (Groq->Gemini->queue)
+│   ├── hypothesis_memory.py     #   SQLite cross-session hypothesis persistence
+│   ├── contradiction_miner.py   #   Algorithmic contradiction detection
+│   ├── confidence_scorer.py     #   Evidence-weighted confidence scoring
+│   ├── novelty_detector.py      #   PubMed novelty estimation
+│   ├── skeptic_agent.py         #   Scientific critique + reflection
+│   ├── experiment_planner.py    #   Experimental design generation
+│   ├── metrics_tracker.py       #   Pipeline latency + quality metrics
+│   ├── groq_client.py           #   Token-aware rate limited Groq client
 │   ├── pubchem.py               #   PubChem compound/target lookup
 │   ├── openfda.py               #   OpenFDA side effects + labeling
 │   ├── uniprot.py               #   UniProt gene/protein lookup

@@ -1,4 +1,4 @@
-# ── Python ──────────────────────────────────────────
+# ---- Python ------------------------------------------
 __pycache__/
 *.py[cod]
 *.pyo
@@ -8,55 +8,65 @@ dist/
 build/
 *.egg
 
-# ── Runtime State ──────────────────────────────────
+# ---- Runtime State ----------------------------------
 brain/*.json
 brain/hypothesis_state.json
 !brain/__init__.py
+brain/workspace_events.jsonl
+brain/learnings.md
 discovery/graph/*.json
 discovery/sessions/
 discovery/topics.json
+discovery/hypothesis_memory.db
+discovery/hypotheses/active.json
+discovery/checkpoints/
+discovery/metrics/
+discovery/queue/
 memory/*.json
 scientist/*.json
 *.log
 logs/
+health.json
+rumi_err.txt
+rumi_out.txt
 
-# ── Config & Secrets ──────────────────────────────
+# ---- Config & Secrets --------------------------------
 config/api_keys.json
 .env
 *.env
 secrets.py
 secrets.json
 
-# ── Virtual Environments ──────────────────────────
+# ---- Virtual Environments ----------------------------
 venv/
 .venv/
 env/
 .env/
 rumi_env/
 
-# ── IDE & Editors ─────────────────────────────────
+# ---- IDE & Editors -----------------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# ── OS Junk ───────────────────────────────────────
+# ---- OS Junk -----------------------------------------
 .DS_Store
 Thumbs.db
 nul
 
-# ── Development ───────────────────────────────────
+# ---- Development -------------------------------------
 _scan.py
 debug_check.py
 tmp/
 temp/
 
-# ── Docs / Demo ───────────────────────────────────
+# ---- Docs / Demo -------------------------------------
 docs/*.gif
 docs/*.cast
 docs/*.svg
 
-# ── Node (for demo tooling) ───────────────────────
+# ---- Node (for demo tooling) -------------------------
 node_modules/
 npm-debug.log*
