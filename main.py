@@ -194,13 +194,13 @@ def _safe_action_import(module_path, names):
         print(f"[RUMI] {module_path}: {e}", flush=True)
         return None, False
 
-open_app, _ = _safe_action_import("actions.open_app", "open_app")
-weather_action, _ = _safe_action_import("actions.weather_report", "weather_action")
-send_message, _ = _safe_action_import("actions.send_message", "send_message")
-reminder, _ = _safe_action_import("actions.reminder", "reminder")
-computer_settings, _ = _safe_action_import("actions.computer_settings", "computer_settings")
+open_app = None
+weather_action = None
+send_message = None
+reminder = None
+computer_settings = None
 screen_process, _ = _safe_action_import("actions.screen_processor", "screen_process")
-youtube_video, _ = _safe_action_import("actions.youtube_video", "youtube_video")
+youtube_video = None
 desktop_control, _ = _safe_action_import("actions.desktop", "desktop_control")
 browser_control, _ = _safe_action_import("actions.browser_control", "browser_control")
 file_controller, _ = _safe_action_import("actions.file_controller", "file_controller")
@@ -209,7 +209,7 @@ web_search_action, _ = _safe_action_import("actions.web_search", "web_search")
 computer_control, _ = _safe_action_import("actions.computer_control", "computer_control")
 web_research, _ = _safe_action_import("actions.web_research", "web_research")
 agency_agent_action, _ = _safe_action_import("actions.agency_agent", "agency_agent")
-agency_list_agents, _ = _safe_action_import("actions.agency_agent", "list_agents")
+agency_list_agents = None
 research_pipeline, _ = _safe_action_import("actions.research_pipeline", "research_pipeline")
 
 _brain_self_modifier_ok = False
@@ -7773,4 +7773,9 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
 
 
 if __name__ == "__main__":
+    RumiLive.main()
+
+
+def main():
+    """Module-level entry point for the rumi CLI."""
     RumiLive.main()
