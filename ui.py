@@ -188,8 +188,9 @@ def _api_keys_exist() -> bool:
     try:
         data = json.loads(API_FILE.read_text(encoding="utf-8"))
         has_gemini = bool(data.get("gemini_api_key"))
+        has_groq = bool(data.get("groq_api_key"))
         has_os = bool(data.get("os_system"))
-        return has_gemini and has_os
+        return has_gemini and has_groq and has_os
     except Exception:
         return False
 
@@ -841,6 +842,17 @@ class RumiUI:
             gemini_key = input("  🔑 ").strip()
 
         console.print()
+        console.print(Text("  Enter your Groq API key (free tier):", style=C_CYAN))
+        console.print(Text("  (Get one at: https://console.groq.com/keys)", style=f"dim {C_DIM}"))
+        console.print()
+
+        groq_key = input("  🔑 ").strip()
+
+        while not groq_key:
+            console.print(Text("  Groq API key cannot be empty.", style=f"bold {C_RED}"))
+            groq_key = input("  🔑 ").strip()
+
+        console.print()
         console.print(Text(f"  Your callsign (default: OPERATOR):", style=C_CYAN))
         user_name = input("  👤 ").strip().upper() or "OPERATOR"
 
@@ -868,9 +880,10 @@ class RumiUI:
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(API_FILE, "w", encoding="utf-8") as f:
             json.dump({
-                "gemini_api_key": gemini_key,
-                "openai_api_key": "",
                 "primary_provider": "gemini",
+                "gemini_api_key": gemini_key,
+                "gemini_api_key_fallback": "",
+                "groq_api_key": groq_key,
                 "os_system": detected,
                 "camera_index": 0,
                 "user_name": user_name,

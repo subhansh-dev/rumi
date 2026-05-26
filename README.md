@@ -427,27 +427,7 @@ This installs all dependencies from `requirements.txt` and registers the `rumi` 
 playwright install chromium
 ```
 
-### Step 4 — Configure Your API Keys
-
-Edit `config/api_keys.json`:
-
-```json
-{
-    "primary_provider": "gemini",
-    "gemini_api_key": "your-gemini-api-key-here",
-    "groq_api_key": "your-groq-api-key-here",
-    "os_system": "windows"
-}
-```
-
-| Key | Required | Where to get it |
-|-----|----------|-----------------|
-| `gemini_api_key` | Yes | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
-| `groq_api_key` | Yes (free tier) | [console.groq.com/keys](https://console.groq.com/keys) |
-| `gemini_api_key_fallback` | No | Second Gemini key for fallback |
-| `telegram_bot_token` | No | [t.me/botfather](https://t.me/botfather) |
-
-### Step 5 — Launch RUMI
+### Step 3 — Launch RUMI
 
 ```bash
 rumi
@@ -459,7 +439,10 @@ Or directly:
 python rumi_launcher.py
 ```
 
-On first launch, RUMI checks your configuration and initializes all cognitive modules. The terminal UI appears with the RUMI logo and a prompt.
+On first launch, RUMI will prompt you for your Gemini API key and Groq API key, then save them to `config/api_keys.json`. Get your free keys beforehand:
+
+- **Gemini**: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- **Groq**: [console.groq.com/keys](https://console.groq.com/keys)
 
 <p align="center">
   <img src="assets/rumi_install.gif" alt="RUMI Installation Steps" width="800" />
@@ -470,7 +453,7 @@ On first launch, RUMI checks your configuration and initializes all cognitive mo
 | Problem | Solution |
 |---------|----------|
 | `ModuleNotFoundError` | Run `pip install -e .` from the project root |
-| `gemini_api_key not found` | Check `config/api_keys.json` has the correct key format |
+| First launch setup doesn't appear | Delete `config/api_keys.json` and restart |
 | `playwright not found` | Run `playwright install chromium` |
 | `No module named 'brain.*'` | Make sure you're running from the `rumi/` project root |
 | Groq rate limit errors | Normal for free tier — pipeline auto-retries with backoff

@@ -32,6 +32,8 @@ rumi_out.txt
 
 # ---- Config & Secrets --------------------------------
 config/api_keys.json
+.claude/
+*.bak
 .env
 *.env
 secrets.py
