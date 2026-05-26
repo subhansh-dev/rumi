@@ -218,6 +218,54 @@ DOMAINS = {
         "generation": "hypothesis",
     },
 
+    "mathematics": {
+        "label": "Mathematics",
+        "description": "Integer sequences, theorems, conjectures, constants, functions — with OEIS sequence data + arXiv + Semantic Scholar",
+        "aliases": ["math", "mathematics", "mathematical", "number theory", "algebra", "geometry"],
+        "entity_types": {
+            "sequence":   {"color": "#6c5ce7", "description": "Integer sequence or numeric pattern"},
+            "constant":   {"color": "#fd79a8", "description": "Mathematical constant"},
+            "theorem":    {"color": "#00b894", "description": "Theorem or mathematical proof"},
+            "conjecture": {"color": "#fdcb6e", "description": "Conjecture or open problem"},
+            "function":   {"color": "#74b9ff", "description": "Mathematical function or transform"},
+            "structure":  {"color": "#a29bfe", "description": "Algebraic or geometric structure"},
+        },
+        "enrichment": ["oeis", "arxiv", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
+    "social_science": {
+        "label": "Social Sciences",
+        "description": "Sociology, political science, psychology, anthropology — with OpenAlex paper search + Semantic Scholar",
+        "aliases": ["social", "sociology", "political science", "psychology", "anthropology"],
+        "entity_types": {
+            "theory":      {"color": "#e17055", "description": "Social or behavioral theory"},
+            "concept":     {"color": "#74b9ff", "description": "Social science concept or construct"},
+            "methodology": {"color": "#00b894", "description": "Research methodology or framework"},
+            "population":  {"color": "#fdcb6e", "description": "Population or demographic group"},
+            "institution": {"color": "#a29bfe", "description": "Institution or organization"},
+            "phenomenon":  {"color": "#55efc4", "description": "Social phenomenon or trend"},
+        },
+        "enrichment": ["openalex", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
+    "chemistry": {
+        "label": "Chemistry",
+        "description": "Chemical compounds, elements, reactions, lab techniques — with NCI CIR resolver + PubChem + Semantic Scholar",
+        "aliases": ["chemistry", "chemical", "organic chemistry", "inorganic", "biochemistry"],
+        "entity_types": {
+            "chemical":   {"color": "#00cec9", "description": "Chemical compound or substance"},
+            "compound":   {"color": "#e17055", "description": "Chemical compound or molecule"},
+            "element":    {"color": "#fdcb6e", "description": "Chemical element"},
+            "reaction":   {"color": "#fd79a8", "description": "Chemical reaction or process"},
+            "technique":  {"color": "#74b9ff", "description": "Lab or analytical technique"},
+            "property":   {"color": "#a29bfe", "description": "Chemical or physical property"},
+        },
+        "enrichment": ["cir", "pubchem", "semantic_scholar"],
+        "generation": "hypothesis",
+    },
+
     "general": {
         "label": "General Science",
         "description": "Any scientific topic — entities auto-detected from paper content, with Semantic Scholar citation enrichment",

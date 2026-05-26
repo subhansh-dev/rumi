@@ -3152,7 +3152,7 @@ Output ONLY valid JSON as a list of objects with this structure:
 
         if "pubchem" in enrich_sources:
             from discovery.pubchem import search_compound, get_targets
-            chem_types = {"drug", "compound", "material"}
+            chem_types = {"drug", "compound", "material", "chemical"}
             chem_entities = {
                 eid: ent for eid, ent in graph.entities.items()
                 if ent["type"] in chem_types
@@ -3273,6 +3273,21 @@ Output ONLY valid JSON as a list of objects with this structure:
         if "who" in enrich_sources:
             from discovery.who_api import enrich_entities as enrich_who
             enriched = enrich_who(graph)
+            total_enriched += enriched
+
+        if "oeis" in enrich_sources:
+            from discovery.oeis_api import enrich_entities as enrich_oeis
+            enriched = enrich_oeis(graph)
+            total_enriched += enriched
+
+        if "openalex" in enrich_sources:
+            from discovery.openalex_api import enrich_entities as enrich_openalex
+            enriched = enrich_openalex(graph)
+            total_enriched += enriched
+
+        if "cir" in enrich_sources:
+            from discovery.cir_api import enrich_entities as enrich_cir
+            enriched = enrich_cir(graph)
             total_enriched += enriched
 
         graph.save()

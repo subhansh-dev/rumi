@@ -82,8 +82,8 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 | **Reasoning** | Single-pass generation | Multi-pass: cognitive gating, causal (Pearl), analogical (Gentner), neurosymbolic, first-principles |
 | **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring |
 | **Learning** | No feedback loop | Error-driven updates, experience replay, dreaming-based consolidation, meta-learning |
-| **Research** | Search-and-summarize | Discovery Engine (5-phase drug discovery + 13 multi-domain science fields), knowledge graph, mathematical metrics, contradiction detection, molecule design |
-| **Discovery** | None | Domain-aware pipeline: auto-detect domain (14 domains: drug, materials, neuro, molbio, climate, space, ecology, physics, CS, earth, ocean, economics, health, general), PubMed → entity extraction → knowledge graph → domain-specific enrichment (12+ APIs) → graph metrics → hypotheses → domain-specific generation |
+| **Research** | Search-and-summarize | Discovery Engine (5-phase drug discovery + 16 multi-domain science fields), knowledge graph, mathematical metrics, contradiction detection, molecule design |
+| **Discovery** | None | Domain-aware pipeline: auto-detect domain (17 domains: drug, materials, neuro, molbio, climate, space, ecology, physics, CS, earth, ocean, economics, health, math, social, chemistry, general), PubMed → entity extraction → knowledge graph → domain-specific enrichment (15+ APIs) → graph metrics → hypotheses → domain-specific generation |
 | **Cognition** | None | Dual-process (System 1/2), IIT-inspired integrated information (Φ), global workspace coordination |
 
 ---
@@ -176,7 +176,7 @@ RUMI's cognitive architecture is grounded in peer-reviewed research:
 
 ## 🔬 Discovery Engine
 
-RUMI's **Discovery Engine** is a multi-domain scientific discovery pipeline — from literature mining to generated candidates. Supports 6 domains with auto-detection.
+RUMI's **Discovery Engine** is a multi-domain scientific discovery pipeline — from literature mining to generated candidates. Supports 17 domains with auto-detection and automatic enrichment routing.
 
 ### Domains
 
@@ -193,6 +193,9 @@ RUMI's **Discovery Engine** is a multi-domain scientific discovery pipeline — 
 | Oceanography | `oceanography` | ocean_region, current, marine_species, phenomenon, chemical, basin | NOAA + Semantic Scholar | Research proposals |
 | Economics | `economics` | economic_indicator, market, policy, sector, country, institution | World Bank + Semantic Scholar | Research proposals |
 | Public Health | `public_health` | disease, risk_factor, intervention, population, region | WHO + Semantic Scholar | Research proposals |
+| Mathematics | `mathematics` | sequence, constant, theorem, conjecture, function, structure | OEIS + arXiv + Semantic Scholar | Research proposals |
+| Social Sciences | `social_science` | theory, concept, methodology, population, institution, phenomenon | OpenAlex + Semantic Scholar | Research proposals |
+| Chemistry | `chemistry` | chemical, compound, element, reaction, technique, property | CIR + PubChem + Semantic Scholar | Research proposals |
 | Ecology | `ecology` | species, habitat, ecosystem, organism, threat, conservation_action, region | GBIF + Semantic Scholar | Conservation plans |
 | Physics | `physics` | particle, force, theory, experiment, phenomenon, constant, material | arXiv + Semantic Scholar | Research proposals |
 | General Science | `general` | concept, method, finding, technology, organism, material | Semantic Scholar | Research proposals |
