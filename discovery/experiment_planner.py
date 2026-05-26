@@ -6,7 +6,7 @@ from discovery.pipeline import LLMStage
 
 class ExperimentPlanner:
     def __init__(self):
-        self.stage = LLMStage("experiment_planner", max_retries=2, backoff=[3, 10], providers=["gemini"])
+        self.stage = LLMStage("experiment_planner", max_retries=2, backoff=[3, 10])
 
     async def plan(self, hypothesis):
         mech = hypothesis.get("mechanistic_rationale", hypothesis.get("description", ""))
