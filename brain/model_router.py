@@ -33,8 +33,9 @@ class ModelConfig:
 
 
 class Provider(Enum):
+    GROQ = "groq"
     GEMINI = "gemini"
-    OPENAI = "openai"
+    OPENAI = "openai" 
 
 
 SECURITY_KEYWORDS = [
@@ -80,11 +81,11 @@ class ModelRouter:
         self._primary_provider = self._get_primary_provider()
 
     def _get_primary_provider(self) -> Provider:
-        provider_str = self.config.get("primary_provider", "gemini").lower()
+        provider_str = self.config.get("primary_provider", "groq").lower()
         try:
             return Provider(provider_str)
         except ValueError:
-            return Provider.GEMINI
+            return Provider.GROQ
 
     def _load_config(self) -> dict:
         try:
@@ -97,9 +98,11 @@ class ModelRouter:
         return self._primary_provider
 
     def get_provider_display_name(self) -> str:
+        if self._primary_provider == Provider.GROQ:
+            return "GROQ LLAMA 3.3 70B"
         if self._primary_provider == Provider.OPENAI:
             return "OPENAI GPT-4"
-        return "GEMINI 2.5 FLASH"
+        return "GEMINI 2.5 FLASH" 
 
     def classify(self, request: str) -> TaskType:
         request_lower = request.lower()

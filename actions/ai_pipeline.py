@@ -40,28 +40,13 @@ def _get_base_dir() -> Path:
 
 # ── [FIX-1] + [FIX-2] + [FIX-10] Cached client with configurable model ─────
 
-_client_instance = None
 GEMINI_MODEL = "gemini-2.5-flash"
 
 
-def _get_api_key() -> str:
-    cfg_path = _get_base_dir() / "config" / "api_keys.json"
-    return json.loads(cfg_path.read_text(encoding="utf-8"))["gemini_api_key"]
-
-
-def _get_client():
-    global _client_instance
-    if _client_instance is None:
-        from google import genai
-        _client_instance = genai.Client(api_key=_get_api_key())
-    return _client_instance
-
-
 def _generate(prompt: str, model: str = GEMINI_MODEL) -> str:
-    """Central generation call — uses cached client."""
-    client = _get_client()
-    response = client.models.generate_content(model=model, contents=prompt)
-    return response.text
+    """Central generation call — uses unified LLM client."""
+    from rumi_llm import generate
+    return generate(model, prompt)
 
 
 # ── [FIX-6] Robust JSON extraction from LLM responses ──────────────────────

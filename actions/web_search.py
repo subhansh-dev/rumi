@@ -37,12 +37,15 @@ def _get_api_key() -> str:
     return key
 
 
-# [FIX-4] Cached client
+# [FIX-4] Cached client (Gemini-only for Google Search grounding)
 def _get_client():
     global _client_instance
     if _client_instance is None:
-        from google import genai
-        _client_instance = genai.Client(api_key=_get_api_key())
+        try:
+            from google import genai
+            _client_instance = genai.Client(api_key=_get_api_key())
+        except ImportError:
+            return None
     return _client_instance
 
 

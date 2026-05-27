@@ -27,9 +27,17 @@ if str(_project_root) not in sys.path:
 
 from discovery.domains import DOMAINS, get_domain, entity_types_list, build_detect_prompt, entity_colors, DOMAIN_ALIAS_MAP, list_domains
 
-import sounddevice as sd
-from google import genai
-from google.genai import types
+try:
+    import sounddevice as sd
+except ImportError:
+    sd = None
+
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None
+    types = None
 
 def _is_ws_dead_error(err_str: str) -> bool:
     """Detect WebSocket dead errors (e.g., 1006, 1011, closed)."""

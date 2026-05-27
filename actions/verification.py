@@ -64,11 +64,14 @@ def _load_config() -> dict:
 def _get_client():
     global _client_cache
     if _client_cache is None:
-        from google import genai
-        api_key = _load_config().get("gemini_api_key", "")
-        if not api_key:
-            raise RuntimeError("gemini_api_key not found in config.")
-        _client_cache = genai.Client(api_key=api_key)
+        try:
+            from google import genai
+            api_key = _load_config().get("gemini_api_key", "")
+            if not api_key:
+                raise RuntimeError("gemini_api_key not found in config.")
+            _client_cache = genai.Client(api_key=api_key)
+        except ImportError:
+            raise RuntimeError("google-genai not installed (needed for vision)")
     return _client_cache
 
 

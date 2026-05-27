@@ -59,22 +59,9 @@ def _get_api_key() -> str:
         return json.load(f)["gemini_api_key"]
 
 
-def _get_client():
-    global _client_instance
-    if _client_instance is None:
-        from google import genai
-        _client_instance = genai.Client(api_key=_get_api_key())
-    return _client_instance
-
-
 def _generate(model_name: str, prompt: str) -> str:
-    from google.genai import types
-    client = _get_client()
-    response = client.models.generate_content(
-        model=model_name,
-        contents=prompt,
-    )
-    return response.text
+    from rumi_llm import generate
+    return generate(model_name, prompt)
 
 
 def _strip_fences(text: str) -> str:

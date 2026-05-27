@@ -63,15 +63,13 @@ _api_client_lock = threading.Lock()
 
 
 def _get_api_client():
-    """Get or create a singleton genai.Client."""
+    """Get or create a singleton LLM client (Groq-first, Gemini-fallback)."""
     global _api_client
     if _api_client is None:
         with _api_client_lock:
             if _api_client is None:
-                config_path = BASE_DIR / "config" / "api_keys.json"
-                api_key = json.loads(config_path.read_text()).get("gemini_api_key", "")
-                from google import genai
-                _api_client = genai.Client(api_key=api_key)
+                from rumi_llm import get_client
+                _api_client = get_client()
     return _api_client
 
 

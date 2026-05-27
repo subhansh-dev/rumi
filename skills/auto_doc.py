@@ -28,20 +28,8 @@ def _get_api_key() -> str:
 
 
 def _generate(prompt: str, system: str = "") -> str:
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=_get_api_key())
-    config = types.GenerateContentConfig(
-        system_instruction=system if system else None,
-        max_output_tokens=2048,
-    )
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=config,
-    )
-    return response.text.strip()
+    from rumi_llm import generate
+    return generate("gemini-2.5-flash", prompt, system=system, max_tokens=2048).strip()
 
 
 class AutoDocEngine:

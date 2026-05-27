@@ -29,6 +29,8 @@ logs/
 health.json
 rumi_err.txt
 rumi_out.txt
+data/*.json
+data/*.md
 
 # ---- Config & Secrets --------------------------------
 config/api_keys.json

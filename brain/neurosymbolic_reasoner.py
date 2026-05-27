@@ -255,24 +255,12 @@ def _get_api_key() -> str:
 
 
 def _llm_generate(prompt: str, system: str = "") -> str:
-    """Call Gemini LLM for reasoning tasks."""
+    """Call LLM for reasoning tasks."""
+    from rumi_llm import generate
     try:
-        from google import genai
-        from google.genai import types as genai_types
-
-        client = genai.Client(api_key=_get_api_key())
-        config = genai_types.GenerateContentConfig(
-            system_instruction=system if system else None,
-            max_output_tokens=4096,
-        )
-        response = client.models.generate_content(
-            model=REASONER_MODEL,
-            contents=prompt,
-            config=config,
-        )
-        return response.text.strip()
+        return generate(REASONER_MODEL, prompt, system=system, max_tokens=4096).strip()
     except Exception as exc:
-        return f"LLM Error: {exc}"
+        return f"LLM Error: {exc}" 
 
 
 # ── Neurosymbolic Reasoner ───────────────────────────────────────────────

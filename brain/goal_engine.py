@@ -494,26 +494,15 @@ class GoalEngine:
         )
 
         try:
-            from google.genai import types
-            from actions.resilience import api_retry
-
-            config_path = BASE_DIR / "config" / "api_keys.json"
-            api_key = json.loads(config_path.read_text()).get("gemini_api_key", "")
-            from google import genai
-            client = genai.Client(api_key=api_key)
+            from rumi_llm import generate
 
             def _call():
-                cfg = types.GenerateContentConfig(
-                    system_instruction="You are a goal decomposition expert. "
-                    "Respond only with valid JSON.",
-                    max_output_tokens=2048,
-                )
-                response = client.models.generate_content(
-                    model=DECOMPOSE_MODEL,
-                    contents=prompt,
-                    config=cfg,
-                )
-                text = response.text.strip()
+                text = generate(
+                    DECOMPOSE_MODEL, prompt,
+                    system="You are a goal decomposition expert. "
+                           "Respond only with valid JSON.",
+                    max_tokens=2048,
+                ).strip()
                 # Extract JSON from markdown code blocks if present
                 if "```" in text:
                     start = text.find("[")
@@ -522,7 +511,7 @@ class GoalEngine:
                         text = text[start:end]
                 return text
 
-            raw = api_retry(_call, max_retries=2, base_delay=1.0, max_delay=15.0)
+            raw = _call()
             subgoal_specs = json.loads(raw)
 
             # Create subgoals

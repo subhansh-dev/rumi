@@ -36,28 +36,9 @@ class LLMStage(Stage):
         self.providers = providers or ["groq", "gemini"]
 
     async def call_llm(self, prompt, json_mode=False, max_tokens=32768, provider="groq"):
-        from discovery.groq_client import call as groq_call, is_available as groq_available
-        cfg_path = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
-        cfg = json.loads(cfg_path.read_text(encoding="utf-8-sig"))
-
-        if provider == "groq" and groq_available():
-            return groq_call(prompt, json_mode=json_mode, max_tokens=max_tokens)
-        if provider == "gemini":
-            try:
-                from google import genai
-                import google.genai.types as types
-                client = genai.Client(api_key=cfg.get("gemini_api_key", ""))
-                kwargs = dict(temperature=0.3, max_output_tokens=min(max_tokens, 32768))
-                if json_mode:
-                    kwargs["response_mime_type"] = "application/json"
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash", contents=prompt,
-                    config=types.GenerateContentConfig(**kwargs),
-                )
-                return response.text
-            except Exception:
-                return None
-        return None
+        from discovery.llm_client import call as llm_call
+        return llm_call(prompt, json_mode=json_mode, max_tokens=max_tokens,
+                        provider=provider)
 
     async def call_with_retry(self, prompt, json_mode=False, max_tokens=32768):
         last_error = None

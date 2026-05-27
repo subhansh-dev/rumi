@@ -150,18 +150,11 @@ def agency_agent(parameters: dict, player=None, **kwargs) -> str:
     if context:
         full_prompt += f"\n\n## Context\n{context}"
 
-    api_key = _get_api_key()
-    if not api_key:
-        return "Error: No Gemini API key configured."
-
     try:
-        from google import genai
-
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=full_prompt,
-        )
-        return response.text
+        from rumi_llm import generate
+        result = generate("gemini-2.5-flash", full_prompt)
+        if not result:
+            return f"Error: LLM unavailable for {agent_name}"
+        return result
     except Exception as e:
-        return f"Error invoking {agent_name}: {e}"
+        return f"Error invoking {agent_name}: {e}" 

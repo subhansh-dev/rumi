@@ -1,31 +1,14 @@
 """
 Proof-of-concept: RUMI makes a real scientific discovery.
-Uses RUMI's configured Gemini API to run a full Scientist AI pipeline.
+Uses RUMI's unified LLM client (Groq-first, Gemini-fallback).
 """
 import json, sys, time
 from pathlib import Path
-from google import genai
-from google.genai import types
 
 BASE = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE))
 
-# Try keys in order: Friday key5, key4, key3, key2, RUMI's key
-friday_path = Path("C:/Users/Admin/Friday/config/api_keys.json")
-if friday_path.exists():
-    friday = json.loads(friday_path.read_text(encoding="utf-8-sig").lstrip("\ufeff"))
-    API_KEY = (
-        friday.get("gemini_api_key5")
-        or friday.get("gemini_api_key4")
-        or friday.get("gemini_api_key3")
-        or friday.get("gemini_api_key2")
-        or friday.get("gemini_api_key_fallback")
-    )
-else:
-    API_KEY = None
-
-if not API_KEY:
-    cfg = json.loads((BASE / "config" / "api_keys.json").read_text(encoding="utf-8-sig"))
-    API_KEY = cfg["gemini_api_key"]
+from discovery.llm_client import call, call_thinking, is_available, get_status
 
 PROMPT = """You are RUMI -- Research & Unified Machine Intelligence, an autonomous cognitive AI for scientific research.
 
@@ -60,28 +43,37 @@ PHASE 11 -- Peer Review: Self-critique your pipeline. What are the limitations? 
 PHASE 12 -- Knowledge Update & Self-Improvement: What did running this pipeline teach you? What would you do differently next time?
 """
 
-client = genai.Client(api_key=API_KEY)
-
+# ── Check provider status ──
+status = get_status()
 print("=" * 70)
 print("  RUMI SCIENTIST AI  --  12-Phase Pipeline Demo")
 print("=" * 70)
+print(f"  Providers: Groq={status['groq']['available']} "
+      f"(keys={status['groq']['keys']}), "
+      f"Gemini={status['gemini']['available']} "
+      f"(keys={status['gemini']['keys']})")
+print(f"  Primary: {status['primary'].upper()}")
 print("Topic: Emergent abilities in small language models (<1B params)")
 print("=" * 70)
 
+if not is_available():
+    print("\n[ERROR] No LLM providers available. Add keys to config/api_keys.json:")
+    print('  "groq_api_key": "gsk_..."  (free at console.groq.com)')
+    print('  "gemini_api_key": "AIza..." (free at aistudio.google.com)')
+    sys.exit(1)
+
 t0 = time.time()
 
-response = client.models.generate_content(
-    model="gemini-2.5-flash",
-    contents=PROMPT,
-    config=types.GenerateContentConfig(
-        temperature=0.7,
-        max_output_tokens=65536,
-    ),
-)
+# Use call_thinking for the big 12-phase prompt (higher token limit)
+safe_text = call_thinking(PROMPT, max_tokens=32768, temperature=0.7)
 
 elapsed = time.time() - t0
 
-safe_text = response.text.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+if not safe_text:
+    print("\n[ERROR] All LLM providers failed. Check your API keys and rate limits.")
+    sys.exit(1)
+
+safe_text = safe_text.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
 
 print()
 print("=" * 70)

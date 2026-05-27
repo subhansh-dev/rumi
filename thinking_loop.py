@@ -79,6 +79,13 @@ def _get_api_key_and_model() -> tuple:
 
 
 def _generate(prompt: str, system: str = "") -> str:
+    from rumi_llm import generate
+    _, model = _get_api_key_and_model()
+    return generate(model, prompt, system=system, max_tokens=1024).strip()
+
+
+def _generate_legacy(prompt: str, system: str = "") -> str:
+    """Legacy wrapper kept for api_retry compatibility."""
     from google import genai
     from google.genai import types
     from actions.resilience import api_retry

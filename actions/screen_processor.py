@@ -38,8 +38,12 @@ except ImportError:
     except ImportError:
         _PIL = False
 
-from google import genai
-from google.genai import types as gtypes
+try:
+    from google import genai
+    from google.genai import types as gtypes
+except ImportError:
+    genai = None
+    gtypes = None
 
 
 def _base_dir() -> Path:

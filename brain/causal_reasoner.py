@@ -902,22 +902,8 @@ class CausalReasoner:
 
     def _llm_explain(self, cause: str, effect: str, chain_desc: str,
                      chain_parts: list) -> str:
-        """Call Gemini to generate causal explanation."""
-        try:
-            from google import genai
-            from google.genai import types
-        except ImportError:
-            raise RuntimeError("google-genai not installed")
-
-        try:
-            api_config = json.loads(API_CONFIG_PATH.read_text())
-            api_key = api_config.get("gemini_api_key", api_config.get("gemini", {}).get("api_key", ""))
-            if not api_key:
-                raise RuntimeError("No Gemini API key")
-        except (FileNotFoundError, json.JSONDecodeError, KeyError):
-            raise RuntimeError("API config unavailable")
-
-        client = genai.Client(api_key=api_key)
+        """Call LLM to generate causal explanation."""
+        from rumi_llm import generate
 
         prompt = (
             f"Explain this causal chain in clear, concise natural language.\n\n"
@@ -928,8 +914,7 @@ class CausalReasoner:
             f"Be specific about the mechanism."
         )
 
-        resp = client.models.generate_content(model=CAUSAL_MODEL, contents=prompt)
-        return resp.text.strip()
+        return generate(CAUSAL_MODEL, prompt).strip()
 
     # ── Validation ─────────────────────────────────────────────────────
 

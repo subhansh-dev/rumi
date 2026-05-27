@@ -51,19 +51,8 @@ def _get_api_key() -> str:
 
 
 def _generate(model_name: str, prompt: str, system: str = "") -> str:
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=_get_api_key())
-
-    if system:
-        config = types.GenerateContentConfig(system_instruction=system)
-        response = client.models.generate_content(
-            model=model_name, contents=prompt, config=config)
-    else:
-        response = client.models.generate_content(
-            model=model_name, contents=prompt)
-    return response.text
+    from rumi_llm import generate
+    return generate(model_name, prompt, system=system)
 
 
 # ── Dangerous code patterns — blocked before execution ────────────────

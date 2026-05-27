@@ -139,21 +139,14 @@ def get_llm():
         router = get_model_router()
         provider = router.get_primary_provider()
 
-        if provider == Provider.GEMINI and router.has_gemini_key():
-            from google import genai
-            api_key = router.get_gemini_key()
-            _, model_config = router.get_route("general")
-            client = genai.Client(api_key=api_key)
+        from rumi_llm import generate as _rumi_generate
+        _, model_config = router.get_route("general")
 
-            def _gemini_llm(prompt: str, max_tokens: int = 1024, temperature: float = 0.7) -> str:
-                response = client.models.generate_content(
-                    model=model_config.model_id,
-                    contents=prompt,
-                    config={"max_output_tokens": max_tokens, "temperature": temperature},
-                )
-                return response.text if response and response.text else ""
+        def _unified_llm(prompt: str, max_tokens: int = 1024, temperature: float = 0.7) -> str:
+            return _rumi_generate(model_config.model_id, prompt,
+                                  max_tokens=max_tokens, temperature=temperature)
 
-            return _gemini_llm
+        return _unified_llm
 
         elif provider == Provider.OPENAI and router.has_openai_key():
             import openai
