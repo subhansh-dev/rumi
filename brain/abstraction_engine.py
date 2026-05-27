@@ -439,7 +439,7 @@ class AbstractionEngine:
             for subj, r, obj in target.relations:
                 if r == rel:
                     target_actors.add(subj)
-                    target_actors.add(target_actors)
+                    target_actors.add(obj)
 
             # Greedy mapping: match by attribute similarity
             for s_actor in source_actors:

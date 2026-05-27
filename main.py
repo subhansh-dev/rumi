@@ -567,6 +567,30 @@ except Exception as e:
     print(f"[RUMI] brain.abstraction_engine: {e}", flush=True)
     get_abstraction_engine = None
 
+_scientific_reasoning_ok = False
+try:
+    from brain.scientific_reasoning import get_scientific_reasoning_loop
+    _scientific_reasoning_ok = True
+except Exception as e:
+    print(f"[RUMI] brain.scientific_reasoning: {e}", flush=True)
+    get_scientific_reasoning_loop = None
+
+_discovery_orchestrator_ok = False
+try:
+    from brain.discovery_orchestrator import get_discovery_orchestrator
+    _discovery_orchestrator_ok = True
+except Exception as e:
+    print(f"[RUMI] brain.discovery_orchestrator: {e}", flush=True)
+    get_discovery_orchestrator = None
+
+_theory_formation_ok = False
+try:
+    from brain.theory_formation import get_theory_formation_engine
+    _theory_formation_ok = True
+except Exception as e:
+    print(f"[RUMI] brain.theory_formation: {e}", flush=True)
+    get_theory_formation_engine = None
+
 _agi_introspection_ok = False
 try:
     from brain.introspection_engine import get_introspection_engine
@@ -2224,8 +2248,15 @@ class RumiLive:
         self._speaking_lock = threading.Lock()
         self._speaking_ended_at = 0.0
 
-        self._modes = {"focus": False, "think": False, "deep_dive": False}
+        self._modes = {"think": False, "deep_dive": False}
         self.current_domain = "drug_discovery"
+        self._voice_enabled = False
+        try:
+            _d = json.loads(API_CONFIG_PATH.read_text(encoding="utf-8"))
+            if "voice_enabled" in _d:
+                self._voice_enabled = bool(_d["voice_enabled"])
+        except Exception:
+            pass
 
         self._last_audio_time = 0.0
         self._last_send_time = 0.0
@@ -2631,23 +2662,11 @@ class RumiLive:
                     ep.encode_event(
                         event_type="user_input",
                         content=text[:300],
-                        context={"source": "text", "focus_mode": self._modes["focus"]},
+                        context={"source": "text"},
                         importance=6.0,
                     )
         except Exception:
             pass
-
-        if self._modes["focus"]:
-            if not text.lower().startswith("rumi"):
-                self.ui.write_log("SYS: Ignoring command (Focus Mode active).")
-                return
-            processed_text = re.sub(
-                r"^rumi[\s,;!:.—\-]*\s*", "", text,
-                flags=re.IGNORECASE
-            ).strip()
-            if not processed_text:
-                self.ui.write_log("SYS: Rumi is listening (Focus Mode active).")
-                return
 
         # Cognitive gating + auto-thinking for complex requests
         if _skills_ok and not self._modes["think"] and not self._modes["deep_dive"]:
@@ -2701,11 +2720,6 @@ class RumiLive:
 
         threading.Thread(target=_send, daemon=True).start()
 
-    def set_focus_mode(self, value: bool):
-        self._modes["focus"] = value
-        self.ui.write_log(
-            f"SYS: Focus Mode {'activated' if value else 'deactivated'}.")
-
     def set_think_mode(self, value: bool):
         self._modes["think"] = value
         self.ui.write_log(
@@ -2758,7 +2772,7 @@ class RumiLive:
                 self._speaking_ended_at = time.time()
         if value:
             self.ui.set_state("SPEAKING")
-        elif not self.ui.muted:
+        elif not self._voice_enabled or not self.ui.muted:
             self.ui.set_state("LISTENING")
 
     # ── Discovery Engine ───────────────────────────────────────────────
@@ -2803,9 +2817,11 @@ class RumiLive:
         max_results = 20 if depth == "quick" else 100
 
         self._post_output(f"[bold cyan]Searching PubMed...[/bold cyan]")
+        self.ui.set_discovery_step("searching literature")
         papers = search_and_fetch(query, max_results=max_results)
         if not papers:
             self._post_output("No papers found. Try a different query.")
+            self.ui._discovery_running = False
             return
         self._post_output(f"Found {len(papers)} raw papers. Filtering by relevance...")
 
@@ -2814,6 +2830,7 @@ class RumiLive:
         papers = filter_.filter(papers, query, domain=domain, min_papers=3, max_papers=10)
         if not papers:
             self._post_output("No relevant papers after filtering. Try a different query.")
+            self.ui._discovery_running = False
             return
         self._post_output(f"{len(papers)} relevant papers retained.")
         self._post_output(format_papers(papers))
@@ -2821,6 +2838,7 @@ class RumiLive:
         self._post_output("[bold cyan]Extracting entities and relationships...[/bold cyan]")
         extraction_prompt = self._build_extraction_prompt(papers, domain)
         entities, relationships = [], []
+        self.ui.set_discovery_step("extracting entities")
         for attempt in range(3):
             extraction_result = await self._call_llm(extraction_prompt, json_mode=True, provider="groq", max_tokens=8192)
             entities, relationships = self._parse_extraction(extraction_result)
@@ -2843,11 +2861,13 @@ class RumiLive:
         # Merge with persisted knowledge from prior runs
         self._post_output(f"[dim]Knowledge graph now spans {len(graph.entities)} entities across "
                           f"{graph._session_count + 1} sessions[/dim]")
+        self.ui.set_discovery_step("saving knowledge graph")
         graph.save(session_id=run_id)
 
         enrichment_label = get_domain(domain).get("enrichment", []) if get_domain(domain) else []
         if enrichment_label:
             self._post_output(f"[bold cyan]Enriching entities with {', '.join(e.capitalize() for e in enrichment_label)}...[/bold cyan]")
+            self.ui.set_discovery_step("enriching entities")
             await self._enrich_entities(graph, domain)
 
         # === NEW COGNITIVE PIPELINE ===
@@ -2862,6 +2882,7 @@ class RumiLive:
 
         # Stage 4: Contradiction Mining
         self._post_output("[bold cyan]Mining contradictions...[/bold cyan]")
+        self.ui.set_discovery_step("mining contradictions")
         t0 = time.time()
         contradiction_result = contradiction_miner.mine(graph)
         contradictions = contradiction_result.get("contradictions", [])
@@ -2881,6 +2902,7 @@ class RumiLive:
 
         # Stage 6: Hypothesis Generation
         self._post_output("[bold cyan]Generating scientific hypotheses...[/bold cyan]")
+        self.ui.set_discovery_step("generating hypotheses")
         t0 = time.time()
         hypotheses = await hypothesis_engine.generate(
             graph, query, domain, run_id,
@@ -2929,6 +2951,7 @@ class RumiLive:
 
         # Stage 10: Hypothesis Tournament Evolution
         self._post_output("[bold cyan]Running hypothesis tournament evolution...[/bold cyan]")
+        self.ui.set_discovery_step("running tournament evolution")
         t0 = time.time()
         tournament = HypothesisTournament(hypothesis_memory)
         if len(hypotheses) >= 2:
@@ -2979,6 +3002,8 @@ class RumiLive:
         self._post_output(format_hypotheses(hypotheses))
         self._post_output(metrics.summary())
         self._post_output("\nDone. Run /dashboard to explore visually.")
+        self.ui._discovery_running = False
+        self.ui._discovery_step = ""
 
     def _build_extraction_prompt(self, papers: list[dict], domain: str = "drug_discovery") -> str:
         papers = papers[:5]
@@ -3187,7 +3212,28 @@ Output ONLY valid JSON as a list of objects with this structure:
                 )
             else:
                 self._post_output("Specify a topic: /discover <topic>")
-        elif command == "search":
+        elif command == "discover":
+            if self._voice_enabled:
+                self.speak(f"Starting discovery on {topic}")
+            self.ui._discovery_running = True
+            self.ui._discovery_step = "scanning literature"
+            if args:
+                # Support manual domain override: /discover materials: battery cathodes
+                domain_override = None
+                topic = args
+                if ":" in args:
+                    maybe_domain, _, maybe_topic = args.partition(":")
+                    maybe_domain = maybe_domain.strip().lower()
+                    cfg = get_domain(maybe_domain)
+                    if cfg:
+                        domain_override = maybe_domain if maybe_domain in DOMAINS else DOMAIN_ALIAS_MAP.get(maybe_domain)
+                        topic = maybe_topic.strip()
+                asyncio.run_coroutine_threadsafe(
+                    self._run_discovery_pipeline(topic, domain_override=domain_override), self._loop
+                )
+            else:
+                self._post_output("Specify a topic: /discover <topic>")
+                self.ui._discovery_running = False
             if args:
                 from discovery.pubmed import search_and_fetch
                 from discovery.output import format_papers
@@ -3293,6 +3339,83 @@ Output ONLY valid JSON as a list of objects with this structure:
             for d in list_domains():
                 lines.append(f"  [bold]{d['key']}[/bold] — {d['label']}: {d['description']}")
             self._post_output("\n".join(lines))
+
+        elif command == "reason":
+            if args:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_scientific_reasoning(args), self._loop
+                )
+            else:
+                self._post_output("Specify a topic: /reason <topic>")
+
+        elif command == "theorize":
+            if args:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_theorize(args), self._loop
+                )
+            else:
+                self._post_output("Specify a topic: /theorize <topic>")
+
+    async def _run_scientific_reasoning(self, topic: str):
+        """Run a scientific reasoning cycle on a topic."""
+        if not _scientific_reasoning_ok or get_scientific_reasoning_loop is None:
+            self._post_output("Scientific reasoning module not available.")
+            return
+        self._post_output(f"Running scientific reasoning on: {topic}")
+        loop = get_scientific_reasoning_loop()
+        try:
+            cycle = await loop.reason(topic=topic)
+            output = [f"\n[bold cyan]Scientific Reasoning Cycle {cycle.cycle_num}[/bold cyan]"]
+            output.append(f"Topic: {cycle.topic}")
+            output.append(f"Duration: {cycle.duration_s:.1f}s")
+            output.append(f"")
+            output.append(f"Observations: {len(cycle.observations)}")
+            for obs in cycle.observations[:3]:
+                output.append(f"  - {obs.get('phenomenon', '')[:100]}")
+            output.append(f"")
+            output.append(f"Hypotheses: {len(cycle.hypotheses)}")
+            for h in cycle.hypotheses[:3]:
+                output.append(f"  - {h.get('statement', '')[:100]} (conf: {h.get('confidence', 0):.2f})")
+            output.append(f"")
+            output.append(f"Theories: {len(cycle.theories_synthesized)}")
+            for t in cycle.theories_synthesized[:3]:
+                output.append(f"  - {t.get('name', 'Theory')}: {t.get('description', '')[:100]}")
+            if cycle.insights:
+                output.append(f"")
+                output.append(f"Insights:")
+                for ins in cycle.insights[:5]:
+                    output.append(f"  - {ins}")
+            self._post_output("\n".join(output))
+        except Exception as e:
+            self._post_output(f"Scientific reasoning error: {e}")
+
+    async def _run_theorize(self, topic: str):
+        """Form theories about a topic."""
+        if not _theory_formation_ok or get_theory_formation_engine is None:
+            self._post_output("Theory formation module not available.")
+            return
+        self._post_output(f"Forming theories about: {topic}")
+        engine = get_theory_formation_engine()
+        try:
+            observations = [{"phenomenon": topic, "domain": "general"}]
+            theories = engine.form_theories(observations=observations)
+            if not theories:
+                self._post_output("No theories formed. Need more observations.")
+                return
+            output = [f"\n[bold cyan]Theories for: {topic}[/bold cyan]"]
+            for theory in theories:
+                output.append(f"")
+                output.append(f"[bold]{theory.name}[/bold]")
+                output.append(f"  Confidence: {theory.confidence:.2f}")
+                if theory.mechanisms:
+                    output.append(f"  Mechanisms: {', '.join(str(m) for m in theory.mechanisms[:3])}")
+                if theory.boundary_conditions:
+                    output.append(f"  Boundaries: {', '.join(theory.boundary_conditions[:2])}")
+                if theory.predictions:
+                    output.append(f"  Predictions: {len(theory.predictions)}")
+            self._post_output("\n".join(output))
+        except Exception as e:
+            self._post_output(f"Theory formation error: {e}")
 
     def _find_latent_relationships(self, graph, top_k=15):
         """Cross-paper latent inference: find entity pairs that co-occur but lack direct edges."""
@@ -3837,6 +3960,8 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 pass
 
     def speak(self, text: str):
+        if not self._voice_enabled:
+            return
         if not self._loop or not self._loop.is_running():
             return
         if not self.session or self._session_dead:
@@ -3878,6 +4003,14 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
         voice_guidance = ""
 
         parts = [sys_prompt, time_ctx, voice_guidance]
+
+        # Inject active personality files (SOUL.md + RUMI.md) so persona takes effect
+        for _pf in [BASE_DIR / "SOUL.md", BASE_DIR / "RUMI.md"]:
+            try:
+                if _pf.exists():
+                    parts.append(f"\n=== {_pf.name} ===\n{_pf.read_text(encoding='utf-8').strip()}")
+            except Exception:
+                pass
 
         # Use coordinator for unified memory context if available
         if _brain_coordinator_ok and get_memory_coordinator:
@@ -3976,18 +4109,24 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
             full = "\n".join(parts)
 
         voice_name = "Aoede"
+        if self._voice_enabled:
+            return types.LiveConnectConfig(
+                response_modalities=["AUDIO"],
+                output_audio_transcription={},
+                input_audio_transcription={},
+                system_instruction=full,
+                tools=[{"function_declarations": TOOL_DECLARATIONS}],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice_name)
+                    )
+                ),
+            )
         return types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
-            output_audio_transcription={},
-            input_audio_transcription={},
+            response_modalities=["TEXT"],
             system_instruction=full,
             tools=[{"function_declarations": TOOL_DECLARATIONS}],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name=voice_name)
-                )
-            ),
         )
 
     async def _run_tool_with_timeout(self, fn, timeout=60):
@@ -4048,8 +4187,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
             if not allowed:
                 self.ui.write_log(f"SEC: {name} blocked — {reason}")
                 self.speak(f"Sorry sir, I can't do that. {reason}")
-                if not self.ui.muted:
-                    self.ui.set_state("LISTENING")
+                self.ui.set_state("LISTENING")
                 return types.FunctionResponse(
                     id=fc.id, name=name,
                     response={"result": f"Blocked: {reason}"})
@@ -4059,23 +4197,21 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
         # Rate limiting
         if _rate_limiter_available:
             try:
-                rate_err = get_rate_limiter().check(name, max_calls=60, window_seconds=60)
-                if rate_err:
-                    self.ui.write_log(f"SEC: {name} rate-limited")
-                    return types.FunctionResponse(
-                        id=fc.id, name=name,
-                        response={"result": f"Rate limited: {rate_err}"})
+
+                self._perm_mgr.update(name, args)
+                self._lock_st.track(name)
+
             except Exception:
                 pass
 
+        # Permission check with tool name/args
         try:
             decision, reason = self._perm_mgr.check_tool(
                 name, args, source=self._action_source)
             if decision == Decision.DENY:
                 self.ui.write_log(f"SEC: {name} denied — {reason}")
                 self.speak(f"Sorry sir, {reason}")
-                if not self.ui.muted:
-                    self.ui.set_state("LISTENING")
+                self.ui.set_state("LISTENING")
                 return types.FunctionResponse(
                     id=fc.id, name=name,
                     response={"result": f"Denied: {reason}"})
@@ -4084,8 +4220,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                     tier = self._perm_mgr.get_risk_tier(name, args)
                     if tier == RiskTier.HIGH:
                         self.speak(f"Sir, {reason}")
-                        if not self.ui.muted:
-                            self.ui.set_state("LISTENING")
+                        self.ui.set_state("LISTENING")
                         return types.FunctionResponse(
                             id=fc.id, name=name,
                             response={"result": f"{name} requires text confirmation."})
@@ -4311,8 +4446,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
 
         # v10.6 FIX-18: Removed duplicate curiosity.encounter() call that was here
 
-        if not self.ui.muted:
-            self.ui.set_state("LISTENING")
+        self.ui.set_state("LISTENING")
 
         result = _truncate(result)
 
@@ -4335,8 +4469,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                         brain.encode(cat, key, val)
             except Exception:
                 pass
-        if not self.ui.muted:
-            self.ui.set_state("LISTENING")
+        self.ui.set_state("LISTENING")
         return "ok"
 
     async def _tool_brain_memory(self, args):
@@ -6975,8 +7108,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                         print(f"[RUMI] {fc.name} returned error", flush=True)
 
         if self._session_dead or not self.session:
-            if not self.ui.muted:
-                self.ui.set_state("LISTENING")
+            self.ui.set_state("LISTENING")
             self._tool_executing = False
             self.ui._is_busy = False
             self.ui._message_queue_count = 0
@@ -6992,8 +7124,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 self._session_dead = True
             else:
                 print(f"[RUMI] Tool response error: {e}", flush=True)
-            if not self.ui.muted:
-                self.ui.set_state("LISTENING")
+            self.ui.set_state("LISTENING")
             # v10.6 FIX-19: Check shutdown flag even when response send fails
             if self._schedule_shutdown:
                 self._schedule_shutdown = False
@@ -7117,7 +7248,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 if self.session is None or self._session_dead:
                     return
                 with self._speaking_lock:
-                    if self._is_speaking or self.ui.muted:
+                    if self._is_speaking:
                         return
                     if time.time() - self._speaking_ended_at < 0.5:
                         return
@@ -7483,7 +7614,6 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
 
                 self.ui.set_state("LISTENING")
                 self.ui.write_log("SYS: RUMI online.")
-                self.ui.on_focus_mode_toggle = self.set_focus_mode
                 self.ui.on_think_mode_toggle = self.set_think_mode
                 self.ui.on_deep_dive_toggle = self.set_deep_dive_mode
 
@@ -7607,21 +7737,9 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
         def _act_on_claps(count):
             """Execute action based on number of claps detected."""
             try:
-                if count == 1:
-                    # 1-clap: toggle mute
-                    ui.toggle_mute()
-                elif count == 2:
-                    # 2-clap: wake up (unmute if muted)
-                    if ui.muted:
-                        ui.toggle_mute()  # unmute
-                        ui.write_log("SYS: Woken up by double clap.")
-                        ui.show_toast("WAKE UP", 1.5)
-                    else:
-                        # Already unmuted — toggle mute off as fallback
-                        ui.toggle_mute()
-                elif count >= 3:
-                    # 3-clap: toggle focus mode
-                    ui._toggle_focus_mode()
+                if count >= 3:
+                    ui.write_log("SYS: Clap detected.")
+                    ui.show_toast("👏", 1.0)
             except Exception:
                 pass
 
