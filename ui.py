@@ -144,20 +144,33 @@ HELP_TEXT = """[bold]RUMI Scientist AI[/bold] — Commands
   /think           Toggle Think mode (reasoning before responses)
   /dive            Toggle Deep Dive mode (thorough research)
 
+[bold dim]Grounded Discovery[/bold dim]
+  /grounded <topic>    Full grounded pipeline (real papers + real math + claim labels)
+  /discover <topic>    Run autonomous discovery pipeline
+  /domains             List scientific domains with available calculations
+
 [bold dim]Scientist AI[/bold dim]
   /science         Show Scientist AI capabilities
-  /discover        Run autonomous discovery pipeline
   /hypothesize     Generate diverse hypotheses on a topic
   /experiment      Design or run an experiment
   /papers          Search papers from famous researchers
   /review          Peer review a paper or claim
   /graph           Knowledge graph operations
   /notebook        Lab notebook operations
-  /domains         List scientific domains
+  /reason          Multi-pass scientific reasoning
+  /theorize        Theory formation from observations
 
-[dim]Tip: Tab autocomplete works. Type naturally — RUMI understands
-scientific context. Ask things like "Hypothesize about neural scaling
-laws" or "Find analogies between evolution and ML."[/dim]"""
+[bold dim]Grounded Pipeline (all domains)[/bold dim]
+  /grounded KRAS G12C inhibitor resistance mechanisms
+  /grounded Perovskite solar cell degradation
+  /grounded Dopamine receptor signaling in addiction
+  /grounded Biodiversity loss and ecosystem function
+
+[dim]The /grounded command fetches real papers from arXiv + PubMed,
+runs domain-specific calculations (Lipinski rules, Nernst potentials,
+radiative forcing, Shannon diversity, etc.), generates a report with
+real citations, and labels every claim as VALIDATED / INFERRED /
+SIMULATED / SPECULATIVE / HYPOTHETICAL with a reliability score.[/dim]"""
 
 # ── Slash commands list (for tab completion) ─────
 SLASH_COMMANDS = [
@@ -166,6 +179,7 @@ SLASH_COMMANDS = [
     "/science", "/discover", "/search", "/enrich", "/hypothesize", "/experiment", "/generate",
     "/papers", "/review", "/graph", "/dashboard", "/discoveries", "/notebook", "/domains",
     "/personality", "/reason", "/theorize",
+    "/grounded",
 ]
 
 
@@ -304,21 +318,39 @@ class RumiUI:
         """Display clean startup sequence — opencode style."""
         console.clear()
 
-        # Minimal header
-        console.print()
-        console.print(Text("  RUMI", style=f"bold {C_CYAN}"), end="")
-        console.print(Text("  Scientist AI", style=f"dim {C_DIM}"))
-        console.print(Text(f"  v3.0  ·  {platform.system()}  ·  Python {'.'.join(platform.python_version().split('.')[:2])}", style=f"dim {C_DIM}"))
+        # ASCII logo
+        logo = """
+   ██████╗ ██╗   ██╗███╗   ██╗██╗
+   ██╔══██╗██║   ██║████╗  ██║██║
+   ██████╔╝██║   ██║██╔██╗ ██║██║
+   ██╔══██╗██║   ██║██║╚██╗██║██║
+   ██║  ██║╚██████╔╝██║ ╚████║██╗██╗
+   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═╝  """
+        console.print(Text(logo, style=f"bold {C_CYAN}"))
+        console.print(Text("  Research & Unified Machine Intelligence", style=f"bold {C_WHITE}"))
+        console.print(Text("  Autonomous Scientific Discovery Framework", style=f"dim {C_DIM}"))
         console.print()
 
-        # Compact system info — no panel, just lines
-        console.print(Text(f"  model   Gemini 2.5 Flash + Groq Llama 3.3 70B", style=f"dim {C_DIM}"))
-        console.print(Text(f"  brain   60+ cognitive modules", style=f"dim {C_DIM}"))
-        console.print(Text(f"  scientist  15 discovery modules", style=f"dim {C_DIM}"))
+        # System info — compact
+        from discovery.llm_client import get_status
+        status = get_status()
+        provider = status.get("primary", "unknown").upper()
+        groq_ok = status.get("groq", {}).get("available", False)
+        gemini_ok = status.get("gemini", {}).get("available", False)
+
+        info = Table(show_header=False, box=None, padding=(0, 2), expand=False)
+        info.add_column("key", style=f"dim {C_DIM}", min_width=12)
+        info.add_column("value", style=C_WHITE)
+        info.add_row("model", f"Groq Llama 3.3 70B {'(primary)' if provider == 'GROQ' else ''}")
+        info.add_row("fallback", f"Gemini 2.5 Flash {'OK' if gemini_ok else 'not configured'}")
+        info.add_row("brain", "88 cognitive modules")
+        info.add_row("scientist", "15 discovery modules · 10 domains with real calculations")
+        info.add_row("pipeline", "arXiv + PubMed citations · Bayesian scoring · Monte Carlo")
+        console.print(info)
         console.print()
 
         # Bottom hint
-        console.print(Text(f"  Type /help for commands  ·  /discover <topic> to start research", style=f"dim {C_DIM}"))
+        console.print(Text(f"  /help for commands  ·  /discover <topic>  ·  /grounded <topic>", style=f"dim {C_DIM}"))
         console.print()
 
     # ── Input Loop ──────────────────────────────────────────────
@@ -456,6 +488,17 @@ class RumiUI:
             console.print(Text("  discovery pipeline (specify topic)", style=f"dim {C_DIM}"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("discover", ""), daemon=True).start()
+
+        elif cmd.startswith("/grounded "):
+            args = cmd[len("/grounded "):].strip()
+            console.print(Text(f"  grounded discovery: {args}", style=f"bold {C_CYAN}"))
+            console.print(Text(f"  fetching real papers + running domain calculations...", style=f"dim {C_DIM}"))
+            if self.on_discovery_command:
+                threading.Thread(target=self.on_discovery_command, args=("grounded", args), daemon=True).start()
+
+        elif cmd == "/grounded":
+            console.print(Text("  grounded discovery (specify topic)", style=f"dim {C_DIM}"))
+            console.print(Text("  example: /grounded KRAS G12C inhibitor resistance", style=f"dim {C_DIM}"))
 
         elif cmd.startswith("/search "):
             args = cmd[len("/search "):].strip()
@@ -647,9 +690,20 @@ class RumiUI:
         self.status_text = state
 
     def set_discovery_step(self, step: str):
-        """Update discovery pipeline progress."""
+        """Update discovery pipeline progress with phase indicator."""
         self._discovery_step = step
-        console.print(Text(f"  {SPINNER_CHARS[0]} {step}...", style=f"dim #6b7280"))
+        # Color-code by phase type
+        if "paper" in step.lower() or "fetch" in step.lower() or "arxiv" in step.lower():
+            color = C_GREEN  # Green for real data
+        elif "comput" in step.lower() or "bayesian" in step.lower() or "monte carlo" in step.lower():
+            color = C_PURPLE  # Purple for calculations
+        elif "label" in step.lower() or "ground" in step.lower() or "cit" in step.lower():
+            color = C_AMBER  # Amber for validation
+        elif "generat" in step.lower() or "llm" in step.lower():
+            color = C_CYAN  # Cyan for LLM
+        else:
+            color = C_DIM
+        console.print(Text(f"  {SPINNER_CHARS[0]} {step}", style=f"dim {color}"))
 
     def set_discovery_done(self):
         self._discovery_running = False
@@ -717,8 +771,9 @@ class RumiUI:
         console.print()
 
     def _show_domains(self):
-        """Show available Discovery Engine domains."""
+        """Show available Discovery Engine domains with calculation availability."""
         from discovery.domains import list_domains
+        from discovery.domain_computational import DOMAIN_COMPUTATIONS
         table = Table(
             border_style=C_BORDER,
             box=SIMPLE,
@@ -726,16 +781,43 @@ class RumiUI:
             header_style=f"bold {C_DIM}",
             padding=(0, 1),
         )
-        table.add_column("Key", style=C_CYAN)
+        table.add_column("Domain", style=C_CYAN, min_width=20)
         table.add_column("Label", style=C_GREEN)
-        table.add_column("Description", style=C_WHITE)
+        table.add_column("Real Calculations", style=C_WHITE)
+        table.add_column("Sources", style=f"dim {C_DIM}")
+
+        domain_sources = {
+            "drug_discovery": "PubChem, OpenFDA, PDB",
+            "materials_science": "PubChem, Materials Project",
+            "neuroscience": "UniProt, PDB",
+            "molecular_biology": "UniProt, PDB",
+            "climate_energy": "NASA POWER",
+            "space_astronomy": "NASA API, arXiv, HITRAN",
+            "ecology": "GBIF",
+            "physics": "arXiv",
+            "computer_science": "GitHub, Semantic Scholar",
+            "earth_science": "USGS",
+            "oceanography": "NOAA",
+            "economics": "World Bank",
+            "public_health": "WHO",
+            "mathematics": "OEIS, arXiv",
+            "chemistry": "PubChem, CIR",
+        }
 
         for d in list_domains():
-            table.add_row(d["key"], d["label"], d["description"])
+            key = d["key"]
+            has_calc = key in DOMAIN_COMPUTATIONS or key == "space_astronomy"
+            calc_status = "YES - real formulas" if has_calc else "generic (Bayesian only)"
+            calc_color = C_GREEN if has_calc else C_DIM
+            sources = domain_sources.get(key, "Semantic Scholar")
+            table.add_row(key, d["label"],
+                         Text(calc_status, style=calc_color if has_calc else C_DIM),
+                         sources)
 
         console.print()
         console.print(table)
         console.print(Text("  /domain <key> to switch  ·  /discover <domain>: <topic>", style=f"dim {C_DIM}"))
+        console.print(Text("  Domains with 'YES' use real physics/chemistry/biology formulas", style=f"dim {C_GREEN}"))
         console.print()
 
     def _handle_personality(self):
