@@ -132,28 +132,92 @@ def build_multi_query_context(topic: str) -> str:
     return build_citation_context(all_papers)
 
 
-def _generate_queries(topic: str) -> list[str]:
-    """Generate targeted search queries from a topic."""
+def _generate_queries(topic: str, domain: str = "") -> list[str]:
+    """Generate targeted search queries from a topic + domain."""
     topic_lower = topic.lower()
-
-    # Extract key entities for targeted queries
     queries = [topic]
 
-    # Add domain-specific sub-queries
-    space_keywords = {
-        "phosphine": ["phosphine Venus atmosphere detection", "PH3 biosignature exoplanet",
-                      "Venus atmospheric chemistry phosphorus"],
-        "venus": ["Venus atmosphere composition", "Venus cloud habitability"],
-        "exoplanet": ["exoplanet atmosphere characterization", "exoplanet biosignature"],
-        "mars": ["Mars atmosphere methane", "Mars biosignature"],
-        "jupiter": ["Jupiter atmosphere composition"],
+    # ── Domain-specific sub-queries ──
+    domain_queries = {
+        "space_astronomy": {
+            "phosphine": ["phosphine Venus atmosphere detection", "PH3 biosignature exoplanet"],
+            "venus": ["Venus atmosphere composition", "Venus cloud habitability"],
+            "exoplanet": ["exoplanet atmosphere characterization", "exoplanet biosignature"],
+            "mars": ["Mars atmosphere methane", "Mars biosignature"],
+            "black hole": ["black hole event horizon", "gravitational wave detection"],
+            "neutron star": ["neutron star equation of state", "pulsar timing"],
+        },
+        "drug_discovery": {
+            "kinase": ["kinase inhibitor selectivity", "drug resistance mechanism"],
+            "antibiotic": ["antimicrobial resistance", "novel antibiotic target"],
+            "cancer": ["oncogene targeted therapy", "tumor microenvironment"],
+            "protein": ["protein structure drug design", "alphafold drug discovery"],
+        },
+        "materials_science": {
+            "perovskite": ["perovskite solar cell stability", "halide perovskite bandgap"],
+            "battery": ["solid state electrolyte", "lithium dendrite formation"],
+            "catalyst": ["electrocatalyst oxygen evolution", "photocatalyst water splitting"],
+            "2d material": ["graphene electronic properties", "transition metal dichalcogenide"],
+        },
+        "neuroscience": {
+            "neurotransmitter": ["dopamine receptor signaling", "serotonin neural circuit"],
+            "brain": ["neural network connectivity", "brain-computer interface"],
+            "memory": ["hippocampal place cells", "synaptic plasticity LTP"],
+            "consciousness": ["neural correlates consciousness", "integrated information theory"],
+        },
+        "climate_energy": {
+            "climate": ["climate model projection", "carbon capture technology"],
+            "solar": ["perovskite solar efficiency", "photovoltaic degradation"],
+            "carbon": ["CO2 atmospheric concentration", "carbon sequestration"],
+            "renewable": ["grid scale energy storage", "wind turbine efficiency"],
+        },
+        "ecology": {
+            "biodiversity": ["species extinction rate", "biodiversity ecosystem function"],
+            "conservation": ["habitat fragmentation effect", "conservation genetics"],
+            "invasion": ["invasive species impact", "biological invasion mechanism"],
+        },
+        "physics": {
+            "quantum": ["quantum entanglement verification", "quantum computing error correction"],
+            "particle": ["higgs boson decay channel", "dark matter direct detection"],
+            "gravity": ["gravitational wave source", "general relativity test"],
+        },
+        "computer_science": {
+            "llm": ["large language model scaling", "transformer attention mechanism"],
+            "neural network": ["neural architecture search", "deep learning optimization"],
+            "security": ["adversarial machine learning", "federated learning privacy"],
+        },
+        "public_health": {
+            "vaccine": ["vaccine efficacy clinical trial", "mRNA vaccine platform"],
+            "pandemic": ["epidemic modeling prediction", "disease surveillance system"],
+            "mental health": ["depression treatment outcome", "anxiety disorder prevalence"],
+        },
+        "chemistry": {
+            "organic": ["cross-coupling reaction mechanism", "asymmetric catalysis enantioselective"],
+            "biochemistry": ["enzyme catalysis mechanism", "protein folding kinetics"],
+            "analytical": ["mass spectrometry sensitivity", "NMR structure determination"],
+        },
+        "mathematics": {
+            "prime": ["prime number distribution", "Riemann hypothesis progress"],
+            "topology": ["topological invariant computation", "knot theory application"],
+            "optimization": ["convex optimization convergence", "combinatorial optimization heuristic"],
+        },
     }
 
-    for keyword, sub_queries in space_keywords.items():
-        if keyword in topic_lower:
-            queries.extend(sub_queries)
+    # Get domain-specific queries
+    domain_key = domain if domain in domain_queries else ""
+    if not domain_key:
+        # Auto-detect domain from topic
+        for dkey, keywords in domain_queries.items():
+            if any(kw in topic_lower for kw in keywords):
+                domain_key = dkey
+                break
 
-    # Remove duplicates while preserving order
+    if domain_key and domain_key in domain_queries:
+        for keyword, sub_queries in domain_queries[domain_key].items():
+            if keyword in topic_lower:
+                queries.extend(sub_queries)
+
+    # Remove duplicates
     seen = set()
     unique = []
     for q in queries:
@@ -162,7 +226,7 @@ def _generate_queries(topic: str) -> list[str]:
             seen.add(q_lower)
             unique.append(q)
 
-    return unique[:5]  # Max 5 queries to stay within rate limits
+    return unique[:5]
 
 
 def ground_claims(text: str, papers: list[dict]) -> dict:
