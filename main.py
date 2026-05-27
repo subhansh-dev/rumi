@@ -7524,6 +7524,14 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 await asyncio.sleep(30)
 
     async def run(self):
+        # Skip Gemini Live API if voice is not enabled — text-only mode
+        if not getattr(self, '_voice_enabled', False):
+            self.ui.write_log("SYS: Text-only mode. Voice disabled.")
+            self.ui.set_state("LISTENING")
+            # Keep the thread alive so the app doesn't exit
+            while True:
+                await asyncio.sleep(60)
+
         try:
             api_key = _get_api_key()
         except Exception as e:

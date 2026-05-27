@@ -318,15 +318,14 @@ class RumiUI:
         """Display clean startup sequence — opencode style."""
         console.clear()
 
-        # ASCII logo
-        logo = """
-   ██████╗ ██╗   ██╗███╗   ██╗██╗
-   ██╔══██╗██║   ██║████╗  ██║██║
-   ██████╔╝██║   ██║██╔██╗ ██║██║
-   ██╔══██╗██║   ██║██║╚██╗██║██║
-   ██║  ██║╚██████╔╝██║ ╚████║██╗██╗
-   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═╝  """
-        console.print(Text(logo, style=f"bold {C_CYAN}"))
+        # ASCII logo — narrow enough for 80-col terminals
+        logo_lines = [
+            "  ╦ ╦╦ ╦╔╗╔╔═╗╔═╗",
+            "  ║║║║ ║║║║║ ╦║╣ ",
+            "  ╚╩╝╚═╝╝╚╝╚═╝╚═╝",
+        ]
+        for line in logo_lines:
+            console.print(Text(line, style=f"bold {C_CYAN}"))
         console.print(Text("  Research & Unified Machine Intelligence", style=f"bold {C_WHITE}"))
         console.print(Text("  Autonomous Scientific Discovery Framework", style=f"dim {C_DIM}"))
         console.print()
