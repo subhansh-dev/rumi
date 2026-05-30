@@ -2843,6 +2843,13 @@ class RumiLive:
             self.ui._discovery_running = False
             return
         self._post_output(f"{len(papers)} relevant papers retained.")
+
+        # Snowball sampling: expand search using terms from initial results
+        extra_papers = filter_.snowball_expand(papers, query, domain, max_extra=5)
+        if extra_papers:
+            self._post_output(f"[dim]Snowball sampling: found {len(extra_papers)} additional papers[/dim]")
+            papers.extend(extra_papers)
+
         self._post_output(format_papers(papers))
 
         self._post_output("[bold cyan]Extracting entities and relationships...[/bold cyan]")
@@ -2864,13 +2871,36 @@ class RumiLive:
         for p in papers:
             graph.add_paper(p["pmid"], p["title"], p.get("abstract", ""), p["url"], p.get("year", ""))
         if entities:
-            graph.add_paper_entities(entities, papers[0]["pmid"])
+            # Attribute entities to all papers in the extraction batch (not just the first)
+            extraction_pmids = [p["pmid"] for p in papers[:5]]
+            for ent in entities:
+                eid = f"{ent['type']}_{ent['name'].lower().replace(' ', '_')}"
+                if eid not in graph.entities:
+                    graph.entities[eid] = {
+                        "id": eid, "type": ent["type"], "name": ent["name"],
+                        "aliases": ent.get("aliases", []), "papers": [],
+                    }
+                for pmid in extraction_pmids:
+                    if pmid not in graph.entities[eid]["papers"]:
+                        graph.entities[eid]["papers"].append(pmid)
         if relationships:
-            graph.add_relationships(relationships, papers[0]["pmid"])
+            extraction_pmids = [p["pmid"] for p in papers[:5]]
+            for rel in relationships:
+                sid = f"{rel['source_type']}_{rel['source'].lower().replace(' ', '_')}"
+                tid = f"{rel['target_type']}_{rel['target'].lower().replace(' ', '_')}"
+                graph.relationships.append({
+                    "source": sid, "relation": rel["relation"], "target": tid,
+                    "confidence": rel.get("confidence", 0.7),
+                    "papers": extraction_pmids,
+                })
 
         # Merge with persisted knowledge from prior runs
         self._post_output(f"[dim]Knowledge graph now spans {len(graph.entities)} entities across "
                           f"{graph._session_count + 1} sessions[/dim]")
+
+        # === NEW COGNITIVE PIPELINE ===
+        run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         self.ui.set_discovery_step("saving knowledge graph")
         graph.save(session_id=run_id)
 
@@ -2880,8 +2910,6 @@ class RumiLive:
             self.ui.set_discovery_step("enriching entities")
             await self._enrich_entities(graph, domain)
 
-        # === NEW COGNITIVE PIPELINE ===
-        run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         metrics = MetricsTracker()
         hypothesis_memory = HypothesisMemory()
         hypothesis_engine = HypothesisEngine(hypothesis_memory)
@@ -2925,17 +2953,39 @@ class RumiLive:
         self._post_output(f"  Avg confidence: {h_stats['avg_confidence']} | "
                          f"Novelty: {h_stats['novelty_distribution']}")
 
-        # Stage 7: Scientific Reflection (Skeptic Review)
-        self._post_output("[bold cyan]Running skeptic review...[/bold cyan]")
+        # Stage 7: Iterative Skeptic Review + Refinement (real scientific method)
+        self._post_output("[bold cyan]Running skeptic review + iterative refinement...[/bold cyan]")
         t0 = time.time()
+        refined_hypotheses = []
         for h in hypotheses[:3]:
             review = await skeptic.review(h, contradictions[:5] if contradictions else None)
             if review.get("recommendation") == "reject":
-                hypothesis_memory.update_status(h["id"], "rejected")
-                self._post_output(f"[yellow]Hypothesis rejected by skeptic: {h['title'][:60]}[/yellow]")
-            elif review:
-                hypothesis_memory.update_critique(h["id"], review.get("critique", ""),
-                                                   json.dumps(review.get("logical_flaws", [])))
+                # Rejected — try to refine once before giving up
+                self._post_output(f"[yellow]Hypothesis rejected, attempting refinement: {h['title'][:50]}[/yellow]")
+                refined = await hypothesis_engine.refine(h, review, graph, domain)
+                if refined.get("confidence", 0) > 0.3 and refined.get("id") != h.get("id"):
+                    self._post_output(f"[green]Refined to: {refined['title'][:60]} (conf: {refined.get('confidence', 0):.0%})[/green]")
+                    refined_hypotheses.append(refined)
+                else:
+                    hypothesis_memory.update_status(h["id"], "rejected")
+                    self._post_output(f"[yellow]Rejection confirmed after refinement[/yellow]")
+            elif review.get("recommendation") == "revise":
+                # Revise — iterate on the hypothesis
+                self._post_output(f"[yellow]Revising hypothesis: {h['title'][:50]}[/yellow]")
+                refined = await hypothesis_engine.refine(h, review, graph, domain)
+                if refined.get("id") != h.get("id") and refined.get("confidence", 0) > h.get("confidence", 0):
+                    self._post_output(f"[green]Improved: {refined['title'][:60]} (conf: {h.get('confidence', 0):.0%} -> {refined.get('confidence', 0):.0%})[/green]")
+                    refined_hypotheses.append(refined)
+                else:
+                    hypothesis_memory.update_critique(h["id"], review.get("critique", ""),
+                                                       json.dumps(review.get("weaknesses", [])))
+            else:
+                # Accepted
+                hypothesis_memory.update_status(h["id"], "accepted")
+                refined_hypotheses.append(h)
+        # Merge refined back
+        if refined_hypotheses:
+            hypotheses = refined_hypotheses + [h for h in hypotheses[3:] if h not in refined_hypotheses]
         metrics.record("skeptic_review", "ok", time.time() - t0)
 
         # Stage 8: Novelty Verification

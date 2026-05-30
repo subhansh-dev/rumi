@@ -126,7 +126,21 @@ class KnowledgeGraph:
         return cls(persist=persist)
 
     def merge(self, other: "KnowledgeGraph"):
-        self.entities.update(other.entities)
+        # Merge entities — preserve paper lists instead of overwriting
+        for eid, ent in other.entities.items():
+            if eid in self.entities:
+                # Merge paper lists
+                existing_papers = set(self.entities[eid].get("papers", []))
+                for p in ent.get("papers", []):
+                    if p not in existing_papers:
+                        self.entities[eid].setdefault("papers", []).append(p)
+                # Merge aliases
+                existing_aliases = set(self.entities[eid].get("aliases", []))
+                for a in ent.get("aliases", []):
+                    if a not in existing_aliases:
+                        self.entities[eid].setdefault("aliases", []).append(a)
+            else:
+                self.entities[eid] = ent
         self.papers.update(other.papers)
         existing = set(
             (r["source"], r["relation"], r["target"]) for r in self.relationships

@@ -153,55 +153,54 @@ class ContradictionMiner:
         return found
 
     def _find_paper(self, relationships, entities):
-        """Find cases where papers disagree on the same relationship."""
+        """Find cases where different papers disagree on the relationship between the same entities."""
         found = []
-        by_rel = defaultdict(list)
+        # Group by (source, target) — NOT by (source, relation, target)
+        # This lets us detect when different papers say different things about the same pair
+        by_pair = defaultdict(list)
         for r in relationships:
-            key = (r.get("source"), r.get("relation"), r.get("target"))
-            by_rel[key].append(r)
+            pair = (r.get("source"), r.get("target"))
+            by_pair[pair].append(r)
 
-        for key, rels in by_rel.items():
-            all_papers = set()
-            paper_sets = []
+        for pair, rels in by_pair.items():
+            if len(rels) < 2:
+                continue
+
+            # Collect papers for each relation type on this pair
+            rel_papers = defaultdict(set)
             for r in rels:
                 papers = r.get("papers", [])
                 if isinstance(papers, str):
                     papers = [papers]
-                ps = set(papers)
-                paper_sets.append(ps)
-                all_papers.update(ps)
+                rel_type = r.get("relation", "")
+                rel_papers[rel_type].update(papers)
 
-            if len(paper_sets) < 2:
-                continue
-
-            # Check for contradictions across paper groups
-            for type_a, type_b in [("positive", "negative")]:
-                pos_papers = set()
-                neg_papers = set()
-                for r in rels:
-                    papers = r.get("papers", [])
-                    if isinstance(papers, str):
-                        papers = [papers]
-                    rel_type = _inverse_group(r.get("relation"))
-                    if rel_type == "positive":
-                        pos_papers.update(papers)
-                    elif rel_type == "negative":
-                        neg_papers.update(papers)
-
-                if pos_papers and neg_papers:
-                    severity = min(1.0, 0.4 + 0.05 * min(len(pos_papers), len(neg_papers)))
-                    found.append({
-                        "id": f"paper_{key[0]}_{key[1]}_{key[2]}",
-                        "type": "paper",
-                        "entity_a": key[0],
-                        "entity_b": key[2],
-                        "relation_a": f"{key[1]} (positive effect)",
-                        "relation_b": f"{key[1]} (negative effect)",
-                        "papers_a": list(pos_papers),
-                        "papers_b": list(neg_papers),
-                        "severity": severity,
-                        "description": f"Papers disagree on {key[0]} affecting {key[2]}: {len(pos_papers)} say positive, {len(neg_papers)} say negative"
-                    })
+            # Check if any two relations on this pair are opposites
+            for rel_a, papers_a in rel_papers.items():
+                for rel_b, papers_b in rel_papers.items():
+                    if rel_a >= rel_b:  # avoid duplicates
+                        continue
+                    if OPPOSITE_RELATIONS.get(rel_a) == rel_b or \
+                       _inverse_group(rel_a) and _inverse_group(rel_b) and _inverse_group(rel_a) != _inverse_group(rel_b):
+                        # Papers disagree: some say rel_a, others say rel_b
+                        # Only count if they come from different papers
+                        overlap = papers_a & papers_b
+                        only_a = papers_a - papers_b
+                        only_b = papers_b - papers_a
+                        if only_a or only_b:
+                            severity = min(1.0, 0.4 + 0.05 * min(len(only_a) + len(overlap), len(only_b) + len(overlap)))
+                            found.append({
+                                "id": f"paper_{pair[0]}_{pair[1]}_{rel_a}_vs_{rel_b}",
+                                "type": "paper",
+                                "entity_a": pair[0],
+                                "entity_b": pair[1],
+                                "relation_a": rel_a,
+                                "relation_b": rel_b,
+                                "papers_a": list(papers_a),
+                                "papers_b": list(papers_b),
+                                "severity": severity,
+                                "description": f"Papers disagree: {pair[0]} {rel_a} {pair[1]} (papers: {len(papers_a)}) BUT ALSO {rel_b} {pair[1]} (papers: {len(papers_b)})"
+                            })
         return found
 
     def _find_temporal(self, graph, entities):

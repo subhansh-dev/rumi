@@ -59,11 +59,7 @@ class HypothesisEngine:
             if similar:
                 h["novelty"] = "low"
                 h["similar_existing"] = similar
-            else:
-                h["novelty"] = h.get("novelty", "medium")
-                h["novelty"] = "medium"  # Cap default — no hypothesis is "high" without evidence
-
-            # Downrank novelty: the LLM consistently overestimates
+            # Cap default — LLM consistently overestimates novelty
             self._cap_novelty(h)
 
             # Persist
@@ -256,6 +252,85 @@ Output JSON:
             return result
         except json.JSONDecodeError:
             return {"critique": "Failed to parse reflection", "weaknesses": [], "revised_confidence": hypothesis.get("confidence", 0.0)}
+
+    async def refine(self, hypothesis, critique, graph=None, domain="general"):
+        """Iterative refinement: take a hypothesis + critique, produce a revised hypothesis.
+
+        This is the core of real scientific method — falsification drives revision.
+        """
+        refine_stage = LLMStage("hypothesis_refinement", max_retries=2, backoff=[3, 10])
+
+        prompt = f"""You are a rigorous AI research scientist. A hypothesis was reviewed and critiqued.
+Your job is to produce a REVISED hypothesis that addresses the critique's weaknesses.
+
+ORIGINAL HYPOTHESIS:
+Title: {hypothesis.get('title')}
+Rationale: {hypothesis.get('mechanistic_rationale') or hypothesis.get('description', '')}
+Confidence: {hypothesis.get('confidence')}
+Pattern type: {hypothesis.get('pattern_type')}
+
+CRITIQUE:
+{json.dumps(critique, indent=2)}
+
+RULES FOR REVISION:
+1. Address EACH weakness identified in the critique
+2. If the critique says "reject", you must fundamentally rethink the hypothesis
+3. If the critique says "revise", fix the specific flaws while keeping the core idea
+4. Incorporate suggested fixes from the critique
+5. Add alternative explanations that address confounders
+6. Strengthen the experimental validation plan
+7. Update failure conditions based on weaknesses found
+
+Output ONLY valid JSON with the SAME structure as the original hypothesis:
+{{
+  "title": "revised concise hypothesis title",
+  "mechanistic_rationale": "detailed mechanistic explanation addressing critique weaknesses",
+  "pattern_type": "bridge_node|contradiction|low_cooccurrence|novel_mechanism",
+  "confidence": 0.0-1.0,
+  "supporting_evidence": ["evidence1", "evidence2"],
+  "contradictory_evidence": ["counter1"],
+  "alternative_explanations": ["alt1 addressing critique confounders"],
+  "failure_conditions": ["condition1"],
+  "experimental_validation": "how to test this hypothesis",
+  "novelty": "high|medium|low",
+  "refinement_notes": "what was changed and why based on critique"
+}}"""
+
+        raw, provider = await refine_stage.call_with_retry(prompt, json_mode=True, max_tokens=8192)
+        if not raw:
+            return hypothesis  # Return original if refinement fails
+
+        try:
+            raw = raw.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                raw = raw.rsplit("```", 1)[0].strip()
+            refined = json.loads(raw)
+
+            # Preserve metadata from original
+            refined["id"] = hypothesis.get("id", "")
+            refined["topic"] = hypothesis.get("topic", "")
+            refined["domain"] = domain
+            refined["provider"] = provider
+            refined["created_at"] = hypothesis.get("created_at", "")
+            refined["status"] = "refined"
+            refined["parent_id"] = hypothesis.get("id", "")
+            refined["refinement_count"] = hypothesis.get("refinement_count", 0) + 1
+
+            # Re-score confidence algorithmically
+            score_result = self.scorer.score(refined, graph, None)
+            refined["confidence"] = score_result["confidence"]
+            refined["confidence_components"] = score_result["components"]
+
+            # Clean formatting
+            refined = _clean_scientific_notation(refined)
+
+            # Persist the refined version
+            self.memory.save_hypothesis(refined, hypothesis.get("topic", ""))
+
+            return refined
+        except (json.JSONDecodeError, KeyError):
+            return hypothesis  # Return original on parse failure
 
 
 def _clean_scientific_notation(h):

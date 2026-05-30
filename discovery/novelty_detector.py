@@ -120,22 +120,30 @@ class NoveltyDetector:
             from discovery.pubmed import search_and_fetch
             query = " ".join(keywords[:5])
             papers = search_and_fetch(query, max_results=max_results)
+            if not papers:
+                # PubMed returned nothing — try arXiv as fallback for physics/CS
+                try:
+                    from discovery.arxiv_api import search_papers as arxiv_search
+                    papers = arxiv_search(query, max_results=max_results)
+                except Exception:
+                    pass
             results = []
             for p in papers:
                 title = p.get("title", "")
                 abstract = p.get("abstract", "")
                 overlap = self._text_overlap(" ".join(keywords), title + " " + abstract[:500])
                 results.append({
-                    "pmid": p.get("pmid"),
+                    "pmid": p.get("pmid", p.get("arxiv_id", "")),
                     "title": title,
                     "abstract": abstract[:300],
                     "similarity": round(overlap, 3),
                     "citations": p.get("citations", 0),
-                    "year": p.get("year", ""),
+                    "year": p.get("year", p.get("published", "")),
                     "url": p.get("url", ""),
                 })
             return [r for r in results if r["similarity"] > 0.05]
         except Exception as e:
+            print(f"[RUMI] NoveltyDetector PubMed search failed: {e}", flush=True)
             return []
 
     def _text_overlap(self, keywords, text):

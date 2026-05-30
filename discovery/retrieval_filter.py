@@ -43,6 +43,59 @@ class RetrievalFilter:
 
         return result
 
+    def snowball_expand(self, papers, topic, domain="general", max_extra=5):
+        """Snowball sampling: extract key terms from initial results, search for more papers.
+
+        Real scientists expand their search by following citation chains and
+        discovering related terminology. This method extracts the most specific
+        terms from top papers and does a supplementary search.
+        """
+        if not papers or len(papers) < 2:
+            return []
+
+        # Extract key terms from top paper titles and abstracts
+        all_text = " ".join(
+            f"{p.get('title', '')} {p.get('abstract', '')[:500]}"
+            for p in papers[:5]
+        )
+        words = re.findall(r'\b[A-Z][A-Za-z]+(?:\s+[A-Za-z]+)*\b', all_text)
+        word_freq = Counter(words)
+        # Take most common specific terms (skip generic words)
+        skip = {'The', 'This', 'These', 'That', 'With', 'From', 'However', 'Although',
+                'Using', 'Based', 'Among', 'Despite', 'Recent', 'Previous', 'Various',
+                'Different', 'Specific', 'New', 'Novel', 'Study', 'Results', 'Methods'}
+        key_terms = [w for w, c in word_freq.most_common(20) if w not in skip and c >= 2]
+
+        if not key_terms:
+            return []
+
+        # Do supplementary search with combined key terms
+        try:
+            from discovery.pubmed import search_and_fetch
+            extra_query = " ".join(key_terms[:4])
+            extra_papers = search_and_fetch(extra_query, max_results=10)
+            if not extra_papers:
+                return []
+
+            # Score and filter
+            domain_keywords = self._domain_keywords(domain)
+            expanded_terms = self._expand_query(topic, domain_keywords)
+            scored = self._score_papers(extra_papers, topic, expanded_terms)
+            scored.sort(key=lambda x: x["score"], reverse=True)
+
+            # Deduplicate against existing papers
+            existing_pmids = {p.get("pmid", "") for p in papers}
+            result = []
+            for item in scored:
+                p = item["paper"]
+                if p.get("pmid", "") not in existing_pmids and p.get("pmid", ""):
+                    result.append(p)
+                    if len(result) >= max_extra:
+                        break
+            return result
+        except Exception:
+            return []
+
     def _domain_keywords(self, domain):
         keywords = {
             "drug_discovery": ["clinical", "therapeutic", "inhibitor", "drug", "treatment",

@@ -1,6 +1,7 @@
 """Evidence-weighted confidence scoring for hypotheses — calibrated for differentiation."""
 
 from math import log2
+from datetime import datetime
 from collections import defaultdict
 
 
@@ -95,7 +96,7 @@ class ConfidenceScorer:
         papers = hypothesis.get("papers", [])
         if not papers:
             return 0.4
-        current_year = 2026
+        current_year = datetime.now().year
         years = []
         for p in papers:
             if isinstance(p, str) and p.startswith("PMID"):
