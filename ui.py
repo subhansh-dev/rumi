@@ -434,7 +434,6 @@ class RumiUI:
                 if self.on_text_command:
                     self._last_input_time = time.time()
                     self._message_count += 1
-                    self.write_log(f"You: {value}")
                     threading.Thread(target=self.on_text_command, args=(value,), daemon=True).start()
 
             except (EOFError, KeyboardInterrupt):

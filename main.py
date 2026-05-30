@@ -2305,7 +2305,6 @@ class RumiLive:
         import re as _re
         clean = _re.sub(r'\[/?\w+(?: \w+=[^\]]+)*\]', '', text)
         self.ui.write_log(clean)
-        print(clean)
         self.ui.on_discovery_command = self._on_discovery_command
         self.ui.on_idle_scan = lambda: asyncio.run_coroutine_threadsafe(
             self._run_idle_scan(), self._loop
@@ -2618,6 +2617,9 @@ class RumiLive:
         if text == self._last_text_cmd[0] and now - self._last_text_cmd[1] < 1.0:
             return
         self._last_text_cmd = (text, now)
+
+        # Show user message in terminal
+        self.ui.write_log(f"You: {text}")
 
         # ── Message queue: if a tool is executing, queue instead of send ──
         if self._tool_executing:
@@ -7324,6 +7326,11 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                             txt = _clean_transcript(sc.input_transcription.text)
                             if txt:
                                 in_buf.append(txt)
+                        # TEXT modality: read model_turn.parts for text responses
+                        if sc.model_turn and sc.model_turn.parts:
+                            for part in sc.model_turn.parts:
+                                if hasattr(part, 'text') and part.text:
+                                    out_buf.append(part.text)
                         if sc.turn_complete:
                             full_in = " ".join(in_buf).strip()
 
@@ -7524,13 +7531,8 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 await asyncio.sleep(30)
 
     async def run(self):
-        # Skip Gemini Live API if voice is not enabled — text-only mode
         if not getattr(self, '_voice_enabled', False):
-            self.ui.write_log("SYS: Text-only mode. Voice disabled.")
-            self.ui.set_state("LISTENING")
-            # Keep the thread alive so the app doesn't exit
-            while True:
-                await asyncio.sleep(60)
+            self.ui.write_log("SYS: Text-only mode — connecting with text responses.")
 
         try:
             api_key = _get_api_key()
@@ -7657,30 +7659,48 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                         except Exception:
                             pass
 
-                results = await asyncio.gather(
-                    self._send_realtime(),
-                    self._listen_audio(),
-                    self._receive_audio(),
-                    self._play_audio(),
-                    self._keepalive(),
-                    self._telegram_poll_safe(),
-                    _idle_exploration(),
-                    return_exceptions=True,
-                )
+                if self._voice_enabled:
+                    results = await asyncio.gather(
+                        self._send_realtime(),
+                        self._listen_audio(),
+                        self._receive_audio(),
+                        self._play_audio(),
+                        self._keepalive(),
+                        self._telegram_poll_safe(),
+                        _idle_exploration(),
+                        return_exceptions=True,
+                    )
+                    task_names = [
+                        "_send_realtime", "_listen_audio", "_receive_audio",
+                        "_play_audio", "_keepalive", "_telegram_poll_safe",
+                        "_idle_exploration"
+                    ]
+                    for tname, res in zip(task_names, results):
+                        if isinstance(res, _SessionDead):
+                            self.ui.write_log(f"SYS: {tname} ended session")
+                        elif isinstance(res, Exception):
+                            self.ui.write_log(f"ERR: {tname}: {type(res).__name__}: {res}")
+                            traceback.print_exception(type(res), res, res.__traceback__)
+                else:
+                    # Text-only mode: only run receive + telegram + idle
+                    results = await asyncio.gather(
+                        self._receive_audio(),
+                        self._telegram_poll_safe(),
+                        _idle_exploration(),
+                        return_exceptions=True,
+                    )
+                    task_names = [
+                        "_receive_audio", "_telegram_poll_safe",
+                        "_idle_exploration"
+                    ]
+                    for tname, res in zip(task_names, results):
+                        if isinstance(res, _SessionDead):
+                            self.ui.write_log(f"SYS: {tname} ended session")
+                        elif isinstance(res, Exception):
+                            self.ui.write_log(f"ERR: {tname}: {type(res).__name__}: {res}")
+                            traceback.print_exception(type(res), res, res.__traceback__)
 
                 session_life = time.time() - session_start
-                task_names = [
-                    "_send_realtime", "_listen_audio", "_receive_audio",
-                    "_play_audio", "_keepalive", "_telegram_poll_safe",
-                    "_idle_exploration"
-                ]
-                for tname, res in zip(task_names, results):
-                    if isinstance(res, _SessionDead):
-                        self.ui.write_log(f"SYS: {tname} ended session")
-                    elif isinstance(res, Exception):
-                        self.ui.write_log(f"ERR: {tname}: {type(res).__name__}: {res}")
-                        traceback.print_exception(type(res), res, res.__traceback__)
-
                 if session_life < 30:
                     self.ui.write_log(f"WARN: Short session ({session_life:.1f}s)")
 
