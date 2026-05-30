@@ -4133,10 +4133,20 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                     )
                 ),
             )
+        # Text-only mode: still use AUDIO modality (native audio model doesn't support TEXT)
+        # The audio response is transcribed to text in _receive_audio
         return types.LiveConnectConfig(
-            response_modalities=["TEXT"],
+            response_modalities=["AUDIO"],
+            output_audio_transcription={},
+            input_audio_transcription={},
             system_instruction=full,
             tools=[{"function_declarations": TOOL_DECLARATIONS}],
+            speech_config=types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name=voice_name)
+                )
+            ),
         )
 
     async def _run_tool_with_timeout(self, fn, timeout=60):
