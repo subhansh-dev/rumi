@@ -132,47 +132,49 @@ PROMPT_READY = "\u2697 "
 
 # ── Help text ──────────────────────────────────────────────────
 HELP_TEXT = """
-[bold cyan]RUMI Scientist AI — Commands[/bold cyan]
+[bold cyan]RUMI — Research & Unified Machine Intelligence[/bold cyan]
+[dim]Autonomous Scientific Discovery Framework — 88 brain modules, 17 domains[/dim]
 
-[bold]General:[/bold]
-  [cyan]/help[/cyan]            Show this help message
-  [cyan]/clear[/cyan]           Clear the screen
-  [cyan]/status[/cyan]          System status & uptime
-  [cyan]/stats[/cyan]           Session statistics
-  [cyan]/personality[/cyan]     Switch personality (cutesy / professional)
-  [cyan]/exit[/cyan]            Exit RUMI
+[bold]Navigation[/bold]
+  [cyan]/help[/cyan]                 Show this help
+  [cyan]/clear[/cyan]                Clear screen
+  [cyan]/status[/cyan]               System status & uptime
+  [cyan]/stats[/cyan]                Session statistics
+  [cyan]/exit[/cyan]                 Shut down RUMI
 
-[bold]Modes:[/bold]
-  [cyan]/think[/cyan]           Toggle Think mode (reasoning before responses)
-  [cyan]/dive[/cyan]            Toggle Deep Dive mode (thorough research)
+[bold]Discovery Pipeline[/bold]
+  [cyan]/discover [topic][/cyan]     Run full discovery: search → extract → graph → hypothesize
+  [cyan]/grounded [topic][/cyan]     Grounded discovery with real papers + domain calculations
+  [cyan]/search [query][/cyan]       Quick literature search (PubMed/arXiv)
+  [cyan]/enrich[/cyan]               Enrich knowledge graph with external data
+  [cyan]/hypothesize [topic][/cyan]  Generate hypotheses from knowledge graph
+  [cyan]/contradictions[/cyan]       Find contradictions in knowledge graph
+  [cyan]/generate [target][/cyan]    Design molecules or materials
+  [cyan]/domains[/cyan]              List all 17 scientific domains
+  [cyan]/domain [key][/cyan]         Switch active domain
 
-[bold]Grounded Discovery:[/bold]
-  [cyan]/grounded <topic>[/cyan]    Full grounded pipeline (real papers + real math + claim labels)
-  [cyan]/discover <topic>[/cyan]    Run autonomous discovery pipeline
-  [cyan]/domains[/cyan]             List scientific domains with available calculations
+[bold]Research Tools[/bold]
+  [cyan]/science[/cyan]              Show all Scientist AI modules
+  [cyan]/experiment[/cyan]           Design an experiment
+  [cyan]/papers[/cyan]               Search papers by researcher
+  [cyan]/review[/cyan]               Peer review a claim
+  [cyan]/graph[/cyan]                Knowledge graph stats
+  [cyan]/dashboard[/cyan]            Open web dashboard
+  [cyan]/discoveries[/cyan]          List past discovery sessions
 
-[bold]Scientist AI:[/bold]
-  [cyan]/science[/cyan]         Show Scientist AI capabilities
-  [cyan]/hypothesize[/cyan]     Generate diverse hypotheses on a topic
-  [cyan]/experiment[/cyan]      Design or run an experiment
-  [cyan]/papers[/cyan]          Search papers from famous researchers
-  [cyan]/review[/cyan]          Peer review a paper or claim
-  [cyan]/graph[/cyan]           Knowledge graph operations
-  [cyan]/notebook[/cyan]        Lab notebook operations
-  [cyan]/reason[/cyan]          Multi-pass scientific reasoning
-  [cyan]/theorize[/cyan]        Theory formation from observations
+[bold]Cognitive Modes[/bold]
+  [cyan]/think[/cyan]                Toggle reasoning mode (step-by-step)
+  [cyan]/dive[/cyan]                 Toggle deep research mode
+  [cyan]/personality[/cyan]          Switch personality (cutesy / professional)
 
-[bold]Grounded Pipeline (all domains):[/bold]
-  [cyan]/grounded KRAS G12C inhibitor resistance mechanisms[/cyan]
-  [cyan]/grounded Perovskite solar cell degradation[/cyan]
-  [cyan]/grounded Dopamine receptor signaling in addiction[/cyan]
-  [cyan]/grounded Biodiversity loss and ecosystem function[/cyan]
+[bold]Example Queries[/bold]
+  [dim]/discover time travel closed timelike curves[/dim]
+  [dim]/grounded KRAS G12C inhibitor resistance[/dim]
+  [dim]/discover materials: battery cathodes[/dim]
+  [dim]/hypothesize quantum biology[/dim]
 
-[dim]The /grounded command fetches real papers from arXiv + PubMed,
-runs domain-specific calculations (Lipinski rules, Nernst potentials,
-radiative forcing, Shannon diversity, etc.), generates a report with
-real citations, and labels every claim as VALIDATED / INFERRED /
-SIMULATED / SPECULATIVE / HYPOTHETICAL with a reliability score.[/dim]"""
+[dim]Discovery stages: PubMed/arXiv search → entity extraction → knowledge graph →
+contradiction mining → hypothesis generation → skeptic review → refinement → novelty check[/dim]"""
 
 # ── Slash commands list (for tab completion) ─────
 SLASH_COMMANDS = [
@@ -356,20 +358,30 @@ class RumiUI:
 
         console.print()
 
-        # System info
+        # System info with real provider status
         from discovery.llm_client import get_status
         status = get_status()
-        provider = status.get("primary", "unknown").upper()
-        groq_ok = status.get("groq", {}).get("available", False)
-        gemini_ok = status.get("gemini", {}).get("available", False)
+        groq_info = status.get("groq", {})
+        gemini_info = status.get("gemini", {})
+        groq_ok = groq_info.get("available", False)
+        gemini_ok = gemini_info.get("available", False)
+        primary = status.get("primary", "unknown")
 
         info = Table.grid(padding=(0, 2))
         info.add_column(style=f"dim {C_DIM}")
-        info.add_column(style=C_CYAN)
-        info.add_row("◆ Model:", f"Groq Llama 3.3 70B {'(primary)' if provider == 'GROQ' else ''}")
-        info.add_row("◆ Scientist:", "15 discovery modules · 10 domains with real calculations")
-        info.add_row("◆ Brain:", "88 cognitive modules")
-        info.add_row("◆ Pipeline:", "arXiv + PubMed citations · Bayesian scoring · Monte Carlo")
+        info.add_column(style=C_WHITE)
+
+        # Model status with color
+        groq_label = f"Groq {'ONLINE' if groq_ok else 'OFFLINE (keys expired)'}"
+        groq_color = C_GREEN if groq_ok else C_RED
+        gemini_label = f"Gemini {'ONLINE' if gemini_ok else 'OFFLINE'}"
+        gemini_color = C_GREEN if gemini_ok else C_RED
+
+        info.add_row("◆ LLM:", Text(f"Groq: {groq_label}  |  Gemini: {gemini_label}", style=C_WHITE))
+        info.add_row("◆ Scientist:", "15 discovery modules · 17 domains with real calculations")
+        info.add_row("◆ Brain:", "88 cognitive modules · 9 memory systems")
+        info.add_row("◆ Pipeline:", "PubMed + arXiv · Entity extraction · Hypothesis refinement")
+        info.add_row("◆ Discovery:", "Contradiction mining · Skeptic review · Experiment planning")
         console.print(info)
         console.print()
         console.print(Rule(style=f"dim {C_PURPLE}"))
@@ -653,8 +665,18 @@ class RumiUI:
             os._exit(0)
 
         else:
-            console.print(Text(f"  unknown command: {cmd}", style=C_RED))
-            console.print(Text(f"  type /help for commands", style=C_AMBER))
+            # Unknown command — suggest closest match
+            suggestions = []
+            clean_cmd = cmd.strip().lower()
+            for sc in SLASH_COMMANDS:
+                if clean_cmd in sc or sc in clean_cmd:
+                    suggestions.append(sc)
+            if suggestions:
+                console.print(Text(f"  unknown command: {cmd}", style=C_RED))
+                console.print(Text(f"  did you mean: {', '.join(suggestions[:3])}?", style=C_AMBER))
+            else:
+                console.print(Text(f"  unknown command: {cmd}", style=C_RED))
+                console.print(Text(f"  type /help for available commands", style=C_AMBER))
 
     def _heartbeat_loop(self):
         """Background thread for thinking state animations."""
@@ -737,17 +759,30 @@ class RumiUI:
         """Update discovery pipeline progress with phase indicator."""
         self._discovery_step = step
         # Color-code by phase type
-        if "paper" in step.lower() or "fetch" in step.lower() or "arxiv" in step.lower():
+        if "paper" in step.lower() or "fetch" in step.lower() or "arxiv" in step.lower() or "pubmed" in step.lower():
             color = C_GREEN  # Green for real data
-        elif "comput" in step.lower() or "bayesian" in step.lower() or "monte carlo" in step.lower():
+        elif "comput" in step.lower() or "bayesian" in step.lower() or "monte carlo" in step.lower() or "metric" in step.lower():
             color = C_PURPLE  # Purple for calculations
-        elif "label" in step.lower() or "ground" in step.lower() or "cit" in step.lower():
+        elif "label" in step.lower() or "ground" in step.lower() or "cit" in step.lower() or "valid" in step.lower():
             color = C_AMBER  # Amber for validation
-        elif "generat" in step.lower() or "llm" in step.lower():
-            color = C_CYAN  # Cyan for LLM
+        elif "generat" in step.lower() or "llm" in step.lower() or "hypothes" in step.lower():
+            color = C_CYAN  # Cyan for LLM generation
+        elif "extract" in step.lower() or "entity" in step.lower() or "relat" in step.lower():
+            color = C_BLUE  # Blue for extraction
+        elif "graph" in step.lower() or "knowledge" in step.lower():
+            color = C_PURPLE  # Purple for graph
+        elif "contradict" in step.lower() or "skeptic" in step.lower() or "refin" in step.lower():
+            color = C_RED  # Red for critique
+        elif "novelt" in step.lower() or "similar" in step.lower():
+            color = C_AMBER  # Amber for novelty
+        elif "experiment" in step.lower() or "plan" in step.lower():
+            color = C_GREEN  # Green for experiments
         else:
             color = C_DIM
-        console.print(Text(f"  {SPINNER_CHARS[0]} {step}", style=color))
+
+        # Format with step indicator
+        step_display = step.upper()
+        console.print(Text(f"  ◆ {step_display}", style=f"bold {color}"))
 
     def set_discovery_done(self):
         self._discovery_running = False
