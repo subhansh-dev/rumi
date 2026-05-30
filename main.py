@@ -3026,6 +3026,17 @@ class RumiLive:
             domain_cfg = get_domain("general")
         entity_types_str = ", ".join(sorted(domain_cfg["entity_types"].keys()))
         extraction_guide = domain_cfg.get("extraction_guide", "Extract specific named entities with exact names and values.")
+
+        # Domain-specific relation types
+        DOMAIN_RELATIONS = {
+            "physics": "supports|contradicts|predicts|derives_from|generalizes|specializes|requires|excludes|consistent_with|incompatible|measured_by|observed_in|predicted_by|derived_from|approximates|constrains|bounds|modifies|extends|challenges|confirms|validates|refutes",
+            "drug_discovery": "treats|causes|activates|inhibits|binds|expressed_in|regulates|associated_with|correlated_with|synthesized_by|measured_in|reactivates|blocks|reduces|increases|related_to",
+            "materials_science": "synthesized_from|exhibits|has_property|used_in|composed_of|derived_from|measured_by|characterized_by|exhibits|doped_with|coated_with|combined_with|phase_of|structure_of|bandgap_of|density_of",
+            "neuroscience": "activates|inhibits|expressed_in|regulates|associated_with|projects_to|receives_from|modulates|releases|binds_to|co_expressed_with|connected_to|innervates|receives_input_from",
+            "molecular_biology": "regulates|expressed_in|interacts_with|phosphorylates|acetylates|methylates|ubiquitinates|cleaves|transported_by|localized_to|secreted_by|activated_by|inhibited_by|bound_by",
+            "computer_science": "implements|extends|outperforms|benchmarked_on|trained_on|evaluated_on|compared_to|builds_on|replaces|generalizes|specializes|optimizes|approximates|solves|processes|generates|classifies",
+        }
+        relations_str = DOMAIN_RELATIONS.get(domain, DOMAIN_RELATIONS["drug_discovery"])
         return f"""You are a scientific entity extractor for the {domain_cfg['label']} domain. Extract ALL specific scientific entities from these papers.
 
 EXTRACTION GUIDE: {extraction_guide}
@@ -3035,9 +3046,10 @@ Entity types: {entity_types_str}
 For each paper, output entities and relationships.
 
 Entity format: {{"type": "{entity_types_str.replace(', ', '|')}", "name": "exact specific name with value if applicable"}}
-Relationship format: {{"source": "entity name", "source_type": "entity type", "relation": "treats|causes|activates|inhibits|binds|expressed_in|regulates|associated_with|correlated_with|synthesized_by|measured_in|reactivates|blocks|reduces|increases|related_to", "target": "entity name", "target_type": "entity type", "confidence": 0.0-1.0}}
+Relationship format: {{"source": "entity name", "source_type": "entity type", "relation": "{relations_str}", "target": "entity name", "target_type": "entity type", "confidence": 0.0-1.0}}
 
 IMPORTANT: Extract SPECIFIC scientific variables, named entities, and quantitative values. DO NOT extract broad categories.
+Extract AT LEAST 3-5 relationships per paper. Look for causal, supportive, contradictory, derivational, and measurement relationships.
 
 Papers:
 {papers_text}

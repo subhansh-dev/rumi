@@ -3,6 +3,7 @@
 from collections import defaultdict
 
 OPPOSITE_RELATIONS = {
+    # Biomedical
     "activates": "inhibits",
     "inhibits": "activates",
     "upregulates": "downregulates",
@@ -13,11 +14,34 @@ OPPOSITE_RELATIONS = {
     "suppresses": "promotes",
     "binds": "blocks",
     "blocks": "binds",
+    # Physics / general
+    "supports": "contradicts",
+    "contradicts": "supports",
+    "predicts": "refutes",
+    "refutes": "predicts",
+    "confirms": "challenges",
+    "challenges": "confirms",
+    "validates": "invalidates",
+    "invalidates": "validates",
+    "compatible": "incompatible",
+    "incompatible": "compatible",
+    "consistent_with": "inconsistent_with",
+    "inconsistent_with": "consistent_with",
+    "allows": "forbids",
+    "forbids": "allows",
+    "enables": "prevents",
+    "prevents": "enables",
+    "requires": "excludes",
+    "excludes": "requires",
 }
 
 RELATION_GROUPS = {
-    "positive": ["activates", "upregulates", "increases", "promotes", "induces", "stimulates", "enhances"],
-    "negative": ["inhibits", "downregulates", "suppresses", "blocks", "reduces", "decreases", "represses"],
+    "positive": ["activates", "upregulates", "increases", "promotes", "induces", "stimulates",
+                  "enhances", "supports", "predicts", "confirms", "validates", "compatible",
+                  "consistent_with", "allows", "enables", "requires"],
+    "negative": ["inhibits", "downregulates", "suppresses", "blocks", "reduces", "decreases",
+                  "represses", "contradicts", "refutes", "challenges", "invalidates",
+                  "incompatible", "inconsistent_with", "forbids", "prevents", "excludes"],
 }
 
 

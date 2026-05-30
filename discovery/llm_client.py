@@ -119,6 +119,9 @@ def _call_groq(prompt: str, json_mode: bool = False,
             if "429" in err or "rate_limit" in err.lower():
                 time.sleep((attempt + 1) * random.uniform(8, 15))
                 continue
+            # Auth errors (401, 403) — don't retry, fail immediately
+            if "401" in err or "403" in err or "unauthorized" in err.lower() or "forbidden" in err.lower():
+                return None
             return None
     return None
 

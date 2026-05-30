@@ -42,11 +42,20 @@ class LLMStage(Stage):
 
     async def call_with_retry(self, prompt, json_mode=False, max_tokens=32768):
         last_error = None
+        failed_providers = set()
         for attempt in range(self.max_retries):
             provider_idx = 0 if attempt < 2 else 1
             if provider_idx >= len(self.providers):
                 provider_idx = len(self.providers) - 1
             provider = self.providers[provider_idx]
+            if provider in failed_providers:
+                # Skip provider that already failed permanently
+                provider_idx = 1 - provider_idx
+                if provider_idx >= len(self.providers):
+                    provider_idx = len(self.providers) - 1
+                provider = self.providers[provider_idx]
+                if provider in failed_providers:
+                    break
             try:
                 result = await self.call_llm(prompt, json_mode, max_tokens, provider)
                 if result and len(result) > 20:
@@ -54,8 +63,13 @@ class LLMStage(Stage):
                 last_error = f"Empty/too short response from {provider}"
             except Exception as e:
                 last_error = f"{type(e).__name__} from {provider}: {e}"
-            delay = self.backoff[min(attempt, len(self.backoff) - 1)]
-            await asyncio.sleep(delay)
+                err_str = str(e).lower()
+                # Permanent failures — don't retry this provider
+                if any(k in err_str for k in ("401", "403", "unauthorized", "forbidden", "invalid")):
+                    failed_providers.add(provider)
+            if provider not in failed_providers:
+                delay = self.backoff[min(attempt, len(self.backoff) - 1)]
+                await asyncio.sleep(delay)
 
         # Queue for later
         queue_path = QUEUE_DIR / f"{int(time.time())}_{self.name}.json"
