@@ -2299,16 +2299,16 @@ class RumiLive:
         self._workspace = None
 
         self.ui.on_text_command = self._on_text_command
+        self.ui.on_discovery_command = self._on_discovery_command
+        self.ui.on_idle_scan = self._on_idle_scan
+        self.ui.on_think_mode_toggle = self.set_think_mode
+        self.ui.on_deep_dive_toggle = self.set_deep_dive_mode
 
     def _post_output(self, text: str):
         """Output text to UI log and console."""
         import re as _re
         clean = _re.sub(r'\[/?\w+(?: \w+=[^\]]+)*\]', '', text)
         self.ui.write_log(clean)
-        self.ui.on_discovery_command = self._on_discovery_command
-        self.ui.on_idle_scan = lambda: asyncio.run_coroutine_threadsafe(
-            self._run_idle_scan(), self._loop
-        )
 
         if _telegram_ok and TelegramBridge:
             try:
@@ -2609,8 +2609,10 @@ class RumiLive:
 
     def _on_text_command(self, text: str):
         if not self._loop or not self._loop.is_running():
+            self.ui.write_log("SYS: Session not connected. Waiting for reconnection...")
             return
         if not self.session or self._session_dead:
+            self.ui.write_log("SYS: Session lost. Reconnecting... Please try again in a moment.")
             return
 
         now = time.time()
@@ -3265,8 +3267,32 @@ Output ONLY valid JSON as a list of objects with this structure:
         )
         return response.text
 
+    def _on_idle_scan(self):
+        """Handle idle scan callback from UI."""
+        if self._loop and not self._loop.is_closed():
+            self._safe_run_coroutine(self._run_idle_scan(), "idle scan")
+
+    def _safe_run_coroutine(self, coro, label: str = "task"):
+        """Run a coroutine on the event loop with error handling."""
+        if not self._loop:
+            self._post_output(f"ERR: Session not connected. Cannot start {label}.")
+            return
+        try:
+            future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+            def _on_done(fut):
+                try:
+                    fut.result()
+                except Exception as e:
+                    self._post_output(f"ERR: {label} failed: {e}")
+            future.add_done_callback(_on_done)
+        except Exception as e:
+            self._post_output(f"ERR: Could not start {label}: {e}")
+
     def _on_discovery_command(self, command: str, args: str):
         """Handle discovery commands from the UI."""
+        if not self._loop:
+            self._post_output("ERR: Session not connected. Wait for reconnection or restart RUMI.")
+            return
         if command == "discover":
             if args:
                 # Support manual domain override: /discover materials: battery cathodes
@@ -3279,51 +3305,33 @@ Output ONLY valid JSON as a list of objects with this structure:
                     if cfg:
                         domain_override = maybe_domain if maybe_domain in DOMAINS else DOMAIN_ALIAS_MAP.get(maybe_domain)
                         topic = maybe_topic.strip()
-                asyncio.run_coroutine_threadsafe(
-                    self._run_discovery_pipeline(topic, domain_override=domain_override), self._loop
-                )
+                self.ui._discovery_running = True
+                self.ui._discovery_step = "scanning literature"
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        self._run_discovery_pipeline(topic, domain_override=domain_override), self._loop
+                    )
+                    def _on_discovery_done(fut):
+                        try:
+                            fut.result()
+                        except Exception as e:
+                            self._post_output(f"ERR: Discovery failed: {e}")
+                            self.ui._discovery_running = False
+                            self.ui._discovery_step = ""
+                    future.add_done_callback(_on_discovery_done)
+                except Exception as e:
+                    self._post_output(f"ERR: Could not start discovery: {e}")
+                    self.ui._discovery_running = False
             else:
                 self._post_output("Specify a topic: /discover <topic>")
-        elif command == "discover":
-            if self._voice_enabled:
-                self.speak(f"Starting discovery on {topic}")
-            self.ui._discovery_running = True
-            self.ui._discovery_step = "scanning literature"
-            if args:
-                # Support manual domain override: /discover materials: battery cathodes
-                domain_override = None
-                topic = args
-                if ":" in args:
-                    maybe_domain, _, maybe_topic = args.partition(":")
-                    maybe_domain = maybe_domain.strip().lower()
-                    cfg = get_domain(maybe_domain)
-                    if cfg:
-                        domain_override = maybe_domain if maybe_domain in DOMAINS else DOMAIN_ALIAS_MAP.get(maybe_domain)
-                        topic = maybe_topic.strip()
-                asyncio.run_coroutine_threadsafe(
-                    self._run_discovery_pipeline(topic, domain_override=domain_override), self._loop
-                )
-            else:
-                self._post_output("Specify a topic: /discover <topic>")
-                self.ui._discovery_running = False
-            if args:
-                from discovery.pubmed import search_and_fetch
-                from discovery.output import format_papers
-                papers = search_and_fetch(args, max_results=10)
-                if papers:
-                    self._post_output(format_papers(papers))
-                else:
-                    self._post_output("No results found.")
-            else:
-                self._post_output("Specify a query: /search <query>")
         elif command == "hypothesize":
             from discovery.graph import KnowledgeGraph
             graph = KnowledgeGraph.load()
             if not graph.entities:
                 self._post_output("No knowledge graph found. Run /discover first.")
                 return
-            asyncio.run_coroutine_threadsafe(
-                self._mine_hypotheses(graph, args or "existing data"), self._loop
+            self._safe_run_coroutine(
+                self._mine_hypotheses(graph, args or "existing data"), "hypothesis generation"
             )
         elif command == "graph":
             from discovery.graph import KnowledgeGraph
@@ -3356,8 +3364,8 @@ Output ONLY valid JSON as a list of objects with this structure:
             from discovery.graph import KnowledgeGraph
             graph = KnowledgeGraph.load()
             domain = getattr(graph, "domain", self.current_domain) or self.current_domain
-            asyncio.run_coroutine_threadsafe(
-                self._enrich_entities(graph, domain), self._loop
+            self._safe_run_coroutine(
+                self._enrich_entities(graph, domain), "entity enrichment"
             )
 
         elif command == "contradictions":
@@ -3377,15 +3385,13 @@ Output ONLY valid JSON as a list of objects with this structure:
             self._post_output(self._format_contradictions(ccs))
 
         elif command == "idle_scan":
-            asyncio.run_coroutine_threadsafe(
-                self._run_idle_scan(), self._loop
-            )
+            self._safe_run_coroutine(self._run_idle_scan(), "idle scan")
 
         elif command == "generate":
             if args:
                 domain = self.current_domain
-                asyncio.run_coroutine_threadsafe(
-                    self._generate(args, domain), self._loop
+                self._safe_run_coroutine(
+                    self._generate(args, domain), "generation"
                 )
             else:
                 self._post_output("Specify a target: /generate <target> (e.g., /generate AMPK activator)")
@@ -3414,16 +3420,16 @@ Output ONLY valid JSON as a list of objects with this structure:
 
         elif command == "reason":
             if args:
-                asyncio.run_coroutine_threadsafe(
-                    self._run_scientific_reasoning(args), self._loop
+                self._safe_run_coroutine(
+                    self._run_scientific_reasoning(args), "scientific reasoning"
                 )
             else:
                 self._post_output("Specify a topic: /reason <topic>")
 
         elif command == "theorize":
             if args:
-                asyncio.run_coroutine_threadsafe(
-                    self._run_theorize(args), self._loop
+                self._safe_run_coroutine(
+                    self._run_theorize(args), "theory formation"
                 )
             else:
                 self._post_output("Specify a topic: /theorize <topic>")
@@ -7704,8 +7710,6 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
 
                 self.ui.set_state("LISTENING")
                 self.ui.write_log("SYS: RUMI online.")
-                self.ui.on_think_mode_toggle = self.set_think_mode
-                self.ui.on_deep_dive_toggle = self.set_deep_dive_mode
 
                 try:
                     self._audit.log(
