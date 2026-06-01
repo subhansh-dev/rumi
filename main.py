@@ -2307,290 +2307,291 @@ class RumiLive:
     def _post_output(self, text: str):
         """Output text to UI log and console."""
         import re as _re
+        import io
+        import contextlib
         clean = _re.sub(r'\[/?\w+(?: \w+=[^\]]+)*\]', '', text)
         self.ui.write_log(clean)
 
-        if _telegram_ok and TelegramBridge:
-            try:
-                self.telegram = TelegramBridge(self)
-            except Exception:
+        # Suppress brain module initialization noise
+        _quiet = io.StringIO()
+        with contextlib.redirect_stdout(_quiet):
+            if _telegram_ok and TelegramBridge:
+                try:
+                    self.telegram = TelegramBridge(self)
+                except Exception:
+                    self.telegram = _NullModule()
+            else:
                 self.telegram = _NullModule()
-        else:
-            self.telegram = _NullModule()
 
-        if _skills_ok:
-            try:
-                self._deep_dive = DeepDiveAgent()
-            except Exception:
+            if _skills_ok:
+                try:
+                    self._deep_dive = DeepDiveAgent()
+                except Exception:
+                    self._deep_dive = _NullModule()
+                try:
+                    self._auto_doc = AutoDocEngine()
+                except Exception:
+                    self._auto_doc = _NullModule()
+                self._digital_twin = _NullModule()
+                try:
+                    self._research_agent = get_research_agent()
+                except Exception:
+                    self._research_agent = _NullModule()
+                self._creative_studio = _NullModule()
+                try:
+                    self._document_intelligence = get_document_intelligence()
+                except Exception:
+                    self._document_intelligence = _NullModule()
+            else:
                 self._deep_dive = _NullModule()
-            try:
-                self._auto_doc = AutoDocEngine()
-            except Exception:
                 self._auto_doc = _NullModule()
-            self._digital_twin = _NullModule()
-            try:
-                self._research_agent = get_research_agent()
-            except Exception:
+                self._digital_twin = _NullModule()
                 self._research_agent = _NullModule()
-            self._creative_studio = _NullModule()
-            try:
-                self._document_intelligence = get_document_intelligence()
-            except Exception:
+                self._creative_studio = _NullModule()
                 self._document_intelligence = _NullModule()
-        else:
-            self._deep_dive = _NullModule()
-            self._auto_doc = _NullModule()
-            self._digital_twin = _NullModule()
-            self._research_agent = _NullModule()
-            self._creative_studio = _NullModule()
-            self._document_intelligence = _NullModule()
 
-        self._sentinel = None
-        self._clipboard = None
-        self._gesture_music = None
-        self._gesture_stop_event = threading.Event()
+            self._sentinel = None
+            self._clipboard = None
+            self._gesture_music = None
+            self._gesture_stop_event = threading.Event()
 
-        try:
-            self._self_model = get_self_model() if get_self_model else _NullModule()
-        except Exception:
-            self._self_model = _NullModule()
-
-        try:
-            self._active_inference = get_active_inference() if get_active_inference else _NullModule()
-        except Exception:
-            self._active_inference = _NullModule()
-
-        try:
-            self._dreaming = get_dreaming_system() if get_dreaming_system else _NullModule()
-        except Exception:
-            self._dreaming = _NullModule()
-
-        try:
-            self._curiosity = get_curiosity_module() if get_curiosity_module else _NullModule()
-        except Exception:
-            self._curiosity = _NullModule()
-
-        self._proactive_checkin = None  # removed
-        self._emotional_regulation = None  # removed
-        self._cognitive_appraisal = None  # removed
-
-        try:
-            self._agi_orchestrator = get_agi_orchestrator() if get_agi_orchestrator else None
-        except Exception:
-            self._agi_orchestrator = None
-
-        # ── Initialize disconnected cognitive modules ───────────────────
-        try:
-            self._analogy_engine = get_analogy_engine() if get_analogy_engine else None
-        except Exception:
-            self._analogy_engine = None
-
-        try:
-            self._causal_reasoner = get_causal_reasoner() if get_causal_reasoner else None
-        except Exception:
-            self._causal_reasoner = None
-
-        try:
-            self._creativity_engine = get_creativity_engine() if get_creativity_engine else None
-        except Exception:
-            self._creativity_engine = None
-
-        try:
-            self._meta_learner = get_meta_learner() if get_meta_learner else None
-        except Exception:
-            self._meta_learner = None
-
-        try:
-            self._module_competition = get_module_competition() if get_module_competition else None
-        except Exception:
-            self._module_competition = None
-
-        try:
-            self._neurosymbolic_reasoner = get_neurosymbolic_reasoner() if get_neurosymbolic_reasoner else None
-        except Exception:
-            self._neurosymbolic_reasoner = None
-
-        try:
-            self._narrative_intelligence = get_narrative_intelligence() if get_narrative_intelligence else None
-        except Exception:
-            self._narrative_intelligence = None
-
-        try:
-            self._world_model = get_world_model() if get_world_model else None
-        except Exception:
-            self._world_model = None
-
-        try:
-            self._enhanced_wm = get_enhanced_world_model() if get_enhanced_world_model else None
-        except Exception:
-            self._enhanced_wm = None
-
-        try:
-            self._hierarchical_aif = get_hierarchical_aif() if get_hierarchical_aif else None
-        except Exception:
-            self._hierarchical_aif = None
-
-        try:
-            self._integrated_info = get_integrated_info() if get_integrated_info else None
-        except Exception:
-            self._integrated_info = None
-
-        try:
-            self._transfer_learning = get_transfer_learning() if get_transfer_learning else None
-        except Exception:
-            self._transfer_learning = None
-
-        try:
-            self._self_improve_engine = get_self_improve_engine() if get_self_improve_engine else None
-        except Exception:
-            self._self_improve_engine = None
-
-        try:
-            self._findings_bus = get_findings_bus() if get_findings_bus else None
-        except Exception:
-            self._findings_bus = None
-
-        try:
-            self._model_router = get_model_router() if get_model_router else None
-        except Exception:
-            self._model_router = None
-
-        try:
-            self._intuition_engine = get_intuition_engine() if get_intuition_engine else None
-        except Exception:
-            self._intuition_engine = None
-
-        try:
-            self._metacognitive_monitor = get_metacognitive_monitor() if get_metacognitive_monitor else None
-        except Exception:
-            self._metacognitive_monitor = None
-
-        try:
-            self._cognitive_integration = get_cognitive_integration() if get_cognitive_integration else None
-        except Exception:
-            self._cognitive_integration = None
-
-        try:
-            self._cognitive_load = get_cognitive_load_manager() if get_cognitive_load_manager else None
-        except Exception:
-            self._cognitive_load = None
-
-        # ── AGI Pillar Modules ────────────────────────────────────────────
-        try:
-            self._multi_agent_orchestrator = get_multi_agent_orchestrator() if get_multi_agent_orchestrator else None
-        except Exception:
-            self._multi_agent_orchestrator = None
-
-        try:
-            self._goal_engine = get_goal_engine() if get_goal_engine else None
-        except Exception:
-            self._goal_engine = None
-
-        try:
-            self._intrinsic_motivation = get_intrinsic_motivation() if get_intrinsic_motivation else None
-        except Exception:
-            self._intrinsic_motivation = None
-
-        try:
-            self._autonomous_planner = get_autonomous_planner() if get_autonomous_planner else None
-        except Exception:
-            self._autonomous_planner = None
-
-        try:
-            self._memory_consolidation = get_memory_consolidation() if get_memory_consolidation else None
-        except Exception:
-            self._memory_consolidation = None
-
-        try:
-            self._associative_memory = get_associative_memory() if get_associative_memory else None
-        except Exception:
-            self._associative_memory = None
-
-        try:
-            self._predictive_memory = get_predictive_memory() if get_predictive_memory else None
-        except Exception:
-            self._predictive_memory = None
-
-        try:
-            self._theory_of_mind = get_theory_of_mind() if get_theory_of_mind else None
-        except Exception:
-            self._theory_of_mind = None
-
-        try:
-            self._abstraction_engine = get_abstraction_engine() if get_abstraction_engine else None
-        except Exception:
-            self._abstraction_engine = None
-
-        try:
-            self._introspection_engine = get_introspection_engine() if get_introspection_engine else None
-        except Exception:
-            self._introspection_engine = None
-
-        try:
-            self._world_simulation = get_world_simulation() if get_world_simulation else None
-        except Exception:
-            self._world_simulation = None
-
-        try:
-            self._self_awareness = get_self_awareness() if get_self_awareness else _NullModule()
-        except Exception:
-            self._self_awareness = _NullModule()
-
-        try:
-            self._procedural_memory = get_procedural_memory() if get_procedural_memory else None
-        except Exception:
-            self._procedural_memory = None
-
-        # ── Initialize Global Workspace (Thalamus) ─────────────────────────
-        self._workspace = None
-        if _brain_workspace_ok:
             try:
-                self._workspace = get_global_workspace()
-                # Register all brain modules as workspace participants
-                adapters = []
-                if not isinstance(self._self_awareness, _NullModule):
-                    adapters.append(SelfAwarenessAdapter(self._self_awareness))
-                    adapters.append(MetaCognitionAdapter(self._self_awareness))
-                if not isinstance(self._self_model, _NullModule):
-                    adapters.append(SelfModelAdapter(self._self_model))
-                if not isinstance(self._active_inference, _NullModule):
-                    adapters.append(ActiveInferenceAdapter(self._active_inference))
-                if not isinstance(self._curiosity, _NullModule):
-                    adapters.append(CuriosityAdapter(self._curiosity))
-                if not isinstance(self._dreaming, _NullModule):
-                    adapters.append(DreamingAdapter(self._dreaming))
-                if _brain_learning_ok and get_learning_engine:
-                    try:
-                        le = get_learning_engine()
-                        if le:
-                            adapters.append(LearningAdapter(le))
-                    except Exception:
-                        pass
-                if not isinstance(self._procedural_memory, type(None)) and self._procedural_memory:
-                    adapters.append(ProceduralMemoryAdapter(self._procedural_memory))
+                self._self_model = get_self_model() if get_self_model else _NullModule()
+            except Exception:
+                self._self_model = _NullModule()
 
-                if _brain_self_modifier_ok:
-                    try:
-                        sm = get_self_modifier()
-                        stats = sm.get_stats()
-                        print(f"[RUMI] Self-Modifier online — {stats.get('metrics_snapshots', 0)} snapshots loaded", flush=True)
-                    except Exception as e:
-                        print(f"[RUMI] Self-Modifier init failed: {e}", flush=True)
-                if _brain_coordinator_ok and get_memory_coordinator:
-                    try:
-                        coord = get_memory_coordinator()
-                        if coord:
-                            adapters.append(MemoryCoordinatorAdapter(coord))
-                    except Exception:
-                        pass
+            try:
+                self._active_inference = get_active_inference() if get_active_inference else _NullModule()
+            except Exception:
+                self._active_inference = _NullModule()
 
-                for adapter in adapters:
-                    self._workspace.register(adapter)
+            try:
+                self._dreaming = get_dreaming_system() if get_dreaming_system else _NullModule()
+            except Exception:
+                self._dreaming = _NullModule()
 
-                print(f"[RUMI] Global Workspace online — {len(adapters)} modules connected", flush=True)
-            except Exception as e:
-                print(f"[RUMI] Global Workspace init failed: {e}", flush=True)
-                self._workspace = None
+            try:
+                self._curiosity = get_curiosity_module() if get_curiosity_module else _NullModule()
+            except Exception:
+                self._curiosity = _NullModule()
+
+            self._proactive_checkin = None  # removed
+            self._emotional_regulation = None  # removed
+            self._cognitive_appraisal = None  # removed
+
+            try:
+                self._agi_orchestrator = get_agi_orchestrator() if get_agi_orchestrator else None
+            except Exception:
+                self._agi_orchestrator = None
+
+            # ── Initialize disconnected cognitive modules ───────────────────
+            try:
+                self._analogy_engine = get_analogy_engine() if get_analogy_engine else None
+            except Exception:
+                self._analogy_engine = None
+
+            try:
+                self._causal_reasoner = get_causal_reasoner() if get_causal_reasoner else None
+            except Exception:
+                self._causal_reasoner = None
+
+            try:
+                self._creativity_engine = get_creativity_engine() if get_creativity_engine else None
+            except Exception:
+                self._creativity_engine = None
+
+            try:
+                self._meta_learner = get_meta_learner() if get_meta_learner else None
+            except Exception:
+                self._meta_learner = None
+
+            try:
+                self._module_competition = get_module_competition() if get_module_competition else None
+            except Exception:
+                self._module_competition = None
+
+            try:
+                self._neurosymbolic_reasoner = get_neurosymbolic_reasoner() if get_neurosymbolic_reasoner else None
+            except Exception:
+                self._neurosymbolic_reasoner = None
+
+            try:
+                self._narrative_intelligence = get_narrative_intelligence() if get_narrative_intelligence else None
+            except Exception:
+                self._narrative_intelligence = None
+
+            try:
+                self._world_model = get_world_model() if get_world_model else None
+            except Exception:
+                self._world_model = None
+
+            try:
+                self._enhanced_wm = get_enhanced_world_model() if get_enhanced_world_model else None
+            except Exception:
+                self._enhanced_wm = None
+
+            try:
+                self._hierarchical_aif = get_hierarchical_aif() if get_hierarchical_aif else None
+            except Exception:
+                self._hierarchical_aif = None
+
+            try:
+                self._integrated_info = get_integrated_info() if get_integrated_info else None
+            except Exception:
+                self._integrated_info = None
+
+            try:
+                self._transfer_learning = get_transfer_learning() if get_transfer_learning else None
+            except Exception:
+                self._transfer_learning = None
+
+            try:
+                self._self_improve_engine = get_self_improve_engine() if get_self_improve_engine else None
+            except Exception:
+                self._self_improve_engine = None
+
+            try:
+                self._findings_bus = get_findings_bus() if get_findings_bus else None
+            except Exception:
+                self._findings_bus = None
+
+            try:
+                self._model_router = get_model_router() if get_model_router else None
+            except Exception:
+                self._model_router = None
+
+            try:
+                self._intuition_engine = get_intuition_engine() if get_intuition_engine else None
+            except Exception:
+                self._intuition_engine = None
+
+            try:
+                self._metacognitive_monitor = get_metacognitive_monitor() if get_metacognitive_monitor else None
+            except Exception:
+                self._metacognitive_monitor = None
+
+            try:
+                self._cognitive_integration = get_cognitive_integration() if get_cognitive_integration else None
+            except Exception:
+                self._cognitive_integration = None
+
+            try:
+                self._cognitive_load = get_cognitive_load_manager() if get_cognitive_load_manager else None
+            except Exception:
+                self._cognitive_load = None
+
+            # ── AGI Pillar Modules ────────────────────────────────────────────
+            try:
+                self._multi_agent_orchestrator = get_multi_agent_orchestrator() if get_multi_agent_orchestrator else None
+            except Exception:
+                self._multi_agent_orchestrator = None
+
+            try:
+                self._goal_engine = get_goal_engine() if get_goal_engine else None
+            except Exception:
+                self._goal_engine = None
+
+            try:
+                self._intrinsic_motivation = get_intrinsic_motivation() if get_intrinsic_motivation else None
+            except Exception:
+                self._intrinsic_motivation = None
+
+            try:
+                self._autonomous_planner = get_autonomous_planner() if get_autonomous_planner else None
+            except Exception:
+                self._autonomous_planner = None
+
+            try:
+                self._memory_consolidation = get_memory_consolidation() if get_memory_consolidation else None
+            except Exception:
+                self._memory_consolidation = None
+
+            try:
+                self._associative_memory = get_associative_memory() if get_associative_memory else None
+            except Exception:
+                self._associative_memory = None
+
+            try:
+                self._predictive_memory = get_predictive_memory() if get_predictive_memory else None
+            except Exception:
+                self._predictive_memory = None
+
+            try:
+                self._theory_of_mind = get_theory_of_mind() if get_theory_of_mind else None
+            except Exception:
+                self._theory_of_mind = None
+
+            try:
+                self._abstraction_engine = get_abstraction_engine() if get_abstraction_engine else None
+            except Exception:
+                self._abstraction_engine = None
+
+            try:
+                self._introspection_engine = get_introspection_engine() if get_introspection_engine else None
+            except Exception:
+                self._introspection_engine = None
+
+            try:
+                self._world_simulation = get_world_simulation() if get_world_simulation else None
+            except Exception:
+                self._world_simulation = None
+
+            try:
+                self._self_awareness = get_self_awareness() if get_self_awareness else _NullModule()
+            except Exception:
+                self._self_awareness = _NullModule()
+
+            try:
+                self._procedural_memory = get_procedural_memory() if get_procedural_memory else None
+            except Exception:
+                self._procedural_memory = None
+
+            # ── Initialize Global Workspace (Thalamus) ─────────────────────────
+            self._workspace = None
+            if _brain_workspace_ok:
+                try:
+                    self._workspace = get_global_workspace()
+                    # Register all brain modules as workspace participants
+                    adapters = []
+                    if not isinstance(self._self_awareness, _NullModule):
+                        adapters.append(SelfAwarenessAdapter(self._self_awareness))
+                        adapters.append(MetaCognitionAdapter(self._self_awareness))
+                    if not isinstance(self._self_model, _NullModule):
+                        adapters.append(SelfModelAdapter(self._self_model))
+                    if not isinstance(self._active_inference, _NullModule):
+                        adapters.append(ActiveInferenceAdapter(self._active_inference))
+                    if not isinstance(self._curiosity, _NullModule):
+                        adapters.append(CuriosityAdapter(self._curiosity))
+                    if not isinstance(self._dreaming, _NullModule):
+                        adapters.append(DreamingAdapter(self._dreaming))
+                    if _brain_learning_ok and get_learning_engine:
+                        try:
+                            le = get_learning_engine()
+                            if le:
+                                adapters.append(LearningAdapter(le))
+                        except Exception:
+                            pass
+                    if not isinstance(self._procedural_memory, type(None)) and self._procedural_memory:
+                        adapters.append(ProceduralMemoryAdapter(self._procedural_memory))
+
+                    if _brain_self_modifier_ok:
+                        try:
+                            sm = get_self_modifier()
+                            stats = sm.get_stats()
+                        except Exception:
+                            pass
+                    if _brain_coordinator_ok and get_memory_coordinator:
+                        try:
+                            coord = get_memory_coordinator()
+                            if coord:
+                                adapters.append(MemoryCoordinatorAdapter(coord))
+                        except Exception:
+                            pass
+
+                    for adapter in adapters:
+                        self._workspace.register(adapter)
+                except Exception as e:
+                    self._workspace = None
 
         try:
             from brain.api_server import get_api_server
@@ -7904,7 +7905,10 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
         import io
         import contextlib
 
-        # Suppress brain module initialization noise during startup
+        # Create UI first (displays startup banner)
+        ui = RumiUI("rumi_face.png")
+
+        # Suppress brain module initialization noise AFTER UI is created
         _quiet_stdout = io.StringIO()
         with contextlib.redirect_stdout(_quiet_stdout):
             if init_learnings_file:
@@ -7917,8 +7921,6 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                     get_learning_engine()
                 except Exception:
                     pass
-
-            ui = RumiUI("rumi_face.png")
 
             try:
                 _get_api_key()
