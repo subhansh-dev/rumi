@@ -7901,24 +7901,29 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
 
     # ── Entry point ───────────────────────────────────────────────────────
     def main():
-        if init_learnings_file:
+        import io
+        import contextlib
+
+        # Suppress brain module initialization noise during startup
+        _quiet_stdout = io.StringIO()
+        with contextlib.redirect_stdout(_quiet_stdout):
+            if init_learnings_file:
+                try:
+                    init_learnings_file()
+                except Exception:
+                    pass
+            if get_learning_engine:
+                try:
+                    get_learning_engine()
+                except Exception:
+                    pass
+
+            ui = RumiUI("rumi_face.png")
+
             try:
-                init_learnings_file()
+                _get_api_key()
             except Exception:
                 pass
-        if get_learning_engine:
-            try:
-                get_learning_engine()
-            except Exception:
-                pass
-
-        ui = RumiUI("rumi_face.png")
-
-        try:
-            _get_api_key()
-            ui.write_log("SYS: API key validated")
-        except Exception as e:
-            ui.write_log(f"ERR: API key invalid — {e}")
 
         has_input, has_output = _check_audio_devices()
         if not has_input:

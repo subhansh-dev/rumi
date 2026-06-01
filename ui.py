@@ -41,14 +41,14 @@ except ImportError:
 from rich.theme import Theme
 _dark_theme = Theme({
     "black": "black",
-    "white": "#FFF8DC",
-    "cyan": "#FFD700",
-    "green": "#4caf50",
-    "yellow": "#FFBF00",
-    "blue": "#FFF8DC",
-    "magenta": "#CD7F32",
-    "red": "#ef5350",
-    "dim": "#CC9B1F",
+    "white": "#e5e7eb",
+    "cyan": "#00d4ff",
+    "green": "#10b981",
+    "yellow": "#60a5fa",
+    "blue": "#3b82f6",
+    "magenta": "#8b5cf6",
+    "red": "#ef4444",
+    "dim": "#6b7280",
 })
 console = Console(force_terminal=True, color_system="truecolor", theme=_dark_theme)
 BASE_DIR = Path(__file__).resolve().parent
@@ -111,18 +111,18 @@ def _set_personality(choice: str):
     return True
 
 
-# ── Colour Palette (Hermes-inspired warm gold) ─────────────────
-C_CYAN   = "#FFD700"   # Primary accent — gold (hermes primary)
-C_BLUE   = "#FFF8DC"   # User messages — cornsilk (hermes text)
-C_AMBER  = "#FFBF00"   # Secondary accent — amber gold
-C_GREEN  = "#4caf50"   # Success / confirmed
-C_RED    = "#ef5350"   # Error / refuted
-C_PURPLE = "#CD7F32"   # Special / discovery — bronze (hermes border)
-C_DIM    = "#CC9B1F"   # Muted text — dark gold (hermes muted)
-C_WHITE  = "#FFF8DC"   # Primary text — cornsilk
-C_BOLD   = "#FFD700"   # Emphasized text — bright gold
-C_PANEL  = "#1a1a2e"   # Panel background — dark navy
-C_BORDER = "#CD7F32"   # Panel borders — bronze
+# ── Colour Palette (Blue/Cyan scientific) ──────────────────────
+C_CYAN   = "#00d4ff"   # Primary accent — cyan
+C_BLUE   = "#3b82f6"   # User messages — blue
+C_AMBER  = "#60a5fa"   # Secondary accent — light blue
+C_GREEN  = "#10b981"   # Success / confirmed
+C_RED    = "#ef4444"   # Error / refuted
+C_PURPLE = "#8b5cf6"   # Special / discovery — purple
+C_DIM    = "#6b7280"   # Muted text
+C_WHITE  = "#e5e7eb"   # Primary text
+C_BOLD   = "#f9fafb"   # Emphasized text
+C_PANEL  = "#111827"   # Panel background
+C_BORDER = "#1f2937"   # Panel borders
 C_BG     = "#0a0a0a"   # Deep background
 
 # ── Prompt symbols ──────────────────────────────────────────────
@@ -132,45 +132,45 @@ PROMPT_READY = "\u276f "
 
 # ── Help text ──────────────────────────────────────────────────
 HELP_TEXT = """
-[bold #FFD700]RUMI — Research & Unified Machine Intelligence[/bold #FFD700]
-[dim #CC9B1F]Autonomous Scientific Discovery Framework — 88 brain modules, 17 domains[/dim #CC9B1F]
+[bold #00d4ff]RUMI — Research & Unified Machine Intelligence[/bold #00d4ff]
+[dim #6b7280]Autonomous Scientific Discovery Framework — 88 brain modules, 17 domains[/dim #6b7280]
 
 [bold]Navigation[/bold]
-  [#FFD700]/help[/#FFD700]                 Show this help
-  [#FFD700]/clear[/#FFD700]                Clear screen
-  [#FFD700]/status[/#FFD700]               System status & uptime
-  [#FFD700]/stats[/#FFD700]                Session statistics
-  [#FFD700]/exit[/#FFD700]                 Shut down RUMI
+  [#00d4ff]/help[/#00d4ff]                 Show this help
+  [#00d4ff]/clear[/#00d4ff]                Clear screen
+  [#00d4ff]/status[/#00d4ff]               System status & uptime
+  [#00d4ff]/stats[/#00d4ff]                Session statistics
+  [#00d4ff]/exit[/#00d4ff]                 Shut down RUMI
 
 [bold]Discovery Pipeline[/bold]
-  [#FFD700]/discover [topic][/topic]     Run full discovery: search → extract → graph → hypothesize
-  [#FFD700]/grounded [topic][/topic]     Grounded discovery with real papers + domain calculations
-  [#FFD700]/search [query][/query]       Quick literature search (PubMed/arXiv)
-  [#FFD700]/enrich[/#FFD700]               Enrich knowledge graph with external data
-  [#FFD700]/hypothesize [topic][/topic]  Generate hypotheses from knowledge graph
-  [#FFD700]/contradictions[/#FFD700]       Find contradictions in knowledge graph
-  [#FFD700]/generate [target][/target]    Design molecules or materials
-  [#FFD700]/domains[/#FFD700]              List all 17 scientific domains
-  [#FFD700]/domain [key][/key]         Switch active domain
+  [#00d4ff]/discover [topic][/topic]     Run full discovery: search → extract → graph → hypothesize
+  [#00d4ff]/grounded [topic][/topic]     Grounded discovery with real papers + domain calculations
+  [#00d4ff]/search [query][/query]       Quick literature search (PubMed/arXiv)
+  [#00d4ff]/enrich[/#00d4ff]               Enrich knowledge graph with external data
+  [#00d4ff]/hypothesize [topic][/topic]  Generate hypotheses from knowledge graph
+  [#00d4ff]/contradictions[/#00d4ff]       Find contradictions in knowledge graph
+  [#00d4ff]/generate [target][/target]    Design molecules or materials
+  [#00d4ff]/domains[/#00d4ff]              List all 17 scientific domains
+  [#00d4ff]/domain [key][/key]         Switch active domain
 
 [bold]Research Tools[/bold]
-  [#FFD700]/science[/#FFD700]              Show all Scientist AI modules
-  [#FFD700]/experiment[/#FFD700]           Design an experiment
-  [#FFD700]/papers[/#FFD700]               Search papers by researcher
-  [#FFD700]/review[/#FFD700]               Peer review a claim
-  [#FFD700]/graph[/#FFD700]                Knowledge graph stats
-  [#FFD700]/dashboard[/#FFD700]            Open web dashboard
-  [#FFD700]/discoveries[/#FFD700]          List past discovery sessions
+  [#00d4ff]/science[/#00d4ff]              Show all Scientist AI modules
+  [#00d4ff]/experiment[/#00d4ff]           Design an experiment
+  [#00d4ff]/papers[/#00d4ff]               Search papers by researcher
+  [#00d4ff]/review[/#00d4ff]               Peer review a claim
+  [#00d4ff]/graph[/#00d4ff]                Knowledge graph stats
+  [#00d4ff]/dashboard[/#00d4ff]            Open web dashboard
+  [#00d4ff]/discoveries[/#00d4ff]          List past discovery sessions
 
 [bold]Cognitive Modes[/bold]
-  [#FFD700]/think[/#FFD700]                Toggle reasoning mode (step-by-step)
-  [#FFD700]/dive[/#FFD700]                 Toggle deep research mode
-  [#FFD700]/personality[/#FFD700]          Switch personality (cutesy / professional)
+  [#00d4ff]/think[/#00d4ff]                Toggle reasoning mode (step-by-step)
+  [#00d4ff]/dive[/#00d4ff]                 Toggle deep research mode
+  [#00d4ff]/personality[/#00d4ff]          Switch personality (cutesy / professional)
 
 [bold]Example Queries[/bold]
-  [dim #CC9B1F]/discover time travel closed timelike curves[/dim #CC9B1F]
-  [dim #CC9B1F]/grounded KRAS G12C inhibitor resistance[/dim #CC9B1F]
-  [dim #CC9B1F]/discover materials: battery cathodes[/dim #CC9B1F]
+  [dim #6b7280]/discover time travel closed timelike curves[/dim #6b7280]
+  [dim #6b7280]/grounded KRAS G12C inhibitor resistance[/dim #6b7280]
+  [dim #6b7280]/discover materials: battery cathodes[/dim #6b7280]
   [dim]/hypothesize quantum biology[/dim]
 
 [dim]Discovery stages: PubMed/arXiv search → entity extraction → knowledge graph →
@@ -300,7 +300,7 @@ class RumiUI:
                 parts.append(f"queue:{self._message_queue_count}")
             if self._interrupt_requested.is_set():
                 parts.append("Esc cancel")
-            return HTML(f"<style fg='#FFBF00'>{'  '.join(parts)}</style>")
+            return HTML(f"<style fg='#10b981'>{'  '.join(parts)}</style>")
         else:
             spin = SPINNER_CHARS[self._current_spin_idx]
             modes = []
@@ -309,7 +309,7 @@ class RumiUI:
             if self._deep_dive_active:
                 modes.append("dive")
             mode_str = f"  [{'/'.join(modes)}]" if modes else ""
-            return HTML(f"<style fg='#CC9B1F'>{spin} ready{mode_str}</style>")
+            return HTML(f"<style fg='#6b7280'>{spin} ready{mode_str}</style>")
 
     def interrupt_requested(self):
         return self._interrupt_requested.is_set()
