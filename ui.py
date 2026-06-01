@@ -101,6 +101,11 @@ console = Console(
     no_color=False,
 )
 
+# Set terminal background to opencode black
+import sys as _sys
+_sys.stdout.write("\033[48;2;10;10;10m")  # #0a0a0a RGB
+_sys.stdout.flush()
+
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = BASE_DIR / "config"
 API_FILE = CONFIG_DIR / "api_keys.json"
@@ -350,12 +355,7 @@ class RumiUI:
         if self._is_busy or self._discovery_running:
             spin = SPINNER_CHARS[self._current_spin_idx]
             word = self._discovery_step or RUMI_WORDS[self._current_word_idx]
-            parts = [f"{spin} {word}"]
-            if self._message_queue_count:
-                parts.append(f"queue:{self._message_queue_count}")
-            if self._interrupt_requested.is_set():
-                parts.append("Esc cancel")
-            return HTML(f"<style bg='#1e1e1e' fg='#7fd88f'>{'  '.join(parts)}</style>")
+            return HTML(f"<style fg='#7fd88f'>{spin} {word}</style>")
         else:
             spin = SPINNER_CHARS[self._current_spin_idx]
             modes = []
@@ -363,8 +363,8 @@ class RumiUI:
                 modes.append("think")
             if self._deep_dive_active:
                 modes.append("dive")
-            mode_str = f"  [{'/'.join(modes)}]" if modes else ""
-            return HTML(f"<style bg='#1e1e1e' fg='#606060'>{spin} ready{mode_str}</style>")
+            mode_str = f" [{'/'.join(modes)}]" if modes else ""
+            return HTML(f"<style fg='#606060'>rumi{mode_str}</style>")
 
     def interrupt_requested(self):
         return self._interrupt_requested.is_set()
@@ -374,45 +374,20 @@ class RumiUI:
 
     # ── Startup ─────────────────────────────────────────────────
     def _show_startup(self):
-        """Display startup with opencode-style panel layout."""
+        """Display minimal startup like opencode."""
         console.clear()
-        console.print()
 
-        # Compact logo (ASCII safe for Windows)
-        logo = f"""[bold {ACCENT_CYAN}]
-    ██████╗ ██╗   ██╗███╗   ███╗██╗
-    ██╔══██╗██║   ██║████╗ ████║██║
-    ██████╔╝██║   ██║██╔████╔██║██║
-    ██╔══██╗██║   ██║██║╚██╔╝██║██║
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝[/]"""
-        console.print(logo, justify="center")
-        console.print()
-
-        # Provider status in panel
+        # Simple one-line status
         from discovery.llm_client import get_status
         status = get_status()
         groq_ok = status.get("groq", {}).get("available", False)
         gemini_ok = status.get("gemini", {}).get("available", False)
 
-        groq_s = f"[{ACCENT_GREEN}]ONLINE[/]" if groq_ok else f"[{ACCENT_RED}]OFFLINE[/]"
-        gemini_s = f"[{ACCENT_GREEN}]ONLINE[/]" if gemini_ok else f"[{ACCENT_RED}]OFFLINE[/]"
+        groq_s = f"{ACCENT_GREEN}groq{TEXT_MUTED}" if groq_ok else f"{ACCENT_RED}groq{TEXT_MUTED}"
+        gemini_s = f"{ACCENT_GREEN}gemini{TEXT_MUTED}" if gemini_ok else f"{ACCENT_RED}gemini{TEXT_MUTED}"
 
-        info = Table.grid(padding=(0, 2))
-        info.add_column(style=f"dim {TEXT_MUTED}")
-        info.add_column(style=TEXT_PRIMARY)
-        info.add_row("LLM", f"Groq {groq_s}  ·  Gemini {gemini_s}")
-        info.add_row("Modules", "15 scientist · 88 brain · 17 domains")
-
-        panel = Panel(
-            info,
-            title=f"[bold {ACCENT_CYAN}]RUMI[/] [dim]{TEXT_MUTED}v2.0[/]",
-            border_style=BORDER_NORMAL,
-            box=ROUNDED,
-            padding=(0, 2),
-        )
-        console.print(panel)
-        console.print(Text(f"  Type a message or /help for commands", style=f"dim {TEXT_MUTED}"))
+        console.print(Text(f"  RUMI v2.0", style=TEXT_PRIMARY))
+        console.print(Text(f"  {groq_s}  {gemini_s}  {TEXT_MUTED}15 modules · 88 brain · 17 domains{TEXT_MUTED}"))
         console.print()
 
     # ── Input Loop ──────────────────────────────────────────────
@@ -484,7 +459,7 @@ class RumiUI:
                 time.sleep(0.1)
 
     def _handle_command(self, cmd: str):
-        """Handle slash commands."""
+        """Handle slash commands - minimal like opencode."""
         self._last_input_time = time.time()
         cmd = cmd.lower().strip()
 
@@ -500,7 +475,7 @@ class RumiUI:
             self._think_mode = not self._think_mode
             state = "on" if self._think_mode else "off"
             color = ACCENT_GREEN if self._think_mode else TEXT_MUTED
-            console.print(Text(f"  think mode {state}", style=color))
+            console.print(Text(f"  think {state}", style=color))
             if self.on_think_mode_toggle:
                 threading.Thread(target=self.on_think_mode_toggle, args=(self._think_mode,), daemon=True).start()
 
@@ -508,7 +483,7 @@ class RumiUI:
             self._deep_dive_active = not self._deep_dive_active
             state = "on" if self._deep_dive_active else "off"
             color = ACCENT_CYAN if self._deep_dive_active else TEXT_MUTED
-            console.print(Text(f"  deep dive {state}", style=color))
+            console.print(Text(f"  dive {state}", style=color))
             if self.on_deep_dive_toggle:
                 threading.Thread(target=self.on_deep_dive_toggle, args=(self._deep_dive_active,), daemon=True).start()
 
@@ -710,12 +685,7 @@ class RumiUI:
     def write_log(self, text: str):
         """Display a formatted log message in the terminal.
 
-        Handles prefixes:
-          'You:'   → user message (gutter style)
-          'RUMI:'  → AI response (panel with markdown)
-          'SYS:'   → system message (dim)
-          'ERR:'   → error message (red)
-          other    → plain text
+        Opencode-style: minimal, no panels around messages.
         """
         with self._input_lock:
             tl = text.lower().strip()
@@ -724,27 +694,17 @@ class RumiUI:
                 content = text[4:].strip()
                 self.set_state("PROCESSING")
                 console.print()
-                console.print(Text(f"  \u276f {content}", style=f"bold {ACCENT_BLUE}"))
+                console.print(Text(f"  {content}", style=f"bold {ACCENT_BLUE}"))
 
             elif tl.startswith("rumi:") or tl.startswith("ai:"):
                 prefix_len = 5 if tl.startswith("rumi:") else 3
                 content = text[prefix_len:].strip()
-
+                # Just print the content directly - no panel wrapper
                 console.print()
-
-                # Attempt markdown rendering
                 try:
-                    body = Markdown(content)
+                    console.print(Markdown(content))
                 except Exception:
-                    body = Text(content, style=TEXT_PRIMARY)
-
-                console.print(Panel(
-                    body,
-                    title=f"[bold {ACCENT_CYAN}]\u2766 RUMI[/]",
-                    border_style=BORDER_NORMAL,
-                    box=ROUNDED,
-                    padding=(0, 1),
-                ))
+                    console.print(Text(content, style=TEXT_PRIMARY))
                 self.set_state("SPEAKING")
 
             elif tl.startswith("sys:"):
@@ -757,10 +717,10 @@ class RumiUI:
                     color = ACCENT_RED
                 else:
                     color = TEXT_MUTED
-                console.print(Text(f"  \u2500 {content}", style=f"italic {color}"))
+                console.print(Text(f"  {content}", style=f"dim {color}"))
 
             elif tl.startswith("err:") or tl.startswith("error:"):
-                console.print(Text(f"  \u2716 {text[4:].strip()}", style=f"bold {ACCENT_RED}"))
+                console.print(Text(f"  {text[4:].strip()}", style=f"bold {ACCENT_RED}"))
 
             else:
                 console.print(Text(f"  {text}", style=TEXT_PRIMARY))
