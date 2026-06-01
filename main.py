@@ -7399,7 +7399,9 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                                 out_buf.append(txt)
                                 # Stream text in real-time (print directly, no panel)
                                 if not sc.turn_complete:
-                                    print(txt, end="", flush=True)
+                                    # Add space prefix if needed to separate words
+                                    prefix = " " if out_buf and not txt.startswith(" ") else ""
+                                    print(f"{prefix}{txt}", end="", flush=True)
                         if sc.input_transcription and sc.input_transcription.text:
                             txt = _clean_transcript(sc.input_transcription.text)
                             if txt:
@@ -7411,7 +7413,9 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                                     out_buf.append(part.text)
                                     # Stream text in real-time (print directly, no panel)
                                     if not sc.turn_complete:
-                                        print(part.text, end="", flush=True)
+                                        # Add space prefix if needed to separate words
+                                        prefix = " " if out_buf and not part.text.startswith(" ") else ""
+                                        print(f"{prefix}{part.text}", end="", flush=True)
                         if sc.turn_complete:
                             full_in = " ".join(in_buf).strip()
 
