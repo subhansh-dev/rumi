@@ -41,14 +41,14 @@ except ImportError:
 from rich.theme import Theme
 _dark_theme = Theme({
     "black": "black",
-    "white": "white",
-    "cyan": "cyan",
-    "green": "green",
-    "yellow": "yellow",
-    "blue": "blue",
-    "magenta": "magenta",
-    "red": "red",
-    "dim": "#6b7280",
+    "white": "#FFF8DC",
+    "cyan": "#FFD700",
+    "green": "#4caf50",
+    "yellow": "#FFBF00",
+    "blue": "#FFF8DC",
+    "magenta": "#CD7F32",
+    "red": "#ef5350",
+    "dim": "#CC9B1F",
 })
 console = Console(force_terminal=True, color_system="truecolor", theme=_dark_theme)
 BASE_DIR = Path(__file__).resolve().parent
@@ -111,66 +111,66 @@ def _set_personality(choice: str):
     return True
 
 
-# ── Colour Palette (Claude Code inspired, scientific twist) ─────
-C_CYAN   = "#00d4ff"   # Primary accent — scientific
-C_BLUE   = "#3b82f6"   # User messages
-C_AMBER  = "#f59e0b"   # Secondary accent — warm
-C_GREEN  = "#10b981"   # Success / confirmed
-C_RED    = "#ef4444"   # Error / refuted
-C_PURPLE = "#8b5cf6"   # Special / discovery
-C_DIM    = "#6b7280"   # Muted text
-C_WHITE  = "#e5e7eb"   # Primary text
-C_BOLD   = "#f9fafb"   # Emphasized text
-C_PANEL  = "#111827"   # Panel background
-C_BORDER = "#1f2937"   # Panel borders
+# ── Colour Palette (Hermes-inspired warm gold) ─────────────────
+C_CYAN   = "#FFD700"   # Primary accent — gold (hermes primary)
+C_BLUE   = "#FFF8DC"   # User messages — cornsilk (hermes text)
+C_AMBER  = "#FFBF00"   # Secondary accent — amber gold
+C_GREEN  = "#4caf50"   # Success / confirmed
+C_RED    = "#ef5350"   # Error / refuted
+C_PURPLE = "#CD7F32"   # Special / discovery — bronze (hermes border)
+C_DIM    = "#CC9B1F"   # Muted text — dark gold (hermes muted)
+C_WHITE  = "#FFF8DC"   # Primary text — cornsilk
+C_BOLD   = "#FFD700"   # Emphasized text — bright gold
+C_PANEL  = "#1a1a2e"   # Panel background — dark navy
+C_BORDER = "#CD7F32"   # Panel borders — bronze
 C_BG     = "#0a0a0a"   # Deep background
 
 # ── Prompt symbols ──────────────────────────────────────────────
-PROMPT_SYMBOL = "\u2697 "
+PROMPT_SYMBOL = "\u276f "
 PROMPT_BUSY = "..."
-PROMPT_READY = "\u2697 "
+PROMPT_READY = "\u276f "
 
 # ── Help text ──────────────────────────────────────────────────
 HELP_TEXT = """
-[bold cyan]RUMI — Research & Unified Machine Intelligence[/bold cyan]
-[dim]Autonomous Scientific Discovery Framework — 88 brain modules, 17 domains[/dim]
+[bold #FFD700]RUMI — Research & Unified Machine Intelligence[/bold #FFD700]
+[dim #CC9B1F]Autonomous Scientific Discovery Framework — 88 brain modules, 17 domains[/dim #CC9B1F]
 
 [bold]Navigation[/bold]
-  [cyan]/help[/cyan]                 Show this help
-  [cyan]/clear[/cyan]                Clear screen
-  [cyan]/status[/cyan]               System status & uptime
-  [cyan]/stats[/cyan]                Session statistics
-  [cyan]/exit[/cyan]                 Shut down RUMI
+  [#FFD700]/help[/#FFD700]                 Show this help
+  [#FFD700]/clear[/#FFD700]                Clear screen
+  [#FFD700]/status[/#FFD700]               System status & uptime
+  [#FFD700]/stats[/#FFD700]                Session statistics
+  [#FFD700]/exit[/#FFD700]                 Shut down RUMI
 
 [bold]Discovery Pipeline[/bold]
-  [cyan]/discover [topic][/cyan]     Run full discovery: search → extract → graph → hypothesize
-  [cyan]/grounded [topic][/cyan]     Grounded discovery with real papers + domain calculations
-  [cyan]/search [query][/cyan]       Quick literature search (PubMed/arXiv)
-  [cyan]/enrich[/cyan]               Enrich knowledge graph with external data
-  [cyan]/hypothesize [topic][/cyan]  Generate hypotheses from knowledge graph
-  [cyan]/contradictions[/cyan]       Find contradictions in knowledge graph
-  [cyan]/generate [target][/cyan]    Design molecules or materials
-  [cyan]/domains[/cyan]              List all 17 scientific domains
-  [cyan]/domain [key][/cyan]         Switch active domain
+  [#FFD700]/discover [topic][/topic]     Run full discovery: search → extract → graph → hypothesize
+  [#FFD700]/grounded [topic][/topic]     Grounded discovery with real papers + domain calculations
+  [#FFD700]/search [query][/query]       Quick literature search (PubMed/arXiv)
+  [#FFD700]/enrich[/#FFD700]               Enrich knowledge graph with external data
+  [#FFD700]/hypothesize [topic][/topic]  Generate hypotheses from knowledge graph
+  [#FFD700]/contradictions[/#FFD700]       Find contradictions in knowledge graph
+  [#FFD700]/generate [target][/target]    Design molecules or materials
+  [#FFD700]/domains[/#FFD700]              List all 17 scientific domains
+  [#FFD700]/domain [key][/key]         Switch active domain
 
 [bold]Research Tools[/bold]
-  [cyan]/science[/cyan]              Show all Scientist AI modules
-  [cyan]/experiment[/cyan]           Design an experiment
-  [cyan]/papers[/cyan]               Search papers by researcher
-  [cyan]/review[/cyan]               Peer review a claim
-  [cyan]/graph[/cyan]                Knowledge graph stats
-  [cyan]/dashboard[/cyan]            Open web dashboard
-  [cyan]/discoveries[/cyan]          List past discovery sessions
+  [#FFD700]/science[/#FFD700]              Show all Scientist AI modules
+  [#FFD700]/experiment[/#FFD700]           Design an experiment
+  [#FFD700]/papers[/#FFD700]               Search papers by researcher
+  [#FFD700]/review[/#FFD700]               Peer review a claim
+  [#FFD700]/graph[/#FFD700]                Knowledge graph stats
+  [#FFD700]/dashboard[/#FFD700]            Open web dashboard
+  [#FFD700]/discoveries[/#FFD700]          List past discovery sessions
 
 [bold]Cognitive Modes[/bold]
-  [cyan]/think[/cyan]                Toggle reasoning mode (step-by-step)
-  [cyan]/dive[/cyan]                 Toggle deep research mode
-  [cyan]/personality[/cyan]          Switch personality (cutesy / professional)
+  [#FFD700]/think[/#FFD700]                Toggle reasoning mode (step-by-step)
+  [#FFD700]/dive[/#FFD700]                 Toggle deep research mode
+  [#FFD700]/personality[/#FFD700]          Switch personality (cutesy / professional)
 
 [bold]Example Queries[/bold]
-  [dim]/discover time travel closed timelike curves[/dim]
-  [dim]/grounded KRAS G12C inhibitor resistance[/dim]
-  [dim]/discover materials: battery cathodes[/dim]
+  [dim #CC9B1F]/discover time travel closed timelike curves[/dim #CC9B1F]
+  [dim #CC9B1F]/grounded KRAS G12C inhibitor resistance[/dim #CC9B1F]
+  [dim #CC9B1F]/discover materials: battery cathodes[/dim #CC9B1F]
   [dim]/hypothesize quantum biology[/dim]
 
 [dim]Discovery stages: PubMed/arXiv search → entity extraction → knowledge graph →
@@ -299,8 +299,8 @@ class RumiUI:
             if self._message_queue_count:
                 parts.append(f"queue:{self._message_queue_count}")
             if self._interrupt_requested.is_set():
-                parts.append("ESC to cancel")
-            return HTML(f"<style fg='#10b981'>{'  '.join(parts)}</style>")
+                parts.append("Esc cancel")
+            return HTML(f"<style fg='#FFBF00'>{'  '.join(parts)}</style>")
         else:
             spin = SPINNER_CHARS[self._current_spin_idx]
             modes = []
@@ -309,7 +309,7 @@ class RumiUI:
             if self._deep_dive_active:
                 modes.append("dive")
             mode_str = f"  [{'/'.join(modes)}]" if modes else ""
-            return HTML(f"<style fg='#6b7280'>{spin} ready{mode_str}</style>")
+            return HTML(f"<style fg='#CC9B1F'>{spin} ready{mode_str}</style>")
 
     def interrupt_requested(self):
         return self._interrupt_requested.is_set()
@@ -336,26 +336,7 @@ class RumiUI:
 
         console.print()
         console.print(Text("Research & Unified Machine Intelligence", style=f"bold {C_WHITE}"), justify="center")
-        console.print(Text("Autonomous Scientific Discovery Framework", style=f"dim {C_CYAN}"), justify="center")
-        console.print()
-
-        # Animated loading
-        with Progress(
-            SpinnerColumn(spinner_name="dots", style=C_CYAN),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-            transient=True,
-        ) as progress:
-            for desc in [
-                "  Initializing neural engines...",
-                "  Loading memory systems...",
-                "  Preparing tools manifest...",
-                "  Calibrating research modules...",
-            ]:
-                t = progress.add_task(desc, total=None)
-                time.sleep(0.3)
-                progress.remove_task(t)
-
+        console.print(Text("Type your message or /help for commands.", style=f"dim {C_DIM}"), justify="center")
         console.print()
 
         # System info with real provider status
@@ -365,27 +346,22 @@ class RumiUI:
         gemini_info = status.get("gemini", {})
         groq_ok = groq_info.get("available", False)
         gemini_ok = gemini_info.get("available", False)
-        primary = status.get("primary", "unknown")
 
-        info = Table.grid(padding=(0, 2))
-        info.add_column(style=f"dim {C_DIM}")
-        info.add_column(style=C_WHITE)
+        # Model status — compact single line
+        models = []
+        if groq_ok:
+            models.append(f"Groq: {C_GREEN}ONLINE{C_WHITE}")
+        else:
+            models.append(f"Groq: {C_RED}OFFLINE{C_WHITE}")
+        if gemini_ok:
+            models.append(f"Gemini: {C_GREEN}ONLINE{C_WHITE}")
+        else:
+            models.append(f"Gemini: {C_RED}OFFLINE{C_WHITE}")
 
-        # Model status with color
-        groq_label = f"Groq {'ONLINE' if groq_ok else 'OFFLINE (keys expired)'}"
-        groq_color = C_GREEN if groq_ok else C_RED
-        gemini_label = f"Gemini {'ONLINE' if gemini_ok else 'OFFLINE'}"
-        gemini_color = C_GREEN if gemini_ok else C_RED
-
-        info.add_row("◆ LLM:", Text(f"Groq: {groq_label}  |  Gemini: {gemini_label}", style=C_WHITE))
-        info.add_row("◆ Scientist:", "15 discovery modules · 17 domains with real calculations")
-        info.add_row("◆ Brain:", "88 cognitive modules · 9 memory systems")
-        info.add_row("◆ Pipeline:", "PubMed + arXiv · Entity extraction · Hypothesis refinement")
-        info.add_row("◆ Discovery:", "Contradiction mining · Skeptic review · Experiment planning")
-        console.print(info)
+        console.print(Text(f"  LLM: {' · '.join(models)}", style=C_WHITE))
+        console.print(Text(f"  Scientist: 15 modules · 17 domains · PubMed + arXiv", style=f"dim {C_DIM}"))
         console.print()
-        console.print(Rule(style=f"dim {C_PURPLE}"))
-        console.print(Text(f"  /help for commands  ·  /discover <topic>  ·  /grounded <topic>", style=f"dim {C_DIM}"))
+        console.print(Rule(style=f"dim {C_BORDER}"))
         console.print()
 
     # ── Input Loop ──────────────────────────────────────────────
@@ -709,13 +685,7 @@ class RumiUI:
                 content = text[4:].strip()
                 self.set_state("PROCESSING")
                 console.print()
-                console.print(Panel(
-                    Text(content, style=C_WHITE),
-                    title="[bold]\u25c8 You[/bold]",
-                    border_style=C_BLUE,
-                    box=ROUNDED,
-                    padding=(0, 1),
-                ))
+                console.print(Text(f"  \u276f {content}", style=f"bold {C_BLUE}"))
 
             elif tl.startswith("rumi:") or tl.startswith("ai:"):
                 prefix_len = 5 if tl.startswith("rumi:") else 3
@@ -727,12 +697,12 @@ class RumiUI:
                 try:
                     body = Markdown(content)
                 except Exception:
-                    body = Text(content, style=C_CYAN)
+                    body = Text(content, style=C_WHITE)
 
                 console.print(Panel(
                     body,
-                    title=f"[bold {C_CYAN}]\U0001F52C RUMI[/bold {C_CYAN}]",
-                    border_style=C_CYAN,
+                    title=f"[bold {C_CYAN}]\u2766 RUMI[/bold {C_CYAN}]",
+                    border_style=C_BORDER,
                     box=ROUNDED,
                     padding=(0, 1),
                 ))
@@ -741,7 +711,7 @@ class RumiUI:
             elif tl.startswith("sys:"):
                 content = text[4:].strip()
                 color = C_AMBER if "activated" in content or "deactivated" in content else C_DIM
-                console.print(Text(f"  \u2699 {content}", style=f"italic {color}"))
+                console.print(Text(f"  \u2500 {content}", style=f"italic {color}"))
 
             elif tl.startswith("err:") or tl.startswith("error:"):
                 console.print(Text(f"  \u2716 {text[4:].strip()}", style=f"bold {C_RED}"))
