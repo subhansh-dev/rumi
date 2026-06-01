@@ -406,7 +406,7 @@ class RumiUI:
             ('prompt', f'bold {C_CYAN}'),
         ]) if HAVE_PT else None
 
-        # Set up ESC key binding for interrupt
+        # Set up ESC / Ctrl+C key binding for interrupt
         kb = KeyBindings() if HAVE_PT else None
         if kb:
             @kb.add('escape')
@@ -415,6 +415,7 @@ class RumiUI:
             @kb.add('c-c')
             def _(event):
                 self._interrupt_requested.set()
+                event.app.exit(exception=KeyboardInterrupt)
 
         while self._running:
             try:

@@ -2608,20 +2608,10 @@ class RumiLive:
             pass
 
     def _on_text_command(self, text: str):
-        if not self._loop or not self._loop.is_running():
-            self.ui.write_log("SYS: Session not connected. Waiting for reconnection...")
-            return
-        if not self.session or self._session_dead:
-            self.ui.write_log("SYS: Session lost. Reconnecting... Please try again in a moment.")
-            return
-
         now = time.time()
         if text == self._last_text_cmd[0] and now - self._last_text_cmd[1] < 1.0:
             return
         self._last_text_cmd = (text, now)
-
-        # Show user message in terminal
-        self.ui.write_log(f"You: {text}")
 
         # ── Message queue: if a tool is executing, queue instead of send ──
         if self._tool_executing:
@@ -2721,6 +2711,12 @@ class RumiLive:
                 time.sleep(0.5 - elapsed)
             self._last_send_content_time = time.time()
             try:
+                if not self._loop or not self._loop.is_running():
+                    self.ui.write_log("SYS: Session not connected. Waiting for reconnection...")
+                    return
+                if not self.session or self._session_dead:
+                    self.ui.write_log("SYS: Session lost. Reconnecting...")
+                    return
                 asyncio.run_coroutine_threadsafe(
                     self.session.send_client_content(
                         turns={"parts": [{"text": processed_text}]},
@@ -2728,7 +2724,7 @@ class RumiLive:
                     self._loop,
                 )
             except Exception as e:
-                print(f"[RUMI] text command send failed: {e}", flush=True)
+                self.ui.write_log(f"ERR: Send failed: {e}")
 
         threading.Thread(target=_send, daemon=True).start()
 
