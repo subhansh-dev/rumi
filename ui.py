@@ -319,49 +319,44 @@ class RumiUI:
 
     # ── Startup ─────────────────────────────────────────────────
     def _show_startup(self):
-        """Display animated startup with RUMI ASCII logo."""
+        """Display startup banner with provider status."""
         console.clear()
-
-        logo = """
-    ██████╗ ██╗   ██╗███╗   ███╗██╗
-    ██╔══██╗██║   ██║████╗ ████║██║
-    ██████╔╝██║   ██║██╔████╔██║██║
-    ██╔══██╗██║   ██║██║╚██╔╝██║██║
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝
-"""
-        console.print()
-        for line in logo.split('\n'):
-            console.print(Text(line, style=f"bold {C_CYAN}"), justify="center")
-
-        console.print()
-        console.print(Text("Research & Unified Machine Intelligence", style=f"bold {C_WHITE}"), justify="center")
-        console.print(Text("Type your message or /help for commands.", style=f"dim {C_DIM}"), justify="center")
         console.print()
 
-        # System info with real provider status
+        # Compact ASCII logo
+        logo = """[bold #56b6c2]██████╗ ██╗   ██╗███╗   ███╗██╗
+██╔══██╗██║   ██║████╗ ████║██║
+██████╔╝██║   ██║██╔████╔██║██║
+██╔══██╗██║   ██║██║╚██╔╝██║██║
+██║  ██║╚██████╔╝██║ ╚═╝ ██║██║
+╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝[/]"""
+        console.print(logo, justify="center")
+        console.print()
+
+        # Provider status
         from discovery.llm_client import get_status
         status = get_status()
-        groq_info = status.get("groq", {})
-        gemini_info = status.get("gemini", {})
-        groq_ok = groq_info.get("available", False)
-        gemini_ok = gemini_info.get("available", False)
+        groq_ok = status.get("groq", {}).get("available", False)
+        gemini_ok = status.get("gemini", {}).get("available", False)
 
-        # Model status — compact single line
-        models = []
-        if groq_ok:
-            models.append(f"Groq: {C_GREEN}ONLINE{C_WHITE}")
-        else:
-            models.append(f"Groq: {C_RED}OFFLINE{C_WHITE}")
-        if gemini_ok:
-            models.append(f"Gemini: {C_GREEN}ONLINE{C_WHITE}")
-        else:
-            models.append(f"Gemini: {C_RED}OFFLINE{C_WHITE}")
+        groq_s = f"[#7fd88f]ONLINE[/]" if groq_ok else "[#e06c75]OFFLINE[/]"
+        gemini_s = f"[#7fd88f]ONLINE[/]" if gemini_ok else "[#e06c75]OFFLINE[/]"
 
-        console.print(Text(f"  LLM: {' · '.join(models)}", style=C_WHITE))
-        console.print(Text(f"  Scientist: 15 modules · 17 domains · PubMed + arXiv", style=f"dim {C_DIM}"))
-        console.print()
-        console.print(Rule(style=f"dim {C_BORDER}"))
+        info = Table.grid(padding=(0, 2))
+        info.add_column(style=f"dim #808080")
+        info.add_column(style="#eeeeee")
+        info.add_row("LLM", f"Groq {groq_s}  ·  Gemini {gemini_s}")
+        info.add_row("Scientist", "15 modules · 17 domains · PubMed + arXiv")
+
+        panel = Panel(
+            info,
+            title=f"[bold #56b6c2]RUMI[/] [dim #808080]v2.0[/]",
+            border_style="#484848",
+            box=ROUNDED,
+            padding=(0, 2),
+        )
+        console.print(panel)
+        console.print(Text("  Type your message or /help for commands.", style="dim #808080"))
         console.print()
 
     # ── Input Loop ──────────────────────────────────────────────
@@ -443,28 +438,21 @@ class RumiUI:
 
         elif cmd == "/clear":
             console.clear()
-            logo = """
-    ██████╗ ██╗   ██╗███╗   ███╗██╗
-    ██╔══██╗██║   ██║████╗ ████║██║
-    ██████╔╝██║   ██║██╔████╔██║██║
-    ██╔══██╗██║   ██║██║╚██╔╝██║██║
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝
-"""
-            console.print(Text(logo, style=f"bold {C_CYAN}"), justify="center")
-            console.print()
+            self._show_startup()
 
         elif cmd == "/think":
             self._think_mode = not self._think_mode
             state = "on" if self._think_mode else "off"
-            console.print(Text(f"  think mode {state}", style=C_CYAN))
+            color = "#7fd88f" if self._think_mode else "#808080"
+            console.print(Text(f"  think mode {state}", style=color))
             if self.on_think_mode_toggle:
                 threading.Thread(target=self.on_think_mode_toggle, args=(self._think_mode,), daemon=True).start()
 
         elif cmd == "/dive":
             self._deep_dive_active = not self._deep_dive_active
             state = "on" if self._deep_dive_active else "off"
-            console.print(Text(f"  deep dive {state}", style=C_CYAN))
+            color = "#56b6c2" if self._deep_dive_active else "#808080"
+            console.print(Text(f"  deep dive {state}", style=color))
             if self.on_deep_dive_toggle:
                 threading.Thread(target=self.on_deep_dive_toggle, args=(self._deep_dive_active,), daemon=True).start()
 
@@ -479,8 +467,8 @@ class RumiUI:
             rate = f"{self._message_count / max(uptime, 1) * 3600:.1f}/hr" if self._message_count > 0 else "N/A"
 
             info = Table.grid(padding=(0, 2))
-            info.add_column(style=f"bold {C_WHITE}")
-            info.add_column(style=C_CYAN)
+            info.add_column(style="bold #eeeeee")
+            info.add_column(style="#56b6c2")
             info.add_row("Uptime:",  f"{uptime // 3600:02d}:{(uptime % 3600) // 60:02d}:{uptime % 60:02d}")
             info.add_row("Mode:",    mode_str)
             info.add_row("Messages:", str(self._message_count))
@@ -492,13 +480,13 @@ class RumiUI:
         elif cmd == "/stats":
             uptime = int(time.time() - self._start_time)
             info = Table.grid(padding=(0, 2))
-            info.add_column(style=f"bold {C_WHITE}")
-            info.add_column(style=C_GREEN)
+            info.add_column(style="bold #eeeeee")
+            info.add_column(style="#7fd88f")
             info.add_row("Session:", f"{uptime // 3600:02d}:{(uptime % 3600) // 60:02d}:{uptime % 60:02d}")
             info.add_row("Messages:", str(self._message_count))
             info.add_row("Rate:", f"{self._message_count / max(uptime, 1) * 3600:.1f}/hr" if self._message_count > 0 else "N/A")
             info.add_row("State:", self._rumi_state)
-            console.print(Panel(info, title="[bold]Session Statistics[/bold]", border_style=C_GREEN, box=ROUNDED))
+            console.print(Panel(info, title="[bold #56b6c2]Session Statistics[/]", border_style="#484848", box=ROUNDED))
             console.print()
 
         elif cmd == "/science":
@@ -506,62 +494,58 @@ class RumiUI:
 
         elif cmd.startswith("/discover "):
             args = cmd[len("/discover "):].strip()
-            console.print(Text(f"  starting discovery: {args}", style=C_CYAN))
+            console.print(Text(f"  \u25b6 discovering: {args}", style="bold #56b6c2"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("discover", args), daemon=True).start()
 
         elif cmd == "/discover":
-            console.print(Text("  discovery pipeline (specify topic)", style=C_AMBER))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("discover", ""), daemon=True).start()
+            console.print(Text("  usage: /discover <topic>", style="#808080"))
 
         elif cmd.startswith("/grounded "):
             args = cmd[len("/grounded "):].strip()
-            console.print(Text(f"  grounded discovery: {args}", style=f"bold {C_CYAN}"))
-            console.print(Text(f"  fetching real papers + running domain calculations...", style=C_AMBER))
+            console.print(Text(f"  \u25b6 grounded discovery: {args}", style="bold #56b6c2"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("grounded", args), daemon=True).start()
 
         elif cmd == "/grounded":
-            console.print(Text("  grounded discovery (specify topic)", style=C_AMBER))
-            console.print(Text("  example: /grounded KRAS G12C inhibitor resistance", style=C_AMBER))
+            console.print(Text("  usage: /grounded <topic>", style="#808080"))
 
         elif cmd.startswith("/search "):
             args = cmd[len("/search "):].strip()
-            console.print(Text(f"  searching: {args}", style=C_CYAN))
+            console.print(Text(f"  \u25b6 searching: {args}", style="#56b6c2"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("search", args), daemon=True).start()
 
         elif cmd.startswith("/hypothesize "):
             args = cmd[len("/hypothesize "):].strip()
-            console.print(Text(f"  generating hypotheses: {args}", style=C_CYAN))
+            console.print(Text(f"  \u25b6 generating hypotheses: {args}", style="#56b6c2"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("hypothesize", args), daemon=True).start()
 
         elif cmd == "/hypothesize":
-            console.print(Text("  specify topic: /hypothesize <topic>", style=C_AMBER))
+            console.print(Text("  usage: /hypothesize <topic>", style="#808080"))
 
         elif cmd.startswith("/generate "):
             args = cmd[len("/generate "):].strip()
-            console.print(Text(f"  generating: {args}", style=C_CYAN))
+            console.print(Text(f"  \u25b6 generating: {args}", style="#56b6c2"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("generate", args), daemon=True).start()
 
         elif cmd == "/generate":
-            console.print(Text("  specify target: /generate <target>", style=C_AMBER))
+            console.print(Text("  usage: /generate <target>", style="#808080"))
 
         elif cmd == "/contradictions":
-            console.print(Text("  detecting contradictions...", style=C_CYAN))
+            console.print(Text("  \u25b6 detecting contradictions...", style="#56b6c2"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("contradictions", ""), daemon=True).start()
 
         elif cmd == "/enrich":
-            console.print(Text("  enriching entities...", style=C_CYAN))
+            console.print(Text("  \u25b6 enriching entities...", style="#56b6c2"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("enrich", ""), daemon=True).start()
 
         elif cmd == "/graph":
-            console.print(Text("  knowledge graph", style=C_CYAN))
+            console.print(Text("  \u25b6 knowledge graph", style="#56b6c2"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("graph", ""), daemon=True).start()
 
@@ -583,7 +567,7 @@ class RumiUI:
                 threading.Thread(target=self.on_discovery_command, args=("domain", ""), daemon=True).start()
 
         elif cmd == "/experiment":
-            console.print(Text("  experiment design mode", style=C_CYAN))
+            console.print(Text("  \u25b6 experiment design mode", style="#56b6c2"))
             if self.on_text_command:
                 threading.Thread(
                     target=self.on_text_command,
@@ -592,7 +576,7 @@ class RumiUI:
                 ).start()
 
         elif cmd == "/papers":
-            console.print(Text("  paper search mode", style=C_CYAN))
+            console.print(Text("  \u25b6 paper search mode", style="#56b6c2"))
             if self.on_text_command:
                 threading.Thread(
                     target=self.on_text_command,
@@ -601,7 +585,7 @@ class RumiUI:
                 ).start()
 
         elif cmd == "/review":
-            console.print(Text("  peer review mode", style=C_CYAN))
+            console.print(Text("  \u25b6 peer review mode", style="#56b6c2"))
             if self.on_text_command:
                 threading.Thread(
                     target=self.on_text_command,
@@ -610,7 +594,7 @@ class RumiUI:
                 ).start()
 
         elif cmd == "/notebook":
-            console.print(Text("  lab notebook", style=C_CYAN))
+            console.print(Text("  \u25b6 lab notebook", style="#56b6c2"))
             if self.on_text_command:
                 threading.Thread(
                     target=self.on_text_command,
@@ -623,13 +607,13 @@ class RumiUI:
 
         elif cmd.startswith("/reason "):
             args = cmd[len("/reason "):].strip()
-            console.print(Text(f"  scientific reasoning: {args}", style=C_PURPLE))
+            console.print(Text(f"  \u25b6 scientific reasoning: {args}", style="#9d7cd8"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("reason", args), daemon=True).start()
 
         elif cmd.startswith("/theorize "):
             args = cmd[len("/theorize "):].strip()
-            console.print(Text(f"  theorizing: {args}", style=C_PURPLE))
+            console.print(Text(f"  \u25b6 theorizing: {args}", style="#9d7cd8"))
             if self.on_discovery_command:
                 threading.Thread(target=self.on_discovery_command, args=("theorize", args), daemon=True).start()
 
@@ -637,7 +621,7 @@ class RumiUI:
             self._handle_personality()
 
         elif cmd == "/exit":
-            console.print(Text("  \u25c8 shutting down...", style=C_RED))
+            console.print(Text("  \u2716 shutting down...", style="#e06c75"))
             self._running = False
             os._exit(0)
 
@@ -649,11 +633,11 @@ class RumiUI:
                 if clean_cmd in sc or sc in clean_cmd:
                     suggestions.append(sc)
             if suggestions:
-                console.print(Text(f"  unknown command: {cmd}", style=C_RED))
-                console.print(Text(f"  did you mean: {', '.join(suggestions[:3])}?", style=C_AMBER))
+                console.print(Text(f"  unknown command: {cmd}", style="#e06c75"))
+                console.print(Text(f"  did you mean: {', '.join(suggestions[:3])}?", style="#fab283"))
             else:
-                console.print(Text(f"  unknown command: {cmd}", style=C_RED))
-                console.print(Text(f"  type /help for available commands", style=C_AMBER))
+                console.print(Text(f"  unknown command: {cmd}", style="#e06c75"))
+                console.print(Text(f"  type /help for available commands", style="#808080"))
 
     def _heartbeat_loop(self):
         """Background thread for thinking state animations."""
@@ -671,8 +655,8 @@ class RumiUI:
         """Display a formatted log message in the terminal.
 
         Handles prefixes:
-          'You:'   → user message (blue panel)
-          'RUMI:'  → AI response (cyan panel with markdown)
+          'You:'   → user message (gutter style)
+          'RUMI:'  → AI response (panel with markdown)
           'AI:'    → AI response (fallback)
           'SYS:'   → system message (dim)
           'ERR:'   → error message (red)
@@ -685,7 +669,7 @@ class RumiUI:
                 content = text[4:].strip()
                 self.set_state("PROCESSING")
                 console.print()
-                console.print(Text(f"  \u276f {content}", style=f"bold {C_BLUE}"))
+                console.print(Text(f"  \u276f {content}", style=f"bold #5c9cf5"))
 
             elif tl.startswith("rumi:") or tl.startswith("ai:"):
                 prefix_len = 5 if tl.startswith("rumi:") else 3
@@ -697,12 +681,12 @@ class RumiUI:
                 try:
                     body = Markdown(content)
                 except Exception:
-                    body = Text(content, style=C_WHITE)
+                    body = Text(content, style="#eeeeee")
 
                 console.print(Panel(
                     body,
-                    title=f"[bold {C_CYAN}]\u2766 RUMI[/bold {C_CYAN}]",
-                    border_style=C_BORDER,
+                    title=f"[bold #56b6c2]\u2766 RUMI[/]",
+                    border_style="#484848",
                     box=ROUNDED,
                     padding=(0, 1),
                 ))
@@ -710,14 +694,21 @@ class RumiUI:
 
             elif tl.startswith("sys:"):
                 content = text[4:].strip()
-                color = C_AMBER if "activated" in content or "deactivated" in content else C_DIM
+                if "activated" in content or "deactivated" in content:
+                    color = "#fab283"
+                elif "online" in content or "connected" in content:
+                    color = "#7fd88f"
+                elif "error" in content or "failed" in content:
+                    color = "#e06c75"
+                else:
+                    color = "#808080"
                 console.print(Text(f"  \u2500 {content}", style=f"italic {color}"))
 
             elif tl.startswith("err:") or tl.startswith("error:"):
-                console.print(Text(f"  \u2716 {text[4:].strip()}", style=f"bold {C_RED}"))
+                console.print(Text(f"  \u2716 {text[4:].strip()}", style=f"bold #e06c75"))
 
             else:
-                console.print(Text(f"  {text}", style=C_WHITE))
+                console.print(Text(f"  {text}", style="#eeeeee"))
 
     def set_state(self, state: str):
         """Update RUMI's state indicator."""
@@ -786,12 +777,12 @@ class RumiUI:
             border_style=C_BORDER,
             box=SIMPLE,
             show_header=True,
-            header_style=f"bold {C_DIM}",
+            header_style="bold #808080",
             padding=(0, 1),
         )
-        table.add_column("Module", style=C_CYAN, min_width=22)
-        table.add_column("What It Does", style=C_WHITE)
-        table.add_column("Example", style=C_AMBER)
+        table.add_column("Module", style="#56b6c2", min_width=22)
+        table.add_column("What It Does", style="#eeeeee")
+        table.add_column("Example", style="#fab283")
 
         capabilities = [
             ("discovery_engine", "Full pipeline: idea → experiment → paper", "Discover new insights about quantum computing"),
@@ -825,16 +816,16 @@ class RumiUI:
         from discovery.domains import list_domains
         from discovery.domain_computational import DOMAIN_COMPUTATIONS
         table = Table(
-            border_style=C_BORDER,
+            border_style="#484848",
             box=SIMPLE,
             show_header=True,
-            header_style=f"bold {C_DIM}",
+            header_style="bold #808080",
             padding=(0, 1),
         )
-        table.add_column("Domain", style=C_CYAN, min_width=20)
-        table.add_column("Label", style=C_GREEN)
-        table.add_column("Real Calculations", style=C_WHITE)
-        table.add_column("Sources", style=C_AMBER)
+        table.add_column("Domain", style="#56b6c2", min_width=20)
+        table.add_column("Label", style="#7fd88f")
+        table.add_column("Real Calculations", style="#eeeeee")
+        table.add_column("Sources", style="#fab283")
 
         domain_sources = {
             "drug_discovery": "PubChem, OpenFDA, PDB",
@@ -858,29 +849,29 @@ class RumiUI:
             key = d["key"]
             has_calc = key in DOMAIN_COMPUTATIONS or key == "space_astronomy"
             calc_status = "YES - real formulas" if has_calc else "generic (Bayesian only)"
-            calc_color = C_GREEN if has_calc else C_DIM
+            calc_color = "#7fd88f" if has_calc else "#808080"
             sources = domain_sources.get(key, "Semantic Scholar")
             table.add_row(key, d["label"],
-                         Text(calc_status, style=calc_color if has_calc else C_DIM),
+                         Text(calc_status, style=calc_color),
                          sources)
 
         console.print()
         console.print(table)
-        console.print(Text("  /domain <key> to switch  ·  /discover <domain>: <topic>", style=C_AMBER))
-        console.print(Text("  Domains with 'YES' use real physics/chemistry/biology formulas", style=C_GREEN))
+        console.print(Text("  /domain <key> to switch  ·  /discover <domain>: <topic>", style="#fab283"))
+        console.print(Text("  Domains with 'YES' use real physics/chemistry/biology formulas", style="#7fd88f"))
         console.print()
 
     def _handle_personality(self):
         """Handle /personality command."""
         console.print()
-        console.print(Text(f"  current: {self._personality}", style=C_AMBER))
+        console.print(Text(f"  current: {self._personality}", style="#fab283"))
         console.print()
 
         pers_keys = list(PERSONALITIES.keys())
         for i, k in enumerate(pers_keys):
             p = PERSONALITIES[k]
-            console.print(Text(f"  [{i+1}] {p['label']}", style=C_WHITE))
-            console.print(Text(f"      {p['desc']}", style=C_AMBER))
+            console.print(Text(f"  [{i+1}] {p['label']}", style="#eeeeee"))
+            console.print(Text(f"      {p['desc']}", style="#808080"))
         console.print()
 
         choice = input("  > ").strip()
@@ -906,50 +897,50 @@ class RumiUI:
     def _show_setup_ui(self):
         """Terminal-based first-time setup — clean and compact."""
         console.print()
-        console.print(Rule(style=f"bold {C_PURPLE}"))
-        console.print(Text("  FIRST BOOT — API KEY SETUP", style=f"bold {C_WHITE}"), justify="center")
-        console.print(Rule(style=f"bold {C_PURPLE}"))
+        console.print(Rule(style="bold #9d7cd8"))
+        console.print(Text("  FIRST BOOT — API KEY SETUP", style="bold #eeeeee"), justify="center")
+        console.print(Rule(style="bold #9d7cd8"))
         console.print()
 
         detected = _detect_os()
 
         # Gemini
-        console.print(Text("  Enter your Gemini API key:", style=C_CYAN))
-        console.print(Text("  (Get one at: https://aistudio.google.com/apikey)", style=f"dim {C_DIM}"))
+        console.print(Text("  Enter your Gemini API key:", style="#56b6c2"))
+        console.print(Text("  (Get one at: https://aistudio.google.com/apikey)", style="dim #808080"))
         gemini_key = input("  \U0001F511 ").strip()
         while not gemini_key:
-            console.print(Text("  API key cannot be empty.", style=f"bold {C_RED}"))
+            console.print(Text("  API key cannot be empty.", style="bold #e06c75"))
             gemini_key = input("  \U0001F511 ").strip()
 
         console.print()
 
         # Groq
-        console.print(Text("  Enter your Groq API key:", style=C_CYAN))
-        console.print(Text("  (Get one at: https://console.groq.com/keys)", style=f"dim {C_DIM}"))
+        console.print(Text("  Enter your Groq API key:", style="#56b6c2"))
+        console.print(Text("  (Get one at: https://console.groq.com/keys)", style="dim #808080"))
         groq_key = input("  \U0001F511 ").strip()
         while not groq_key:
-            console.print(Text("  API key cannot be empty.", style=f"bold {C_RED}"))
+            console.print(Text("  API key cannot be empty.", style="bold #e06c75"))
             groq_key = input("  \U0001F511 ").strip()
 
         console.print()
 
         # Optional: second Groq key
-        console.print(Text("  Second Groq key (optional, for rate limiting)", style=f"dim {C_DIM}"))
+        console.print(Text("  Second Groq key (optional, for rate limiting)", style="dim #808080"))
         groq_key2 = input("  \U0001F511 ").strip()
 
         console.print()
 
         # Callsign
-        console.print(Text("  Your callsign (default: OPERATOR):", style=C_CYAN))
+        console.print(Text("  Your callsign (default: OPERATOR):", style="#56b6c2"))
         user_name = input("  \U0001F464 ").strip().upper() or "OPERATOR"
 
         # Personality
         console.print()
-        console.print(Text("  Personality:", style=C_CYAN))
+        console.print(Text("  Personality:", style="#56b6c2"))
         pers_keys = list(PERSONALITIES.keys())
         for i, k in enumerate(pers_keys):
             p = PERSONALITIES[k]
-            console.print(Text(f"  [{i+1}] {p['label']}", style=C_AMBER))
+            console.print(Text(f"  [{i+1}] {p['label']}", style="#fab283"))
         pers_choice = input("  \U0001F3B2 ").strip() or "1"
         try:
             idx = int(pers_choice) - 1
