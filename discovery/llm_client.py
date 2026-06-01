@@ -112,8 +112,8 @@ def _call_groq(prompt: str, json_mode: bool = False,
         try:
             resp = client.chat.completions.create(**kwargs)
             content = resp.choices[0].message.content or ""
-            if content and len(content) > 10:
-                return content
+            if content and len(content) > 2:
+                return content.strip()
         except Exception as e:
             err = str(e)
             if "429" in err or "rate_limit" in err.lower():
@@ -173,8 +173,8 @@ def _call_gemini(prompt: str, json_mode: bool = False,
                 config=types.GenerateContentConfig(**kwargs),
             )
             text = resp.text
-            if text and len(text) > 10:
-                return text
+            if text and len(text) > 2:
+                return text.strip()
         except Exception as e:
             err = str(e)
             if "429" in err or "rate" in err.lower() or "quota" in err.lower():

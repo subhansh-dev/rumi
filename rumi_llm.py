@@ -101,8 +101,8 @@ def generate(model_name: str, prompt: str, system: str = "",
                 max_tokens=max_tokens,
             )
             content = resp.choices[0].message.content
-            if content and len(content) > 5:
-                return content
+            if content and len(content) > 2:
+                return content.strip()
         except Exception:
             pass
 
@@ -120,8 +120,8 @@ def generate(model_name: str, prompt: str, system: str = "",
                     max_output_tokens=min(max_tokens, 65536),
                 ),
             )
-            if resp.text and len(resp.text) > 5:
-                return resp.text
+            if resp.text and len(resp.text) > 2:
+                return resp.text.strip()
         except Exception:
             pass
 
@@ -148,8 +148,8 @@ def generate_json(model_name: str, prompt: str, system: str = "",
                 response_format={"type": "json_object"},
             )
             content = resp.choices[0].message.content
-            if content and len(content) > 5:
-                return content
+            if content and len(content) > 2:
+                return content.strip()
         except Exception:
             pass
 
@@ -168,8 +168,8 @@ def generate_json(model_name: str, prompt: str, system: str = "",
                     response_mime_type="application/json",
                 ),
             )
-            if resp.text and len(resp.text) > 5:
-                return resp.text
+            if resp.text and len(resp.text) > 2:
+                return resp.text.strip()
         except Exception:
             pass
 
