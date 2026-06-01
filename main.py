@@ -2256,7 +2256,7 @@ class RumiLive:
         self._speaking_lock = threading.Lock()
         self._speaking_ended_at = 0.0
 
-        self._modes = {"think": False, "deep_dive": False}
+        self._modes = {"think": False, "deep_dive": False, "focus": False}
         self.current_domain = "drug_discovery"
         self._voice_enabled = False
         try:
@@ -2613,6 +2613,9 @@ class RumiLive:
         if text == self._last_text_cmd[0] and now - self._last_text_cmd[1] < 1.0:
             return
         self._last_text_cmd = (text, now)
+
+        # Show user message in terminal
+        self.ui.write_log(f"You: {text}")
 
         # ── Message queue: if a tool is executing, queue instead of send ──
         if self._tool_executing:
