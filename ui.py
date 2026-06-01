@@ -683,12 +683,19 @@ class RumiUI:
 
     # ── Public API ──────────────────────────────────────────────
     def write_log(self, text: str):
-        """Display a formatted log message in the terminal.
+        """Display a log message - opencode minimal style.
 
-        Opencode-style: minimal, no panels around messages.
+        Opencode: plain text, no panels, no borders.
         """
         with self._input_lock:
             tl = text.lower().strip()
+
+            # Skip internal messages
+            if any(skip in tl for skip in ["[rumi]", "[episodic]", "[selfawareness]",
+                                            "[coordinator]", "[dreaming]", "[vectormemory]",
+                                            "[telegram]", "[api]", "cognitive gate",
+                                            "warning:", "non-data parts"]):
+                return
 
             if tl.startswith("you:"):
                 content = text[4:].strip()
@@ -699,30 +706,28 @@ class RumiUI:
             elif tl.startswith("rumi:") or tl.startswith("ai:"):
                 prefix_len = 5 if tl.startswith("rumi:") else 3
                 content = text[prefix_len:].strip()
-                # Just print the content directly - no panel wrapper
-                console.print()
-                try:
-                    console.print(Markdown(content))
-                except Exception:
-                    console.print(Text(content, style=TEXT_PRIMARY))
+                # Filter out thinking sections (wrapped in **text**)
+                import re
+                content = re.sub(r'\*\*[^*]+\*\*\s*', '', content).strip()
+                if content:
+                    console.print()
+                    try:
+                        console.print(Markdown(content))
+                    except Exception:
+                        console.print(Text(content, style=TEXT_PRIMARY))
                 self.set_state("SPEAKING")
 
             elif tl.startswith("sys:"):
                 content = text[4:].strip()
-                if "activated" in content or "deactivated" in content:
-                    color = ACCENT_ORANGE
-                elif "online" in content or "connected" in content:
-                    color = ACCENT_GREEN
-                elif "error" in content or "failed" in content:
-                    color = ACCENT_RED
-                else:
-                    color = TEXT_MUTED
-                console.print(Text(f"  {content}", style=f"dim {color}"))
+                console.print(Text(f"  {content}", style=f"dim {TEXT_MUTED}"))
 
             elif tl.startswith("err:") or tl.startswith("error:"):
                 console.print(Text(f"  {text[4:].strip()}", style=f"bold {ACCENT_RED}"))
 
             else:
+                # Skip empty or noise messages
+                if not text.strip() or text.strip().startswith("["):
+                    return
                 console.print(Text(f"  {text}", style=TEXT_PRIMARY))
 
     def set_state(self, state: str):

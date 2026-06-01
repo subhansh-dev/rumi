@@ -7514,10 +7514,7 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
             raise
         except Exception as e:
             err_str = str(e).lower()
-            if "1008" in err_str:
-                print(f"[RUMI] 1008 policy violation — server rejected message", flush=True)
-            elif not _is_ws_dead_error(err_str):
-                print(f"[RUMI] Recv: {e}", flush=True)
+            # Suppress noisy error prints
             self._session_dead = True
             raise _SessionDead("receive_audio: error")
         finally:
@@ -7920,9 +7917,10 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
         # Create UI first (displays startup banner)
         ui = RumiUI("rumi_face.png")
 
-        # Suppress brain module initialization noise AFTER UI is created
+        # Suppress ALL brain module initialization noise
         _quiet_stdout = io.StringIO()
-        with contextlib.redirect_stdout(_quiet_stdout):
+        _quiet_stderr = io.StringIO()
+        with contextlib.redirect_stdout(_quiet_stdout), contextlib.redirect_stderr(_quiet_stderr):
             if init_learnings_file:
                 try:
                     init_learnings_file()
