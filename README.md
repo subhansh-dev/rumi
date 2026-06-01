@@ -24,7 +24,7 @@
 
 <p align="center">
   <b>Autonomous Scientific Cognition Framework</b><br>
-  Terminal-native. 88 Brain Modules. 15 Scientist Modules. 10-Stage Hypothesis Discovery Pipeline. Zero bloat.
+  Terminal-native. 57 Brain Modules. 17 Scientist Modules. 42 Discovery Modules. 17 Domains.
 </p>
 
 <p align="center">
@@ -61,7 +61,7 @@
 |-----------|------|
 | **Interface** | Terminal-native (Rich + prompt_toolkit) — no bloat |
 | **Model** | Gemini 2.5 Flash + Groq (Llama 3.3 70B), multi-model routing with token-aware rate limiting |
-| **Architecture** | 88 cognitive brain modules + 15 Scientist AI modules + 10-stage discovery pipeline |
+| **Architecture** | 57 cognitive brain modules + 17 Scientist AI modules + 42 Discovery modules |
 | **Pipeline** | PubMed retrieval -> relevance filter -> entity extraction -> knowledge graph -> contradiction mining -> hypothesis generation -> skeptic review -> novelty verification -> experiment planning -> metrics logging |
 | **Memory** | 9-type system: neural, episodic, vector, procedural, working, associative, predictive, consolidated, global workspace; SQLite hypothesis memory for cross-session persistence |
 | **Learning** | Active inference, curiosity-driven exploration, dreaming (offline replay), meta-learning |
@@ -242,12 +242,19 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 | **Pipeline Orchestrator** | `discovery/pipeline.py` | Stage-based orchestration, checkpointing, retry with exponential backoff, provider failover |
 | **Hypothesis Engine** | `discovery/hypothesis_engine.py` | Hypothesis generation with Groq->Gemini->queue retry chain, algorithmic confidence scoring |
 | **Hypothesis Memory** | `discovery/hypothesis_memory.py` | SQLite-backed cross-session hypothesis persistence, dedup, status tracking |
+| **Hypothesis Tournament** | `discovery/hypothesis_tournament.py` | GFlowNet-style diverse hypothesis evolution with crossover and mutation |
 | **Contradiction Miner** | `discovery/contradiction_miner.py` | Algorithmic detection of direct, path, paper, and temporal contradictions |
 | **Confidence Scorer** | `discovery/confidence_scorer.py` | Evidence-weighted scoring (paper count, citation impact, recency, replication) |
 | **Novelty Detector** | `discovery/novelty_detector.py` | PubMed literature comparison, novelty probability estimation |
 | **Skeptic Agent** | `discovery/skeptic_agent.py` | Scientific reflection, logical flaw detection, alternative explanation generation |
 | **Experiment Planner** | `discovery/experiment_planner.py` | Experimental design generation with controls, biomarkers, failure mode analysis |
 | **Metrics Tracker** | `discovery/metrics_tracker.py` | Per-stage latency, token usage, retry/failure rates, hypothesis quality metrics |
+| **LLM Client** | `discovery/llm_client.py` | Unified Groq→Gemini client with rate limiting and retry |
+| **Groq Client** | `discovery/groq_client.py` | Token-aware rate limited Groq client |
+| **Citation Grounding** | `discovery/citation_grounding.py` | Ground claims in cited literature |
+| **Claim Labeler** | `discovery/claim_labeler.py` | Label scientific claims by type and strength |
+| **Claim Provenance** | `discovery/claim_provenance.py` | Track claim sources and evidence chains |
+| **Domain Computational** | `discovery/domain_computational.py` | Domain-specific mathematical calculations |
 | **PubChem Enrichment** | `discovery/pubchem.py` | Compound search, targets, properties via PUG REST (drug, materials) |
 | **OpenFDA Enrichment** | `discovery/openfda.py` | Side effects, labeling via openFDA API (drug) |
 | **UniProt Enrichment** | `discovery/uniprot.py` | Gene/protein lookup, free REST, no key (neuro, molbio) |
@@ -258,13 +265,21 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 | **NASA API** | `discovery/nasa_api.py` | Image library, exoplanets, NEOs — free key (space/astro) |
 | **arXiv** | `discovery/arxiv_api.py` | Physics/astro/CS paper search — free, no key (physics, space) |
 | **GBIF** | `discovery/gbif_api.py` | Species/biodiversity data — free, no key (ecology) |
+| **NOAA API** | `discovery/noaa_api.py` | Ocean data — free, no key (oceanography) |
+| **OEIS API** | `discovery/oeis_api.py` | Math sequences — free, no key (mathematics) |
+| **OpenAlex API** | `discovery/openalex_api.py` | Social science research — free, no key (social sciences) |
+| **USGS API** | `discovery/usgs_api.py` | Earth science data — free, no key (earth science) |
+| **WHO API** | `discovery/who_api.py` | Public health data — free, no key (public health) |
+| **World Bank API** | `discovery/world_bank_api.py` | Economic indicators — free, no key (economics) |
+| **GitHub API** | `discovery/github_api.py` | Repository data — free, no key (computer science) |
+| **CIR API** | `discovery/cir_api.py` | Chemical information — free, no key (chemistry) |
 | **Molecule Designer** | `discovery/molecule.py` | Groq SMILES -> RDKit validation -> PubChem -> scoring (drug) |
 | **Output** | `discovery/output.py` | Terminal formatting, session saving |
 | **Dashboard** | `discovery/dashboard/index.html` | vis-network graph + tabs for hypotheses, contradictions, molecules |
 
 ---
 
-## 🧠 Brain Systems (60+ Modules)
+## 🧠 Brain Systems (57 Modules)
 
 ### Memory Systems
 
@@ -313,10 +328,11 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 | **Theory of Mind** | `brain/theory_of_mind.py` | User expertise modeling, intent inference, emotional state tracking |
 | **Metacognitive Monitor** | `brain/metacognitive_monitor.py` | Thinking quality tracking, calibration, strategy effectiveness |
 | **Introspection Engine** | `brain/introspection_engine.py` | Confidence calibration, cognitive bias detection (12 types), epistemic humility |
-| **Emotional Regulation** | `brain/emotional_regulation.py` | Somatic Marker Hypothesis — emotions as decision-pruning signals |
 | **Integrated Information** | `brain/integrated_info.py` | Φ (phi) approximation inspired by Tononi's IIT theory |
 | **Self-Narrative** | `brain/narrative_intelligence.py` | Evolving story of identity, growth, and experience |
 | **Global Workspace** | `brain/global_workspace.py` | Thalamus-inspired multi-module coordination and broadcast |
+| **Workspace Context** | `brain/workspace_context.py` | Context injection from global workspace for situational awareness |
+| **Workspace Events** | `brain/workspace_events.py` | Event types and publishing for inter-module communication |
 
 ### Planning & Autonomy
 
@@ -330,6 +346,14 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 | **Cognitive Load Manager** | `brain/cognitive_load.py` | Working memory monitoring (7±2 slots), overload detection |
 | **AGI Orchestrator** | `brain/agi_orchestrator.py` | Master coordinator wiring all cognitive modules into a unified loop |
 | **Multi-Agent Orchestrator** | `brain/multi_agent_orchestrator.py` | Parallel, debate, pipeline, voting, specialist, swarm execution modes |
+
+### Scientific Reasoning
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Scientific Reasoning** | `brain/scientific_reasoning.py` | Multi-pass scientific reasoning cycle with hypothesis testing |
+| **Discovery Orchestrator** | `brain/discovery_orchestrator.py` | Coordinates discovery pipeline across brain modules |
+| **Theory Formation** | `brain/theory_formation.py` | Bengino-inspired theory engine for forming theories from observations |
 
 ### World Models
 
@@ -346,8 +370,8 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 
 | Category | Description |
 |----------|-------------|
-| 🔬 **Discovery Engine** | 6-domain scientific discovery: drug, materials, neuroscience, molbio, climate, general. PubMed → domain-specific extraction → graph → enrichment (PubChem/OpenFDA/UniProt) → metrics → hypotheses → molecules. Auto-detect or manual domain. |
-| 🧠 **Cognition** | 60+ brain modules — causal reasoning, analogy, active inference, curiosity, metacognition, dreaming, learning |
+| 🔬 **Discovery Engine** | 17-domain scientific discovery: drug, materials, neuroscience, molbio, climate, space, ecology, physics, CS, earth, ocean, economics, health, math, social, chemistry, general. PubMed → domain-specific extraction → graph → enrichment (15+ APIs) → metrics → hypotheses → molecules. Auto-detect or manual domain. |
+| 🧠 **Cognition** | 57 brain modules — causal reasoning, analogy, active inference, curiosity, metacognition, dreaming, learning |
 | 🌐 **Research** | Paper search (arXiv + Semantic Scholar), deep web research, scientific knowledge graphs |
 | 🧠 **Memory** | 9 memory types — neural, episodic, vector, procedural, working, global workspace, associative, predictive, consolidated |
 | 🤖 **Scientist Agents** | 11 specialized research agent personas: literature reviewer, hypothesis generator, experiment designer, paper writer, peer reviewer, novelty analyst, cross-domain bridge, reproducibility engineer, data analyst, knowledge curator, research coordinator |
@@ -810,9 +834,10 @@ force_learning()
 
 ```
 rumi/
-├── main.py                      # Entry point (~3000 lines)
+├── main.py                      # Entry point (~8000 lines)
 ├── ui.py                        # Terminal UI (Rich + prompt_toolkit)
 ├── rumi_launcher.py             # Console entry point
+├── rumi_llm.py                  # Unified LLM helper (Groq→Gemini)
 ├── thinking_loop.py             # Multi-pass reasoning engine
 ├── telegram_bot.py              # Telegram bridge
 ├── rumi_telegram_patch.py       # Telegram integration
@@ -830,13 +855,19 @@ rumi/
 │   ├── pipeline.py              #   Stage-based orchestration + checkpointing
 │   ├── hypothesis_engine.py     #   Hypothesis generation (Groq->Gemini->queue)
 │   ├── hypothesis_memory.py     #   SQLite cross-session hypothesis persistence
+│   ├── hypothesis_tournament.py #   GFlowNet-style hypothesis evolution
 │   ├── contradiction_miner.py   #   Algorithmic contradiction detection
 │   ├── confidence_scorer.py     #   Evidence-weighted confidence scoring
 │   ├── novelty_detector.py      #   PubMed novelty estimation
 │   ├── skeptic_agent.py         #   Scientific critique + reflection
 │   ├── experiment_planner.py    #   Experimental design generation
 │   ├── metrics_tracker.py       #   Pipeline latency + quality metrics
+│   ├── llm_client.py            #   Unified Groq→Gemini client
 │   ├── groq_client.py           #   Token-aware rate limited Groq client
+│   ├── citation_grounding.py    #   Citation-based grounding
+│   ├── claim_labeler.py         #   Scientific claim labeling
+│   ├── claim_provenance.py      #   Claim source tracking
+│   ├── domain_computational.py  #   Domain-specific calculations
 │   ├── pubchem.py               #   PubChem compound/target lookup
 │   ├── openfda.py               #   OpenFDA side effects + labeling
 │   ├── uniprot.py               #   UniProt gene/protein lookup
@@ -847,12 +878,20 @@ rumi/
 │   ├── nasa_api.py              #   NASA — image library, exoplanets, NEOs
 │   ├── arxiv_api.py             #   arXiv — physics/astro/CS papers
 │   ├── gbif_api.py              #   GBIF — species biodiversity
+│   ├── noaa_api.py              #   NOAA — ocean data
+│   ├── oeis_api.py              #   OEIS — math sequences
+│   ├── openalex_api.py          #   OpenAlex — social science research
+│   ├── usgs_api.py              #   USGS — earth science data
+│   ├── who_api.py               #   WHO — public health data
+│   ├── world_bank_api.py        #   World Bank — economic indicators
+│   ├── github_api.py            #   GitHub — repository data
+│   ├── cir_api.py               #   CIR — chemical information
 │   ├── molecule.py              #   Molecule design (Groq + RDKit + PubChem)
 │   ├── output.py                #   Terminal formatting + file output
 │   └── dashboard/
 │       └── index.html           #   Web dashboard (vis-network)
 │
-├── brain/                       # 🧠 Cognitive systems (88 files)
+├── brain/                       # 🧠 Cognitive systems (57 modules)
 │   ├── neural_memory.py         #   Hebbian learning memory
 │   ├── episodic_memory.py       #   Event recording
 │   ├── vector_memory.py         #   Semantic search
@@ -881,9 +920,10 @@ rumi/
 │   ├── theory_of_mind.py        #   User modeling
 │   ├── metacognitive_monitor.py #   Thinking quality
 │   ├── introspection_engine.py  #   Bias detection
-│   ├── emotional_regulation.py  #   Somatic markers
 │   ├── integrated_info.py       #   IIT Φ consciousness
 │   ├── global_workspace.py      #   Thalamus coordination
+│   ├── workspace_context.py     #   Context injection
+│   ├── workspace_events.py      #   Inter-module events
 │   ├── autonomous_planner.py    #   MCTS planning
 │   ├── goal_engine.py           #   Hierarchical goals
 │   ├── intrinsic_motivation.py  #   Self-determination theory
@@ -893,6 +933,9 @@ rumi/
 │   ├── agi_orchestrator.py      #   Master cognitive loop
 │   ├── multi_agent_orchestrator.py # Parallel agent execution
 │   ├── self_modifier.py         #   Safe self-modification
+│   ├── scientific_reasoning.py  #   Multi-pass scientific reasoning
+│   ├── discovery_orchestrator.py # Discovery coordination
+│   ├── theory_formation.py      #   Theory engine
 │   ├── world_model.py           #   Latent dynamics
 │   ├── enhanced_world_model.py  #   Non-linear MLP
 │   ├── world_simulation.py      #   Event tracking

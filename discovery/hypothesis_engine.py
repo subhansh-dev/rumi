@@ -92,7 +92,7 @@ class HypothesisEngine:
             "entities": {k: {"type": v["type"], "name": v["name"]} for k, v in
                         (list(graph.entities.items())[:60]) if hasattr(graph, "entities")},
             "relationships": graph.relationships[:80] if hasattr(graph, "relationships") else [],
-        }, indent=2, default=str)
+        }, indent=2, default=str)[:8000]
 
         contradiction_text = ""
         if contradictions:
