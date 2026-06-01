@@ -7397,9 +7397,9 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                             txt = _clean_transcript(sc.output_transcription.text)
                             if txt:
                                 out_buf.append(txt)
-                                # Stream text in real-time as it arrives
+                                # Stream text in real-time (print directly, no panel)
                                 if not sc.turn_complete:
-                                    self.ui.write_log(f"Rumi: {txt}")
+                                    print(txt, end="", flush=True)
                         if sc.input_transcription and sc.input_transcription.text:
                             txt = _clean_transcript(sc.input_transcription.text)
                             if txt:
@@ -7409,9 +7409,9 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                             for part in sc.model_turn.parts:
                                 if hasattr(part, 'text') and part.text:
                                     out_buf.append(part.text)
-                                    # Stream text in real-time
+                                    # Stream text in real-time (print directly, no panel)
                                     if not sc.turn_complete:
-                                        self.ui.write_log(f"Rumi: {part.text}")
+                                        print(part.text, end="", flush=True)
                         if sc.turn_complete:
                             full_in = " ".join(in_buf).strip()
 
@@ -7443,8 +7443,9 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                                     except asyncio.QueueFull:
                                         break
                                 _audio_buf.clear()
-                                # Response already streamed in real-time, don't show again
-                                # Just send to telegram if needed
+                                # Response already streamed in real-time, just add newline
+                                print()  # Newline after streamed response
+                                # Send to telegram if needed
                                 full_out = " ".join(out_buf).strip()
                                 if full_out:
                                     try:
