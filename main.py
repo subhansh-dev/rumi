@@ -2614,9 +2614,6 @@ class RumiLive:
             return
         self._last_text_cmd = (text, now)
 
-        # Show user message in terminal
-        self.ui.write_log(f"You: {text}")
-
         # ── Message queue: if a tool is executing, queue instead of send ──
         if self._tool_executing:
             self._queued_texts.append(text)
