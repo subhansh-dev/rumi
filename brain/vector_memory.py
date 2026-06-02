@@ -75,16 +75,10 @@ class VectorMemory:
         self._model_loading = True
         try:
             from sentence_transformers import SentenceTransformer
-            print(f"[VectorMemory] Loading embedding model: {_MODEL_NAME}...")
-            t0 = time.time()
             self._model = SentenceTransformer(_MODEL_NAME)
-            elapsed = time.time() - t0
-            print(f"[VectorMemory] Model loaded in {elapsed:.1f}s")
             self._model_loaded = True
             return True
         except ImportError:
-            print("[VectorMemory] sentence-transformers not installed. "
-                  "Run: pip install sentence-transformers")
             return False
         except Exception as e:
             print(f"[VectorMemory] Failed to load model: {e}")
