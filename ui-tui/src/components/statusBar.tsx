@@ -1,6 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../theme';
+
+const KAOMOJI = [
+  '(｡•́︿•̀｡)', '(◔_versed)', '(¬‿¬)', '( •_•)>⌐■-■', '(⌐■_■)',
+  '(´･_･`)', '◉_◉', '(°ロ°)', '( ˘⌣˘)♡', 'ヽ(>∀<☆)☆',
+  '٩(๑❛ᴗ❛๑)۶', '(⊙_⊙)', '(¬_¬)', '( ͡° ͜ʖ ͡°)', 'ಠ_ಠ',
+];
 
 interface StatusBarProps {
   state: string;
@@ -27,6 +33,15 @@ function formatTokens(n: number): string {
 export const StatusBar: React.FC<StatusBarProps> = ({
   state, model, tokens, cost, uptime, thinkMode, diveMode,
 }) => {
+  const [kaomojiIdx, setKaomojiIdx] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setKaomojiIdx(prev => (prev + 1) % KAOMOJI.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
   const stateColor = state === 'READY' || state === 'IDLE'
     ? theme.accent.green
     : state === 'THINKING' || state === 'PROCESSING'
@@ -38,6 +53,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     : state === 'SPEAKING' ? 'speaking…'
     : 'ready';
 
+  const isBusy = state === 'THINKING' || state === 'PROCESSING';
+
   return (
     <Box
       flexDirection="row"
@@ -46,6 +63,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       borderColor={theme.border.normal}
     >
       <Text color={stateColor} bold>{'● '}{stateLabel}</Text>
+      {isBusy && (
+        <Text color={theme.accent.amber}>{' '}{KAOMOJI[kaomojiIdx]}</Text>
+      )}
       <Text color={theme.border.normal}>{' │ '}</Text>
       <Text color={theme.accent.blue}>{model}</Text>
       <Text color={theme.border.normal}>{' │ '}</Text>

@@ -47,7 +47,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!visible) return null;
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={theme.accent.blue} padding={1} position="absolute" width="60%">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.accent.blue} padding={1} width="60%">
       <Text color={theme.accent.blue} bold>{' (^_^)? Commands'}</Text>
       <Text color={theme.txt.muted}>{' ─'.repeat(25)}</Text>
       {PALETTE_ITEMS.map((item, idx) => (

@@ -36,7 +36,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   if (!visible) return null;
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={theme.accent.blue} padding={1} position="absolute" width="70%">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.accent.blue} padding={1} width="70%">
       <Text color={theme.accent.blue} bold>{' Sessions'}</Text>
       <Text color={theme.txt.muted}>{' ─'.repeat(30)}</Text>
       {sessions.map((session, idx) => (
