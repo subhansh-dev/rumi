@@ -2307,10 +2307,15 @@ class RumiLive:
     def _post_output(self, text: str):
         """Output text to UI log and console."""
         import re as _re
-        import io
-        import contextlib
-        clean = _re.sub(r'\[/?\w+(?: \w+=[^\]]+)*\]', '', text)
-        self.ui.write_log(clean)
+        # Check if text has Rich markup
+        has_rich = bool(_re.search(r'\[(?:bold\s+)?(?:cyan|green|yellow|red|dim|blue|purple|amber)\]', text))
+        if has_rich:
+            # Pass Rich markup through for direct rendering
+            self.ui.write_log(text)
+        else:
+            # Strip any other markup and pass as plain text
+            clean = _re.sub(r'\[/?\w+(?: \w+=[^\]]+)*\]', '', text)
+            self.ui.write_log(clean)
 
         # Suppress brain module initialization noise
         _quiet = io.StringIO()

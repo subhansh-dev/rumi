@@ -1416,7 +1416,7 @@ class RumiUI:
     # ================================================================
 
     def write_log(self, text: str):
-        """Clean response display — like talking to an AI, not reading a dashboard."""
+        """Hermes-style response display with box-drawing."""
         with self._input_lock:
             tl = text.lower().strip()
 
@@ -1434,7 +1434,7 @@ class RumiUI:
                 console.print(Text(f"❯ {content}", style=TXT_PRIMARY))
                 self.show_thinking()
 
-            # RUMI response — render as markdown, no prefix
+            # RUMI response — render in box like Hermes
             elif tl.startswith("rumi:") or tl.startswith("ai:"):
                 prefix_len = 5 if tl.startswith("rumi:") else 3
                 content = text[prefix_len:].strip()
@@ -1443,17 +1443,24 @@ class RumiUI:
                 content = _re.sub(r'\*\*Reasoning\*\*\s*', '', content).strip()
                 if content:
                     console.print()
+                    # Box header like Hermes
+                    w = console.width or 80
+                    label = " RUMI "
+                    fill = w - 2 - len(label)
+                    console.print(Text(f"╭─{label}{'─' * max(fill - 1, 0)}╮", style=ACCENT_BLUE))
+                    # Content
                     try:
                         console.print(Markdown(content))
                     except Exception:
                         console.print(Text(content, style=TXT_PRIMARY))
+                    # Box footer
+                    console.print(Text(f"╰{'─' * (w - 2)}╯", style=ACCENT_BLUE))
                     console.print()
                 self.set_state("IDLE")
 
             # System messages — dim, minimal
             elif tl.startswith("sys:"):
                 content = text[4:].strip()
-                # Skip noisy system messages
                 if any(skip in content.lower() for skip in ["queued", "session", "online", "ended"]):
                     return
                 console.print(Text(content, style=TXT_DIM))
@@ -1468,20 +1475,18 @@ class RumiUI:
                 sec_msg = text[4:].strip()
                 console.print(Text(f"⚠ {sec_msg}", style=ACCENT_AMBER))
 
-            # Discovery output — render as markdown (rich content)
+            # Discovery output — render as rich markup
             elif tl.startswith("[bold") or tl.startswith("[dim") or tl.startswith("[green") or tl.startswith("[yellow") or tl.startswith("[red"):
-                # Rich markup — render directly
                 try:
                     console.print(text)
                 except Exception:
                     console.print(Text(text, style=TXT_PRIMARY))
 
-            # Everything else — render as markdown if it looks like it, else plain
+            # Everything else — markdown or plain
             else:
                 if not text.strip() or text.strip().startswith("["):
                     return
-                # If it has markdown-ish content, render as markdown
-                if any(marker in text for marker in ["**", "##", "- ", "```", "| ", "1."]):
+                if any(marker in text for marker in ["**", "## ", "- ", "```", "| ", "1."]):
                     try:
                         console.print(Markdown(text))
                     except Exception:
