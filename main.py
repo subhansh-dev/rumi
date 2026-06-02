@@ -2305,23 +2305,24 @@ class RumiLive:
         self.ui.on_idle_scan = self._on_idle_scan
         self.ui.on_think_mode_toggle = self.set_think_mode
         self.ui.on_deep_dive_toggle = self.set_deep_dive_mode
+        self._init_modules()
 
     def _post_output(self, text: str):
         """Output text to UI log and console."""
         import re as _re
-        import io
-        import contextlib
-        # Check if text has Rich markup
         has_rich = bool(_re.search(r'\[(?:bold\s+)?(?:cyan|green|yellow|red|dim|blue|purple|amber)\]', text))
         if has_rich:
-            # Pass Rich markup through for direct rendering
             self.ui.write_log(text)
         else:
-            # Strip any other markup and pass as plain text
             clean = _re.sub(r'\[/?\w+(?: \w+=[^\]]+)*\]', '', text)
             self.ui.write_log(clean)
 
-        # Suppress brain module initialization noise
+    def _init_modules(self):
+        """One-time brain module initialization."""
+        if getattr(self, '_modules_initialized', False):
+            return
+        self._modules_initialized = True
+        import io, contextlib
         _quiet = io.StringIO()
         with contextlib.redirect_stdout(_quiet):
             if _telegram_ok and TelegramBridge:
