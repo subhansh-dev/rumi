@@ -2307,6 +2307,8 @@ class RumiLive:
     def _post_output(self, text: str):
         """Output text to UI log and console."""
         import re as _re
+        import io
+        import contextlib
         # Check if text has Rich markup
         has_rich = bool(_re.search(r'\[(?:bold\s+)?(?:cyan|green|yellow|red|dim|blue|purple|amber)\]', text))
         if has_rich:
