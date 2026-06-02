@@ -96,20 +96,6 @@ class GatewayServer:
 
     async def _handle_session_create(self, req: JsonRpcRequest, params: dict):
         """Initialize RumiLive and start the session."""
-        from ui import RumiUI
-
-        ui = RumiUI.__new__(RumiUI)
-        ui._running = True
-        ui._think_mode = False
-        ui._deep_dive_active = False
-        ui._rumi_state = "READY"
-        ui._discovery_running = False
-        ui._discovery_step = ""
-        ui._total_tokens = 0
-        ui._total_cost = 0.0
-        ui._start_time = time.time()
-        ui._message_count = 0
-
         sys.path.insert(0, str(_project_root))
         from main import RumiLive
 
@@ -182,14 +168,19 @@ class GatewayServer:
 
         send_message(JsonRpcResponse(id=req.id, result={"status": "executing"}))
 
-        if self._rumi and self._rumi.ui:
+        if self._rumi:
             self._loop.call_soon_threadsafe(
-                self._rumi.ui._handle_command, full
+                self._rumi.ui.handle_command, full
             )
 
     def emit(self, method: str, params: dict):
         """Thread-safe method to emit an event to the frontend."""
-        send_message(JsonRpcEvent(method=method, params=params))
+        if self._loop and self._loop.is_running():
+            self._loop.call_soon_threadsafe(
+                send_message, JsonRpcEvent(method=method, params=params)
+            )
+        else:
+            send_message(JsonRpcEvent(method=method, params=params))
 
 
 class GatewayAdapter:
@@ -226,6 +217,61 @@ class GatewayAdapter:
         self._tool_calls = _StubToolCalls()
         self._graph_metrics = _StubGraphMetrics()
         self._activity_feed = _StubActivityFeed()
+
+    def handle_command(self, cmd: str):
+        """Dispatch slash commands — the adapter's equivalent of RumiUI._handle_command."""
+        cmd_lower = cmd.lower().strip()
+
+        if cmd_lower == "/help":
+            self._server.emit("system.message", {
+                "content": "Commands: /help, /clear, /think, /dive, /status, "
+                           "/stats, /timeline, /discover <topic>, /grounded <topic>, /quit",
+            })
+
+        elif cmd_lower == "/think":
+            self._think_mode = not self._think_mode
+            state = "ON" if self._think_mode else "OFF"
+            self._server.emit("state.update", {
+                "state": f"THINK {state}", "think_mode": self._think_mode,
+            })
+
+        elif cmd_lower == "/dive":
+            self._deep_dive_active = not self._deep_dive_active
+            state = "ON" if self._deep_dive_active else "OFF"
+            self._server.emit("state.update", {
+                "state": f"DIVE {state}", "deep_dive": self._deep_dive_active,
+            })
+
+        elif cmd_lower.startswith("/discover "):
+            topic = cmd_lower[len("/discover "):].strip()
+            if self.on_discovery_command:
+                threading.Thread(
+                    target=self.on_discovery_command,
+                    args=("discover", topic), daemon=True,
+                ).start()
+
+        elif cmd_lower.startswith("/grounded "):
+            topic = cmd_lower[len("/grounded "):].strip()
+            if self.on_discovery_command:
+                threading.Thread(
+                    target=self.on_discovery_command,
+                    args=("grounded", topic), daemon=True,
+                ).start()
+
+        elif cmd_lower == "/status":
+            self._server.emit("status.info", {
+                "state": self._rumi_state,
+                "tokens": self._total_tokens,
+                "cost": self._total_cost,
+            })
+
+        elif cmd_lower == "/quit":
+            self._server.emit("session.ending", {})
+
+        else:
+            self._server.emit("system.message", {
+                "content": f"Unknown command: {cmd_lower}",
+            })
 
     def write_log(self, text: str):
         """Intercept output and emit as JSON-RPC events."""
