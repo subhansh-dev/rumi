@@ -30,22 +30,26 @@ def _fetch(url: str) -> dict | None:
         return None
 
 
-def search_papers(query: str, limit: int = 5) -> list[dict]:
-    """Search papers with citation influence metrics."""
+def search_papers(query: str, limit: int = 20) -> list[dict]:
+    """Search papers with citation influence metrics and abstracts."""
     q = urllib.parse.quote(query)
-    url = f"{S2_BASE}/paper/search?query={q}&limit={limit}&fields=title,year,citationCount,influentialCitationCount,authors"
+    url = f"{S2_BASE}/paper/search?query={q}&limit={limit}&fields=title,year,citationCount,influentialCitationCount,authors,abstract,externalIds"
     data = _fetch(url)
     if not data:
         return []
     return [
         {
-            "title": p.get("title", ""),
-            "year": p.get("year"),
-            "citation_count": p.get("citationCount", 0),
-            "influential_citations": p.get("influentialCitationCount", 0),
-            "authors": [a.get("name", "") for a in p.get("authors", [])[:5]],
+            "title": p.get("title", "") if isinstance(p, dict) else str(p),
+            "year": p.get("year") if isinstance(p, dict) else None,
+            "abstract": p.get("abstract", "") if isinstance(p, dict) else "",
+            "citation_count": p.get("citationCount", 0) if isinstance(p, dict) else 0,
+            "influential_citations": p.get("influentialCitationCount", 0) if isinstance(p, dict) else 0,
+            "authors": [a.get("name", "") if isinstance(a, dict) else str(a) for a in (p.get("authors", []) if isinstance(p, dict) else [])[:5]],
+            "paperId": p.get("paperId", "") if isinstance(p, dict) else "",
+            "arxivId": ((p.get("externalIds") or {}).get("ArXiv", "")) if isinstance(p, dict) else "",
+            "pmid": ((p.get("externalIds") or {}).get("PubMed", "")) if isinstance(p, dict) else "",
         }
-        for p in data.get("data", [])
+        for p in (data.get("data", []) if isinstance(data, dict) else [])
     ]
 
 

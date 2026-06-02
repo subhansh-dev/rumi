@@ -7,7 +7,8 @@ HYPOTHESES_DIR = Path(__file__).resolve().parent.parent / "discovery" / "hypothe
 
 def post_output(msg):
     """Thread-safe output that strips Rich markup."""
-    plain = re.sub(r'\[/?\w+\]', '', msg) if msg else msg
+    # Handle complex Rich markup tags like [bold cyan], [style fg='#4a9eff'], etc.
+    plain = re.sub(r'\[[^\]]*\]', '', msg) if msg else msg
     print(f"  {plain}" if plain else "")
 
 
@@ -65,12 +66,12 @@ def format_hypotheses(hypotheses: list[dict]) -> str:
     lines = ["", "=" * 70, "  SCIENTIFIC HYPOTHESES", "=" * 70, ""]
     for i, h in enumerate(hypotheses, 1):
         # Hypothesis header
-        lines.append(f"  ┌─ Hypothesis {i} {'─' * 40}")
-        lines.append(f"  │ Title: {h.get('title', 'Untitled')}")
-        lines.append(f"  │ Pattern: {h.get('pattern_type', 'unknown').replace('_', ' ').title()}")
-        lines.append(f"  │ Confidence: {h.get('confidence', 'N/A')}")
-        lines.append(f"  │ Novelty: {h.get('novelty', 'medium').title()}{' (downranked by skeptic)' if h.get('novelty_override') else ''}")
-        lines.append(f"  └{'─' * 60}")
+        lines.append(f"  +-- Hypothesis {i} {'-' * 40}")
+        lines.append(f"  | Title: {h.get('title', 'Untitled')}")
+        lines.append(f"  | Pattern: {h.get('pattern_type', 'unknown').replace('_', ' ').title()}")
+        lines.append(f"  | Confidence: {h.get('confidence', 'N/A')}")
+        lines.append(f"  | Novelty: {h.get('novelty', 'medium').title()}{' (downranked by skeptic)' if h.get('novelty_override') else ''}")
+        lines.append(f"  +{'-' * 60}")
 
         # 1. Mechanistic Rationale
         mech = h.get("mechanistic_rationale", h.get("description", ""))
@@ -87,11 +88,11 @@ def format_hypotheses(hypotheses: list[dict]) -> str:
         # 3. Contradictory Evidence
         contra = h.get("contradictory_evidence", [])
         if contra:
-            lines.append(f"  ⚠ Contradictory Evidence:")
+            lines.append(f"  WARNING: Contradictory Evidence:")
             for j, ev in enumerate(contra, 1):
                 lines.append(f"    {j}. {_clean_unicode(ev)}")
         else:
-            lines.append(f"  ⚠ Contradictory Evidence: None specified (consider this a weakness)")
+            lines.append(f"  WARNING: Contradictory Evidence: None specified (consider this a weakness)")
 
         # 4. Alternative Explanations
         alt = h.get("alternative_explanations", [])
@@ -158,7 +159,7 @@ def format_hypotheses(hypotheses: list[dict]) -> str:
                 defn = e.get("definition", "")
                 papers = e.get("papers", [])
                 pstr = f" [{' '.join(papers[:3])}]" if papers else ""
-                lines.append(f"    {e['source']} ──{e['relation']}──→ {e['target']}{pstr}")
+                lines.append(f"    {e['source']} --{e['relation']}--> {e['target']}{pstr}")
                 if defn:
                     lines.append(f"      {defn}")
 

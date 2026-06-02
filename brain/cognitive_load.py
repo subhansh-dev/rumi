@@ -159,6 +159,7 @@ class CognitiveLoadManager:
         self._working_memory: List[MemoryChunk] = []
         self._active_modules: Set[str] = set()
         self._load_history: deque = deque(maxlen=100)
+        self._max_chunks = WORKING_MEMORY_SLOTS  # Miller's 7±2
         self._load()
 
     def _empty_store(self) -> dict:

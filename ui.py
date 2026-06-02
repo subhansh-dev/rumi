@@ -1,17 +1,38 @@
 """
-ui.py — RUMI Terminal UI (v4.0)
-Opencode-inspired dark terminal interface.
-Full-screen layout with panels, status bar, streaming messages.
+ui.py -- RUMI Terminal UI (v8.0 Professional AI Research OS)
+Compact, dense, professional. Inspired by Claude Code, OpenCode, Hermes Agent.
+Premium dark theme, distinct panels, clean box-drawing, progress indicators.
+Every screen maximizes information density while remaining visually clean.
 """
 
 import sys
 import os
 import json
 import time
+import random
 import platform
 import threading
+import re as _re
 from pathlib import Path
 from datetime import datetime
+from collections import deque
+
+# -- Terminal setup --
+if sys.platform == "win32":
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleOutputCP(65001)
+        kernel32.SetConsoleCP(65001)
+        STD_OUTPUT_HANDLE = -11
+        handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+        mode = ctypes.c_ulong()
+        kernel32.GetConsoleMode(handle, ctypes.byref(mode))
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        mode.value |= ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        kernel32.SetConsoleMode(handle, mode.value)
+    except Exception:
+        pass
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -21,10 +42,12 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.box import ROUNDED, MINIMAL, SIMPLE, HEAVY, DOUBLE, HORIZONTALS
 from rich.style import Style
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.live import Live
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.layout import Layout
 from rich.columns import Columns
+from rich.align import Align
+from rich.padding import Padding
+from rich.theme import Theme
 
 try:
     from prompt_toolkit import prompt as _pt_prompt
@@ -38,60 +61,70 @@ except ImportError:
     KeyBindings = None
     HTML = None
 
+BASE_DIR = Path(__file__).resolve().parent
+CONFIG_DIR = BASE_DIR / "config"
+API_FILE = CONFIG_DIR / "api_keys.json"
 
-from rich.theme import Theme
+# ================================================================
+# HERMES-STYLE WARM DARK THEME
+# ================================================================
 
-# ── Opencode-inspired color palette ────────────────────────────
-# Dark backgrounds
-BG_BLACK = "#0a0a0a"
-BG_PANEL = "#141414"
-BG_ELEMENT = "#1e1e1e"
-BG_ELEVATED = "#282828"
+# Background layers
+BG_DEEP    = "#0d1117"
+BG_SECOND  = "#161b22"
+BG_PANEL   = "#1c2128"
+BG_ELEMENT = "#21262d"
+BG_HOVER   = "#30363d"
+BG_INPUT   = "#0d1117"
 
-# Text
-TEXT_PRIMARY = "#eeeeee"
-TEXT_SECONDARY = "#b0b0b0"
-TEXT_MUTED = "#808080"
-TEXT_DIM = "#606060"
+# Text hierarchy
+TXT_BRIGHT  = "#f0f6fc"
+TXT_PRIMARY = "#c9d1d9"
+TXT_SECOND  = "#8b949e"
+TXT_MUTED   = "#484f58"
+TXT_DIM     = "#30363d"
 
-# Accent colors (opencode palette)
-ACCENT_CYAN = "#56b6c2"
-ACCENT_BLUE = "#5c9cf5"
-ACCENT_PURPLE = "#9d7cd8"
-ACCENT_ORANGE = "#fab283"
-ACCENT_GREEN = "#7fd88f"
-ACCENT_RED = "#e06c75"
-ACCENT_YELLOW = "#e5c07b"
+# Accent palette
+ACCENT_CYAN    = "#39d353"
+ACCENT_BLUE    = "#58a6ff"
+ACCENT_GREEN   = "#39d353"
+ACCENT_AMBER   = "#d29922"
+ACCENT_RED     = "#f85149"
+ACCENT_PURPLE  = "#bc8cff"
+ACCENT_TEAL    = "#39d353"
+ACCENT_PINK    = "#f778ba"
+
+# Semantic aliases
+C_BLUE   = ACCENT_BLUE
+C_GREEN  = ACCENT_GREEN
+C_AMBER  = ACCENT_AMBER
+C_RED    = ACCENT_RED
+C_PURPLE = ACCENT_PURPLE
+C_TEAL   = ACCENT_TEAL
+C_PINK   = ACCENT_PINK
+C_DIM    = TXT_MUTED
+C_WHITE  = TXT_PRIMARY
+C_BOLD   = TXT_BRIGHT
 
 # Borders
-BORDER_NORMAL = "#3c3c3c"
-BORDER_ACTIVE = "#606060"
-BORDER_DIM = "#2a2a2a"
+BORDER_SUBTLE  = "#21262d"
+BORDER_NORMAL  = "#30363d"
+BORDER_ACTIVE  = "#58a6ff"
 
-# Legacy aliases
-C_CYAN = ACCENT_CYAN
-C_BLUE = ACCENT_BLUE
-C_AMBER = ACCENT_ORANGE
-C_GREEN = ACCENT_GREEN
-C_RED = ACCENT_RED
-C_PURPLE = ACCENT_PURPLE
-C_DIM = TEXT_MUTED
-C_WHITE = TEXT_PRIMARY
-C_BOLD = "#ffffff"
-C_PANEL = BG_PANEL
-C_BORDER = BORDER_NORMAL
-C_BG = BG_BLACK
+# Status bar
+SB_BG = "#0d1117"
+SB_FG = "#8b949e"
 
 _dark_theme = Theme({
-    "black": BG_BLACK,
-    "white": TEXT_PRIMARY,
+    "black": BG_DEEP,
+    "white": TXT_PRIMARY,
     "cyan": ACCENT_CYAN,
     "green": ACCENT_GREEN,
-    "yellow": ACCENT_ORANGE,
+    "yellow": ACCENT_AMBER,
     "blue": ACCENT_BLUE,
     "magenta": ACCENT_PURPLE,
     "red": ACCENT_RED,
-    "dim": TEXT_MUTED,
+    "dim": TXT_MUTED,
 })
 
 console = Console(
@@ -101,49 +134,92 @@ console = Console(
     no_color=False,
 )
 
-# Set terminal background to opencode black
-import sys as _sys
-_sys.stdout.write("\033[48;2;10;10;10m")  # #0a0a0a RGB
-_sys.stdout.flush()
+_console_lock = threading.Lock()
+_orig_console_print = console.print
 
-BASE_DIR = Path(__file__).resolve().parent
-CONFIG_DIR = BASE_DIR / "config"
-API_FILE = CONFIG_DIR / "api_keys.json"
+def _thread_safe_print(*args, **kwargs):
+    with _console_lock:
+        _orig_console_print(*args, **kwargs)
 
-# ── Prompt symbols ──────────────────────────────────────────────
-PROMPT_SYMBOL = "\u276f "
-PROMPT_BUSY = "..."
-PROMPT_READY = "\u276f "
+console.print = _thread_safe_print
 
-# ── Status Bar ──────────────────────────────────────────────────
-SPINNER_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-RUMI_WORDS = [
-    "reasoning", "hypothesizing", "synthesizing",
-    "calculating", "analyzing", "experimenting",
-    "discovering", "researching", "thinking",
-    "processing", "computing", "formulating",
-    "investigating", "examining", "validating",
-    "connecting patterns", "doing science",
-    "conceptualizing", "theorizing", "postulating",
-    "simulating", "optimizing", "verifying",
-    "calibrating", "inferring", "deducing",
-    "extrapolating", "brainstorming", "rumination",
-    "conjuring science", "reading code", "writing code",
-    "refactoring", "building", "constructing",
-    "preparing response", "loading brain",
+# Terminal background
+_BG_DARK = "#0d1117"
+_BG_RESET = "\033[0m"
+
+def _set_terminal_bg():
+    """No background transform -- use terminal default."""
+    pass
+
+def _reset_terminal_bg():
+    """No background reset needed."""
+    pass
+
+_set_terminal_bg()
+
+import atexit
+atexit.register(_reset_terminal_bg)
+
+# ================================================================
+# CONSTANTS
+# ================================================================
+
+PROMPT_SYMBOL = "> "
+PROMPT_BUSY   = "..."
+PROMPT_READY  = "> "
+
+SPINNER_CHARS = "|/-\\"
+
+# Thinking animations
+THINKING_MESSAGES = [
+    "Thinking...",
+    "Analyzing Literature...",
+    "Constructing Hypotheses...",
+    "Searching Knowledge Graph...",
+    "Mining Contradictions...",
+    "Synthesizing Evidence...",
+    "Validating Claims...",
+    "Formulating Reasoning...",
+    "Processing Research Data...",
+    "Connecting Patterns...",
 ]
 
-# ── Personality System ──────────────────────────────────────────
+# Status badges
+BADGE_ONLINE    = "[ONLINE]"
+BADGE_THINKING  = "[THINKING]"
+BADGE_RESEARCH  = "[RESEARCHING]"
+BADGE_DISCOVER  = "[DISCOVERING]"
+BADGE_MEMORY    = "[MEMORY ACTIVE]"
+BADGE_DREAM     = "[DREAM ENGINE]"
+BADGE_IDLE      = "[IDLE]"
+
+# ================================================================
+# ASCII LOGO
+# ================================================================
+
+RUMI_LOGO = r"""
+  ██████╗ ██╗   ██╗███╗   ███╗██╗
+  ██╔══██╗██║   ██║████╗ ████║██║
+  ██████╔╝██║   ██║██╔████╔██║██║
+  ██╔══██╗██║   ██║██║╚██╔╝██║██║
+  ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║
+  ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝
+"""
+
+# ================================================================
+# PERSONALITY SYSTEM
+# ================================================================
+
 PERSONALITIES = {
     "cutesy": {
         "label": "Cutesy / UwU",
-        "desc": "Playful, cute scientist — 'hewwoo!! let's do science!!'",
+        "desc": "Playful, cute scientist",
         "soul_file": "SOUL_cutesy.md",
         "rumi_file": "RUMI_cutesy.md",
     },
     "professional": {
         "label": "Professional / Sharp",
-        "desc": "Direct, analytical scientist — 'Hypothesis formed. Let me verify.'",
+        "desc": "Direct, analytical scientist",
         "soul_file": "SOUL_professional.md",
         "rumi_file": "RUMI_professional.md",
     },
@@ -151,7 +227,6 @@ PERSONALITIES = {
 
 
 def _set_personality(choice: str):
-    """Copy chosen personality template over active SOUL.md and RUMI.md."""
     p = PERSONALITIES.get(choice)
     if not p:
         return False
@@ -171,83 +246,10 @@ def _set_personality(choice: str):
     return True
 
 
-# ── Colour Palette (Opencode-inspired dark + cyan primary) ─────
-C_CYAN   = "#56b6c2"   # Primary accent — cyan (opencode info)
-C_BLUE   = "#5c9cf5"   # User messages — blue (opencode secondary)
-C_AMBER  = "#fab283"   # Secondary accent — peach (opencode primary)
-C_GREEN  = "#7fd88f"   # Success / confirmed (opencode success)
-C_RED    = "#e06c75"   # Error / refuted (opencode error)
-C_PURPLE = "#9d7cd8"   # Special / discovery — purple (opencode accent)
-C_DIM    = "#808080"   # Muted text (opencode textMuted)
-C_WHITE  = "#eeeeee"   # Primary text (opencode text)
-C_BOLD   = "#ffffff"   # Emphasized text
-C_PANEL  = "#141414"   # Panel background (opencode backgroundPanel)
-C_BORDER = "#484848"   # Panel borders (opencode border)
-C_BG     = "#0a0a0a"   # Deep background (opencode background)
+# ================================================================
+# UTILITY FUNCTIONS
+# ================================================================
 
-# ── Prompt symbols ──────────────────────────────────────────────
-PROMPT_SYMBOL = "\u276f "
-PROMPT_BUSY = "..."
-PROMPT_READY = "\u276f "
-
-# ── Help text ──────────────────────────────────────────────────
-HELP_TEXT = """
-[bold #56b6c2]RUMI — Research & Unified Machine Intelligence[/bold #56b6c2]
-[dim #808080]Autonomous Scientific Discovery Framework — 88 brain modules, 17 domains[/dim #808080]
-
-[bold]Navigation[/bold]
-  [#56b6c2]/help[/#56b6c2]                 Show this help
-  [#56b6c2]/clear[/#56b6c2]                Clear screen
-  [#56b6c2]/status[/#56b6c2]               System status & uptime
-  [#56b6c2]/stats[/#56b6c2]                Session statistics
-  [#56b6c2]/exit[/#56b6c2]                 Shut down RUMI
-
-[bold]Discovery Pipeline[/bold]
-  [#56b6c2]/discover [topic][/topic]     Run full discovery: search → extract → graph → hypothesize
-  [#56b6c2]/grounded [topic][/topic]     Grounded discovery with real papers + domain calculations
-  [#56b6c2]/search [query][/query]       Quick literature search (PubMed/arXiv)
-  [#56b6c2]/enrich[/#56b6c2]               Enrich knowledge graph with external data
-  [#56b6c2]/hypothesize [topic][/topic]  Generate hypotheses from knowledge graph
-  [#56b6c2]/contradictions[/#56b6c2]       Find contradictions in knowledge graph
-  [#56b6c2]/generate [target][/target]    Design molecules or materials
-  [#56b6c2]/domains[/#56b6c2]              List all 17 scientific domains
-  [#56b6c2]/domain [key][/key]         Switch active domain
-
-[bold]Research Tools[/bold]
-  [#56b6c2]/science[/#56b6c2]              Show all Scientist AI modules
-  [#56b6c2]/experiment[/#56b6c2]           Design an experiment
-  [#56b6c2]/papers[/#56b6c2]               Search papers by researcher
-  [#56b6c2]/review[/#56b6c2]               Peer review a claim
-  [#56b6c2]/graph[/#56b6c2]                Knowledge graph stats
-  [#56b6c2]/dashboard[/#56b6c2]            Open web dashboard
-  [#56b6c2]/discoveries[/#56b6c2]          List past discovery sessions
-
-[bold]Cognitive Modes[/bold]
-  [#56b6c2]/think[/#56b6c2]                Toggle reasoning mode (step-by-step)
-  [#56b6c2]/dive[/#56b6c2]                 Toggle deep research mode
-  [#56b6c2]/personality[/#56b6c2]          Switch personality (cutesy / professional)
-
-[bold]Example Queries[/bold]
-  [dim #808080]/discover time travel closed timelike curves[/dim #808080]
-  [dim #808080]/grounded KRAS G12C inhibitor resistance[/dim #808080]
-  [dim #808080]/discover materials: battery cathodes[/dim #808080]
-  [dim]/hypothesize quantum biology[/dim]
-
-[dim]Discovery stages: PubMed/arXiv search → entity extraction → knowledge graph →
-contradiction mining → hypothesis generation → skeptic review → refinement → novelty check[/dim]"""
-
-# ── Slash commands list (for tab completion) ─────
-SLASH_COMMANDS = [
-    "/help", "/clear", "/think", "/dive",
-    "/status", "/stats", "/model", "/exit",
-    "/science", "/discover", "/search", "/enrich", "/hypothesize", "/experiment", "/generate",
-    "/papers", "/review", "/graph", "/dashboard", "/discoveries", "/notebook", "/domains",
-    "/personality", "/reason", "/theorize",
-    "/grounded",
-]
-
-
-# ── Utility Functions ──────────────────────────────────────────
 def _detect_os() -> str:
     s = platform.system().lower()
     return "mac" if s == "darwin" else "windows" if s == "windows" else "linux"
@@ -274,9 +276,312 @@ def _api_keys_exist() -> bool:
         return False
 
 
-# ── RUMI Terminal UI ──────────────────────────────────────────
+def _make_progress_bar(pct: int, width: int = 20) -> str:
+    filled = int(pct / 100 * width)
+    empty = width - filled
+    return f"[{'#' * filled}{'.' * empty}] {pct}%"
+
+
+def _make_status_badge(text: str, color: str) -> Text:
+    badge = Text()
+    badge.append(f" {text} ", style=f"bold {color}")
+    return badge
+
+
+# ================================================================
+# HELP TEXT
+# ================================================================
+
+HELP_TEXT = f"""[bold {ACCENT_CYAN}]RUMI[/bold {ACCENT_CYAN}] [dim]v3.0 | Research Unified Machine Intelligence[/dim]
+
+[bold]Commands[/bold]
+  [bold {ACCENT_BLUE}]/help[/{ACCENT_BLUE}]          Show this help
+  [bold {ACCENT_BLUE}]/clear[/{ACCENT_BLUE}]         Clear screen
+  [bold {ACCENT_BLUE}]/status[/{ACCENT_BLUE}]        System status
+  [bold {ACCENT_BLUE}]/stats[/{ACCENT_BLUE}]         Session stats
+  [bold {ACCENT_BLUE}]/exit[/{ACCENT_BLUE}]          Shut down
+
+[bold]Discovery[/bold]
+  [bold {ACCENT_BLUE}]/discover [topic][/{ACCENT_BLUE}]    Full pipeline
+  [bold {ACCENT_BLUE}]/search [query][/{ACCENT_BLUE}]      Literature search
+  [bold {ACCENT_BLUE}]/hypothesize [topic][/{ACCENT_BLUE}] Generate hypotheses
+  [bold {ACCENT_BLUE}]/experiment[/{ACCENT_BLUE}]          Design experiment
+  [bold {ACCENT_BLUE}]/review[/{ACCENT_BLUE}]              Peer review
+  [bold {ACCENT_BLUE}]/domains[/{ACCENT_BLUE}]             List 17 domains
+
+[bold]Modes[/bold]
+  [bold {ACCENT_BLUE}]/think[/{ACCENT_BLUE}]         Toggle reasoning mode
+  [bold {ACCENT_BLUE}]/dive[/{ACCENT_BLUE}]          Toggle deep research
+
+[bold]Shortcuts[/bold]
+  [bold {ACCENT_AMBER}]Ctrl+K[/{ACCENT_AMBER}]  Command palette
+  [bold {ACCENT_AMBER}]Ctrl+L[/{ACCENT_AMBER}]  Clear screen
+  [bold {ACCENT_AMBER}]Escape[/{ACCENT_AMBER}]  Interrupt"""
+
+# ================================================================
+# SLASH COMMANDS
+# ================================================================
+
+SLASH_COMMANDS = [
+    "/help", "/clear", "/think", "/dive",
+    "/status", "/stats", "/model", "/exit",
+    "/science", "/discover", "/search", "/enrich", "/hypothesize",
+    "/experiment", "/generate", "/contradictions",
+    "/papers", "/review", "/graph", "/dashboard", "/discoveries",
+    "/notebook", "/domains", "/domain",
+    "/personality", "/reason", "/theorize", "/grounded",
+    "/timeline",
+    "/simulate", "/debate", "/continuous", "/transfer",
+    "/curiosity", "/evolve", "/consistency",
+]
+
+
+# ================================================================
+# SESSION TIMELINE
+# ================================================================
+
+class SessionTimeline:
+    def __init__(self):
+        self._events: list[dict] = []
+        self._lock = threading.Lock()
+
+    def add(self, event_type: str, description: str, detail: str = ""):
+        with self._lock:
+            self._events.append({
+                "time": datetime.now().strftime("%H:%M:%S"),
+                "type": event_type,
+                "desc": description,
+                "detail": detail,
+            })
+
+    def get_events(self, last_n: int = 20) -> list[dict]:
+        with self._lock:
+            return list(self._events[-last_n:])
+
+    def clear(self):
+        with self._lock:
+            self._events.clear()
+
+    def count(self) -> int:
+        with self._lock:
+            return len(self._events)
+
+
+# ================================================================
+# ACTIVITY FEED
+# ================================================================
+
+class ActivityFeed:
+    def __init__(self, max_items: int = 50):
+        self._items: deque = deque(maxlen=max_items)
+        self._lock = threading.Lock()
+
+    def add(self, message: str, color: str = TXT_SECOND):
+        with self._lock:
+            self._items.append({
+                "time": datetime.now().strftime("%H:%M:%S"),
+                "msg": message,
+                "color": color,
+            })
+
+    def get_recent(self, n: int = 10) -> list[dict]:
+        with self._lock:
+            return list(self._items)[-n:]
+
+    def clear(self):
+        with self._lock:
+            self._items.clear()
+
+
+# ================================================================
+# DISCOVERY PIPELINE TRACKER
+# ================================================================
+
+class PipelineTracker:
+    PHASES = [
+        ("literature_search",  "Literature Search"),
+        ("paper_retrieval",    "Paper Retrieval"),
+        ("entity_extraction",  "Entity Extraction"),
+        ("knowledge_graph",    "Knowledge Graph"),
+        ("contradiction_mine", "Contradiction Mining"),
+        ("hypothesis_gen",     "Hypothesis Generation"),
+        ("skeptic_review",     "Skeptic Review"),
+        ("experiment_plan",    "Experiment Planning"),
+        ("novelty_check",      "Novelty Check"),
+        ("report_gen",         "Report Generation"),
+    ]
+
+    def __init__(self):
+        self._phases: dict[str, str] = {}
+        self._current: str = ""
+        self._lock = threading.Lock()
+        self.reset()
+
+    def reset(self):
+        with self._lock:
+            for pid, _ in self.PHASES:
+                self._phases[pid] = "pending"
+            self._current = ""
+
+    def start_phase(self, phase_id: str):
+        with self._lock:
+            found = False
+            for pid, _ in self.PHASES:
+                if pid == phase_id:
+                    found = True
+                    self._phases[pid] = "running"
+                    self._current = pid
+                elif not found and self._phases.get(pid) == "running":
+                    self._phases[pid] = "done"
+            if not found:
+                self._phases[phase_id] = "running"
+                self._current = phase_id
+
+    def complete_phase(self, phase_id: str):
+        with self._lock:
+            self._phases[phase_id] = "done"
+            if self._current == phase_id:
+                self._current = ""
+
+    def error_phase(self, phase_id: str):
+        with self._lock:
+            self._phases[phase_id] = "error"
+
+    def all_done(self) -> bool:
+        with self._lock:
+            return all(v in ("done", "error") for v in self._phases.values())
+
+    def get_display(self) -> list[tuple[str, str, str]]:
+        with self._lock:
+            result = []
+            for pid, label in self.PHASES:
+                status = self._phases.get(pid, "pending")
+                if status == "done":
+                    result.append((label, "done", ACCENT_GREEN))
+                elif status == "running":
+                    result.append((label, "running", ACCENT_BLUE))
+                elif status == "error":
+                    result.append((label, "error", ACCENT_RED))
+                else:
+                    result.append((label, "pending", TXT_DIM))
+            return result
+
+    def get_progress_pct(self) -> int:
+        with self._lock:
+            done = sum(1 for v in self._phases.values() if v == "done")
+            return int(done / len(self.PHASES) * 100) if self.PHASES else 0
+
+
+# ================================================================
+# TOOL CALL TRACKER
+# ================================================================
+
+class ToolCallTracker:
+    def __init__(self):
+        self._calls: deque = deque(maxlen=50)
+        self._lock = threading.Lock()
+
+    def start(self, tool_name: str, query: str = ""):
+        with self._lock:
+            self._calls.append({
+                "name": tool_name,
+                "query": query,
+                "status": "running",
+                "start": time.time(),
+                "result": "",
+            })
+
+    def complete(self, tool_name: str, result: str = ""):
+        with self._lock:
+            for call in reversed(self._calls):
+                if call["name"] == tool_name and call["status"] == "running":
+                    call["status"] = "done"
+                    call["result"] = result
+                    call["elapsed"] = time.time() - call["start"]
+                    break
+
+    def error(self, tool_name: str, error: str = ""):
+        with self._lock:
+            for call in reversed(self._calls):
+                if call["name"] == tool_name and call["status"] == "running":
+                    call["status"] = "error"
+                    call["result"] = error
+                    call["elapsed"] = time.time() - call["start"]
+                    break
+
+    def get_recent(self, n: int = 10) -> list[dict]:
+        with self._lock:
+            return list(self._calls)[-n:]
+
+
+# ================================================================
+# KNOWLEDGE GRAPH METRICS
+# ================================================================
+
+class GraphMetrics:
+    def __init__(self):
+        self.nodes = 0
+        self.edges = 0
+        self.clusters = 0
+        self.contradictions = 0
+        self.novelty_candidates = 0
+        self.papers = 0
+        self.entities = 0
+        self.relationships = 0
+        self._lock = threading.Lock()
+
+    def update(self, **kwargs):
+        with self._lock:
+            for k, v in kwargs.items():
+                if hasattr(self, k):
+                    setattr(self, k, v)
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return {
+                "nodes": self.nodes,
+                "edges": self.edges,
+                "clusters": self.clusters,
+                "contradictions": self.contradictions,
+                "novelty_candidates": self.novelty_candidates,
+                "papers": self.papers,
+                "entities": self.entities,
+                "relationships": self.relationships,
+            }
+
+
+# ================================================================
+# COMMAND PALETTE
+# ================================================================
+
+COMMAND_PALETTE_ITEMS = [
+    ("discover", "Run Discovery Pipeline", "/discover "),
+    ("grounded", "Grounded Discovery", "/grounded "),
+    ("search",   "Search Papers", "/search "),
+    ("hypothesize", "Generate Hypotheses", "/hypothesize "),
+    ("experiment", "Design Experiment", "/experiment"),
+    ("review",   "Peer Review", "/review"),
+    ("graph",    "Knowledge Graph Stats", "/graph"),
+    ("science",  "Scientist Modules", "/science"),
+    ("domains",  "List Domains", "/domains"),
+    ("status",   "System Status", "/status"),
+    ("timeline", "Session Timeline", "/timeline"),
+    ("clear",    "Clear Screen", "/clear"),
+    ("think",    "Toggle Think Mode", "/think"),
+    ("dive",     "Toggle Deep Dive", "/dive"),
+    ("dashboard", "Open Dashboard", "/dashboard"),
+    ("enrich",   "Enrich Knowledge Graph", "/enrich"),
+    ("contradictions", "Find Contradictions", "/contradictions"),
+    ("generate", "Generate Molecules/Materials", "/generate "),
+]
+
+
+# ================================================================
+# PREMIUM RUMI UI
+# ================================================================
+
 class RumiUI:
-    """Claude Code / Hermes inspired terminal UI for RUMI Scientist AI."""
+    """Premium AI operating system terminal UI for RUMI Scientist AI."""
 
     def __init__(self, face_path=None, size=None):
         self.W = None
@@ -292,6 +597,7 @@ class RumiUI:
         self._personality = "professional"
         self._discovery_running = False
         self._discovery_step = ""
+        self._discovery_topic = ""
 
         # Callbacks
         self.on_text_command = None
@@ -304,7 +610,7 @@ class RumiUI:
         self._running = True
         self._input_lock = threading.Lock()
 
-        # Interrupt & Message Queue
+        # Interrupt
         self._interrupt_requested = threading.Event()
         self._is_busy = False
 
@@ -317,16 +623,28 @@ class RumiUI:
         self._current_spin_idx = 0
         self._current_word_idx = 0
 
-        # Input history & completion
+        # Input history
         self._pt_history = InMemoryHistory() if HAVE_PT else None
         self._message_count = 0
 
-        # Status bar updater thread
+        # Session tracking
+        self._timeline = SessionTimeline()
+        self._pipeline = PipelineTracker()
+        self._tool_calls = ToolCallTracker()
+        self._graph_metrics = GraphMetrics()
+        self._activity_feed = ActivityFeed()
+
+        # Token tracking
+        self._total_tokens = 0
+        self._total_cost = 0.0
+        self._last_latency = 0.0
+
+        # Status bar updater
         self._status_thread = threading.Thread(target=self._status_updater, daemon=True)
         self._status_thread.start()
 
         # Animated Startup
-        self._show_startup()
+        self._show_boot_sequence()
 
         # Check API keys
         self._api_key_ready = _api_keys_exist()
@@ -337,34 +655,244 @@ class RumiUI:
         self._input_thread = threading.Thread(target=self._input_loop, daemon=True)
         self._input_thread.start()
 
-        # Start heartbeat for thinking indicator
+        # Start heartbeat
         self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()
 
+        # Timeline entry
+        self._timeline.add("system", "RUMI initialized", "Model: Gemini 2.5 Flash")
+
+    # ----------------------------------------------------------------
+    # BOOT SEQUENCE (Hermes Agent style)
+    # ----------------------------------------------------------------
+    def _show_boot_sequence(self):
+        """Hermes-style boot -- ASCII logo centered, compact info."""
+        console.clear()
+
+        from discovery.llm_client import get_status
+        status = get_status()
+        groq_ok = status.get("groq", {}).get("available", False)
+        gemini_ok = status.get("gemini", {}).get("available", False)
+
+        console.print()
+
+        # ASCII Logo -- centered
+        logo_lines = [l for l in RUMI_LOGO.split("\n") if l.strip()]
+        max_logo_width = max(len(l) for l in logo_lines)
+        term_width = console.width or 80
+        pad = max(0, (term_width - max_logo_width) // 2)
+
+        for line_str in logo_lines:
+            console.print(Text(f"{' ' * pad}{line_str}", style=f"bold {ACCENT_BLUE}"))
+
+        # Subtitle centered
+        subtitle = "Research Unified Machine Intelligence"
+        sub_pad = max(0, (term_width - len(subtitle) - 2) // 2)
+        console.print(Text(f"{' ' * sub_pad}{subtitle}", style=TXT_DIM))
+        console.print()
+
+        # Status line centered
+        status_parts = []
+        status_parts.append("groq" if groq_ok else "groq?")
+        status_parts.append("gemini" if gemini_ok else "gemini?")
+        status_parts.append("17 domains")
+        status_parts.append("88 modules")
+        status_str = "  |  ".join(status_parts)
+        s_pad = max(0, (term_width - len(status_str) - 2) // 2)
+
+        status_line = Text()
+        status_line.append(f"{' ' * s_pad}", style="")
+        status_line.append("groq", style=ACCENT_GREEN if groq_ok else ACCENT_RED)
+        status_line.append("  |  ", style=TXT_DIM)
+        status_line.append("gemini", style=ACCENT_GREEN if gemini_ok else ACCENT_RED)
+        status_line.append("  |  ", style=TXT_DIM)
+        status_line.append("17 domains", style=TXT_SECOND)
+        status_line.append("  |  ", style=TXT_DIM)
+        status_line.append("88 modules", style=TXT_SECOND)
+        console.print(status_line)
+
+        help_text = "/help for commands"
+        h_pad = max(0, (term_width - len(help_text) - 2) // 2)
+        console.print(Text(f"{' ' * h_pad}{help_text}", style=TXT_DIM))
+        console.print()
+
+    # ----------------------------------------------------------------
+    # HEADER PANEL (Hermes style)
+    # ----------------------------------------------------------------
+    def _show_header_panel(self):
+        """Hermes-style compact header."""
+        uptime = self._get_uptime()
+        line = Text()
+        line.append("  R", style=f"bold {ACCENT_BLUE}")
+        line.append("UMI", style=f"bold {TXT_PRIMARY}")
+        line.append(f"  {uptime}", style=TXT_DIM)
+        line.append(f"  {self._total_tokens:,} tok", style=TXT_SECOND)
+        line.append(f"  ${self._total_cost:.4f}", style=ACCENT_GREEN)
+        line.append(f"  {self._get_mode_str()}", style=ACCENT_PURPLE if self._get_mode_str() != "normal" else TXT_DIM)
+        console.print(line)
+
+    def _get_uptime(self) -> str:
+        elapsed = int(time.time() - self._start_time)
+        return f"{elapsed // 3600:02d}:{(elapsed % 3600) // 60:02d}:{elapsed % 60:02d}"
+
+    def _get_mode_str(self) -> str:
+        modes = []
+        if self._think_mode:
+            modes.append("think")
+        if self._deep_dive_active:
+            modes.append("dive")
+        return " ".join(modes) if modes else "normal"
+
+    # ----------------------------------------------------------------
+    # ACTIVITY FEED (compact)
+    # ----------------------------------------------------------------
+    def _show_activity_feed(self):
+        """Hermes-style compact event stream."""
+        events = self._activity_feed.get_recent(6)
+        if not events:
+            return
+
+        for ev in events:
+            line = Text()
+            line.append(f"  {ev['time']} ", style=TXT_DIM)
+            line.append(ev["msg"], style=ev["color"])
+            console.print(line)
+
+    # ----------------------------------------------------------------
+    # DISCOVERY DASHBOARD (dense, professional)
+    # ----------------------------------------------------------------
+    def _show_discovery_dashboard(self, topic: str = ""):
+        """Hermes-style discovery dashboard."""
+        pct = self._pipeline.get_progress_pct()
+        bar = _make_progress_bar(pct, 16)
+
+        table = Table(show_header=False, box=None, padding=(0, 1), expand=False)
+        table.add_column(style=TXT_DIM, min_width=14)
+        table.add_column(style=TXT_PRIMARY)
+        table.add_row("TOPIC:", topic or "N/A")
+        table.add_row("PROGRESS:", bar)
+        table.add_row("PAPERS:", str(self._graph_metrics.papers))
+        table.add_row("ENTITIES:", str(self._graph_metrics.entities))
+        table.add_row("RELATIONSHIPS:", str(self._graph_metrics.relationships))
+        table.add_row("KNOWLEDGE GAPS:", str(self._graph_metrics.contradictions))
+        table.add_row("HYPOTHESES:", str(self._graph_metrics.novelty_candidates))
+
+        console.print()
+        console.print(Text("  DISCOVERY", style=f"bold {ACCENT_PURPLE}"))
+        console.print(table)
+        console.print()
+
+    # ----------------------------------------------------------------
+    # THINKING ANIMATION (compact)
+    # ----------------------------------------------------------------
+    def _show_thinking_animation(self, message: str = ""):
+        """Compact thinking indicator."""
+        msg = message or random.choice(THINKING_MESSAGES)
+        console.print(Text(f"  ... {msg}", style=f"bold {ACCENT_CYAN}"))
+
+    # ----------------------------------------------------------------
+    # INPUT BOX (compact)
+    # ----------------------------------------------------------------
+    def _show_input_box(self):
+        """Compact input hint."""
+        console.print(Text("  /discover /research /status /help", style=TXT_DIM))
+
+    # ----------------------------------------------------------------
+    # PANELS (compact, dense)
+    # ----------------------------------------------------------------
+    def _show_panel(self, title: str, content: str, color: str = BORDER_NORMAL):
+        """Compact panel."""
+        console.print(Text(f"  [{title}] {content}", style=f"bold {color}"))
+
+    def _show_dream_panel(self):
+        """Dream Engine status -- compact."""
+        line = Text()
+        line.append("  [dream] ", style=f"bold {ACCENT_PINK}")
+        line.append("active  ", style=ACCENT_GREEN)
+        line.append("3 hypotheses  ", style=TXT_SECOND)
+        line.append("12s ago", style=TXT_DIM)
+        console.print(line)
+
+    # ----------------------------------------------------------------
+    # SIDEBAR (compact)
+    # ----------------------------------------------------------------
+    def _show_sidebar(self):
+        """Compact sidebar -- single line."""
+        line = Text()
+        line.append("  memory ", style=f"{ACCENT_GREEN}")
+        line.append("dream ", style=f"{ACCENT_PINK}")
+        line.append("research ", style=f"{ACCENT_BLUE}")
+        line.append(f"kg:{self._graph_metrics.nodes}", style=TXT_DIM)
+        console.print(line)
+
+    # ----------------------------------------------------------------
+    # STATUS UPDATER
+    # ----------------------------------------------------------------
     def _status_updater(self):
-        """Background thread: cycles spinner & random words for status bar."""
         while self._running:
             self._current_spin_idx = (self._current_spin_idx + 1) % len(SPINNER_CHARS)
             if self._current_spin_idx == 0:
-                self._current_word_idx = (self._current_word_idx + 1) % len(RUMI_WORDS)
+                self._current_word_idx = (self._current_word_idx + 1) % len(THINKING_MESSAGES)
             time.sleep(0.15)
 
+    # ----------------------------------------------------------------
+    # CONTEXT BAR
+    # ----------------------------------------------------------------
+    def _get_context_bar(self, tokens_used: int = 0, max_tokens: int = 200000) -> str:
+        pct = min(100, int((tokens_used / max_tokens) * 100))
+        filled = int(pct / 10)
+        empty = 10 - filled
+        bar = "#" * filled + "." * empty
+        if pct < 50:
+            color = "#39d353"
+        elif pct < 80:
+            color = "#d29922"
+        elif pct < 95:
+            color = "#f0883e"
+        else:
+            color = "#f85149"
+        return f"<style fg='{color}'>[{bar}] {pct}%</style>"
+
+    # ----------------------------------------------------------------
+    # TOOLBAR
+    # ----------------------------------------------------------------
     def _get_toolbar(self):
         if not HAVE_PT:
             return ""
+
+        spin = SPINNER_CHARS[self._current_spin_idx]
+        elapsed = int(time.time() - self._start_time)
+        uptime = f"{elapsed // 3600:02d}:{(elapsed % 3600) // 60:02d}:{elapsed % 60:02d}"
+
+        parts = []
+        parts.append(f"<style fg='#58a6ff'>RUMI</style>")
+        parts.append(f"<style fg='#30363d'> | </style>")
+
         if self._is_busy or self._discovery_running:
-            spin = SPINNER_CHARS[self._current_spin_idx]
-            word = self._discovery_step or RUMI_WORDS[self._current_word_idx]
-            return HTML(f"<style fg='#7fd88f'>{spin} {word}</style>")
+            word = self._discovery_step or THINKING_MESSAGES[self._current_word_idx]
+            parts.append(f"<style fg='#39d353'>{spin} {word}</style>")
         else:
-            spin = SPINNER_CHARS[self._current_spin_idx]
-            modes = []
-            if self._think_mode:
-                modes.append("think")
-            if self._deep_dive_active:
-                modes.append("dive")
-            mode_str = f" [{'/'.join(modes)}]" if modes else ""
-            return HTML(f"<style fg='#606060'>rumi{mode_str}</style>")
+            parts.append(f"<style fg='#8b949e'>idle</style>")
+
+        parts.append(f"<style fg='#30363d'> | </style>")
+        parts.append(self._get_context_bar(self._total_tokens, 200000))
+
+        parts.append(f"<style fg='#30363d'> | </style>")
+        parts.append(f"<style fg='#8b949e'>${self._total_cost:.3f}</style>")
+        parts.append(f"<style fg='#30363d'> | </style>")
+        parts.append(f"<style fg='#8b949e'>{uptime}</style>")
+
+        if self._think_mode:
+            parts.append(f"<style fg='#30363d'> | </style>")
+            parts.append(f"<style fg='#bc8cff'>think</style>")
+        if self._deep_dive_active:
+            parts.append(f"<style fg='#30363d'> | </style>")
+            parts.append(f"<style fg='#39d353'>dive</style>")
+
+        parts.append(f"<style fg='#30363d'> | </style>")
+        parts.append(f"<style fg='#484f58'>Ctrl+K</style>")
+
+        return HTML("".join(parts))
 
     def interrupt_requested(self):
         return self._interrupt_requested.is_set()
@@ -372,27 +900,10 @@ class RumiUI:
     def clear_interrupt(self):
         self._interrupt_requested.clear()
 
-    # ── Startup ─────────────────────────────────────────────────
-    def _show_startup(self):
-        """Display minimal startup like opencode."""
-        console.clear()
-
-        # Simple one-line status
-        from discovery.llm_client import get_status
-        status = get_status()
-        groq_ok = status.get("groq", {}).get("available", False)
-        gemini_ok = status.get("gemini", {}).get("available", False)
-
-        groq_s = f"{ACCENT_GREEN}groq{TEXT_MUTED}" if groq_ok else f"{ACCENT_RED}groq{TEXT_MUTED}"
-        gemini_s = f"{ACCENT_GREEN}gemini{TEXT_MUTED}" if gemini_ok else f"{ACCENT_RED}gemini{TEXT_MUTED}"
-
-        console.print(Text(f"  RUMI v2.0", style=TEXT_PRIMARY))
-        console.print(Text(f"  {groq_s}  {gemini_s}  {TEXT_MUTED}15 modules · 88 brain · 17 domains{TEXT_MUTED}"))
-        console.print()
-
-    # ── Input Loop ──────────────────────────────────────────────
+    # ----------------------------------------------------------------
+    # IDLE MONITOR
+    # ----------------------------------------------------------------
     def _idle_monitor(self):
-        """Background thread that triggers idle scan after 30s of inactivity."""
         while self._running:
             idle_time = time.time() - self._last_input_time
             time_since_last_scan = time.time() - self._last_idle_scan_time
@@ -402,22 +913,44 @@ class RumiUI:
                     self.on_idle_scan()
             time.sleep(10)
 
+    # ----------------------------------------------------------------
+    # INPUT LOOP
+    # ----------------------------------------------------------------
     def _input_loop(self):
-        """Background thread reading user input via prompt_toolkit or fallback."""
         pt_style = PtStyle([
-            ('prompt', f'bold {C_CYAN}'),
+            ('prompt', f'bold {ACCENT_BLUE}'),
         ]) if HAVE_PT else None
 
-        # Set up ESC / Ctrl+C key binding for interrupt
         kb = KeyBindings() if HAVE_PT else None
         if kb:
             @kb.add('escape')
             def _(event):
                 self._interrupt_requested.set()
+
             @kb.add('c-c')
             def _(event):
                 self._interrupt_requested.set()
                 event.app.exit(exception=KeyboardInterrupt)
+
+            @kb.add('c-k')
+            def _(event):
+                self._show_command_palette()
+
+            @kb.add('c-l')
+            def _(event):
+                self._handle_command("/clear")
+
+            @kb.add('c-r')
+            def _(event):
+                self._handle_command("/search ")
+
+            @kb.add('c-d')
+            def _(event):
+                self._handle_command("/discover ")
+
+            @kb.add('c-g')
+            def _(event):
+                self._handle_command("/graph")
 
         while self._running:
             try:
@@ -440,15 +973,15 @@ class RumiUI:
                 if not value:
                     continue
 
-                # Handle slash commands
                 if value.startswith("/"):
                     self._handle_command(value)
                     continue
 
-                # Dispatch to main app
                 if self.on_text_command:
                     self._last_input_time = time.time()
                     self._message_count += 1
+                    self._timeline.add("user", f"Query: {value[:60]}...")
+                    self._activity_feed.add(f"User query: {value[:40]}", ACCENT_BLUE)
                     threading.Thread(target=self.on_text_command, args=(value,), daemon=True).start()
 
             except (EOFError, KeyboardInterrupt):
@@ -458,147 +991,139 @@ class RumiUI:
             except Exception:
                 time.sleep(0.1)
 
+    # ----------------------------------------------------------------
+    # COMMAND PALETTE
+    # ----------------------------------------------------------------
+    def _show_command_palette(self):
+        """Hermes-style command palette."""
+        console.print()
+        console.print(Text(f"  Commands", style=f"bold {ACCENT_BLUE}"))
+        console.print()
+        for i, (key, label, cmd) in enumerate(COMMAND_PALETTE_ITEMS):
+            line = Text()
+            line.append(f"  {i+1:2d} ", style=TXT_DIM)
+            line.append(f"{label}", style=TXT_PRIMARY)
+            line.append(f"  {cmd}", style=ACCENT_BLUE)
+            console.print(line)
+        console.print()
+        console.print(Text(f"  Type number or command directly", style=TXT_DIM))
+        console.print()
+        for i, (key, label, cmd) in enumerate(COMMAND_PALETTE_ITEMS):
+            line = Text()
+            line.append(f"  {i+1:2d} ", style=TXT_DIM)
+            line.append(f"{label}", style=TXT_PRIMARY)
+            line.append(f"  {cmd}", style=ACCENT_BLUE)
+            console.print(line)
+        console.print()
+        console.print(Text(f"  Type number or command directly", style=TXT_DIM))
+        console.print()
+
+    # ----------------------------------------------------------------
+    # COMMAND HANDLER
+    # ----------------------------------------------------------------
     def _handle_command(self, cmd: str):
-        """Handle slash commands - minimal like opencode."""
         self._last_input_time = time.time()
         cmd = cmd.lower().strip()
 
         if cmd == "/help":
+            console.print()
             console.print(Markdown(HELP_TEXT))
             console.print()
 
         elif cmd == "/clear":
             console.clear()
-            self._show_startup()
+            self._show_boot_sequence()
 
         elif cmd == "/think":
             self._think_mode = not self._think_mode
-            state = "on" if self._think_mode else "off"
-            color = ACCENT_GREEN if self._think_mode else TEXT_MUTED
-            console.print(Text(f"  think {state}", style=color))
+            state = "ON" if self._think_mode else "OFF"
+            color = ACCENT_GREEN if self._think_mode else TXT_MUTED
+            badge = _make_status_badge(f"THINK {state}", color)
+            console.print(Text("  ", style=""), end="")
+            console.print(badge)
             if self.on_think_mode_toggle:
                 threading.Thread(target=self.on_think_mode_toggle, args=(self._think_mode,), daemon=True).start()
+            self._timeline.add("mode", f"Think mode: {state}")
 
         elif cmd == "/dive":
             self._deep_dive_active = not self._deep_dive_active
-            state = "on" if self._deep_dive_active else "off"
-            color = ACCENT_CYAN if self._deep_dive_active else TEXT_MUTED
-            console.print(Text(f"  dive {state}", style=color))
+            state = "ON" if self._deep_dive_active else "OFF"
+            color = ACCENT_TEAL if self._deep_dive_active else TXT_MUTED
+            badge = _make_status_badge(f"DIVE {state}", color)
+            console.print(Text("  ", style=""), end="")
+            console.print(badge)
             if self.on_deep_dive_toggle:
                 threading.Thread(target=self.on_deep_dive_toggle, args=(self._deep_dive_active,), daemon=True).start()
+            self._timeline.add("mode", f"Deep dive: {state}")
 
         elif cmd == "/status":
-            uptime = int(time.time() - self._start_time)
-            modes = []
-            if self._think_mode:
-                modes.append("think")
-            if self._deep_dive_active:
-                modes.append("dive")
-            mode_str = " + ".join(modes) if modes else "normal"
-            rate = f"{self._message_count / max(uptime, 1) * 3600:.1f}/hr" if self._message_count > 0 else "N/A"
-
-            info = Table.grid(padding=(0, 2))
-            info.add_column(style=f"bold {TEXT_PRIMARY}")
-            info.add_column(style=ACCENT_CYAN)
-            info.add_row("Uptime:",  f"{uptime // 3600:02d}:{(uptime % 3600) // 60:02d}:{uptime % 60:02d}")
-            info.add_row("Mode:",    mode_str)
-            info.add_row("Messages:", str(self._message_count))
-            info.add_row("Rate:",    rate)
-            info.add_row("State:",   self._rumi_state)
-            console.print(Panel(info, title="[bold]System Status[/bold]", border_style=C_BLUE, box=ROUNDED))
-            console.print()
+            self._show_status_panel()
 
         elif cmd == "/stats":
-            uptime = int(time.time() - self._start_time)
-            info = Table.grid(padding=(0, 2))
-            info.add_column(style=f"bold {TEXT_PRIMARY}")
-            info.add_column(style=ACCENT_GREEN)
-            info.add_row("Session:", f"{uptime // 3600:02d}:{(uptime % 3600) // 60:02d}:{uptime % 60:02d}")
-            info.add_row("Messages:", str(self._message_count))
-            info.add_row("Rate:", f"{self._message_count / max(uptime, 1) * 3600:.1f}/hr" if self._message_count > 0 else "N/A")
-            info.add_row("State:", self._rumi_state)
-            console.print(Panel(info, title=f"[bold {ACCENT_CYAN}]Session Statistics[/]", border_style=BORDER_NORMAL, box=ROUNDED))
-            console.print()
+            self._show_stats()
+
+        elif cmd == "/timeline":
+            self._show_timeline()
 
         elif cmd == "/science":
             self._show_science_help()
 
         elif cmd.startswith("/discover "):
             args = cmd[len("/discover "):].strip()
-            console.print(Text(f"  \u25b6 discovering: {args}", style=f"bold {ACCENT_CYAN}"))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("discover", args), daemon=True).start()
+            self._start_discovery("discover", args)
 
         elif cmd == "/discover":
-            console.print(Text("  usage: /discover <topic>", style=TEXT_MUTED))
+            console.print(Text("  usage: /discover <topic>", style=TXT_MUTED))
 
         elif cmd.startswith("/grounded "):
             args = cmd[len("/grounded "):].strip()
-            console.print(Text(f"  \u25b6 grounded discovery: {args}", style=f"bold {ACCENT_CYAN}"))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("grounded", args), daemon=True).start()
+            self._start_discovery("grounded", args)
 
         elif cmd == "/grounded":
-            console.print(Text("  usage: /grounded <topic>", style=TEXT_MUTED))
+            console.print(Text("  usage: /grounded <topic>", style=TXT_MUTED))
 
         elif cmd.startswith("/search "):
             args = cmd[len("/search "):].strip()
-            console.print(Text(f"  \u25b6 searching: {args}", style=ACCENT_CYAN))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("search", args), daemon=True).start()
+            self._start_discovery("search", args)
 
         elif cmd.startswith("/hypothesize "):
             args = cmd[len("/hypothesize "):].strip()
-            console.print(Text(f"  \u25b6 generating hypotheses: {args}", style=ACCENT_CYAN))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("hypothesize", args), daemon=True).start()
+            self._start_discovery("hypothesize", args)
 
         elif cmd == "/hypothesize":
-            console.print(Text("  usage: /hypothesize <topic>", style=TEXT_MUTED))
+            console.print(Text("  usage: /hypothesize <topic>", style=TXT_MUTED))
 
         elif cmd.startswith("/generate "):
             args = cmd[len("/generate "):].strip()
-            console.print(Text(f"  \u25b6 generating: {args}", style=ACCENT_CYAN))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("generate", args), daemon=True).start()
+            self._start_discovery("generate", args)
 
         elif cmd == "/generate":
-            console.print(Text("  usage: /generate <target>", style=TEXT_MUTED))
+            console.print(Text("  usage: /generate <target>", style=TXT_MUTED))
 
         elif cmd == "/contradictions":
-            console.print(Text("  \u25b6 detecting contradictions...", style=ACCENT_CYAN))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("contradictions", ""), daemon=True).start()
+            self._start_discovery("contradictions", "")
 
         elif cmd == "/enrich":
-            console.print(Text("  \u25b6 enriching entities...", style=ACCENT_CYAN))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("enrich", ""), daemon=True).start()
+            self._start_discovery("enrich", "")
 
         elif cmd == "/graph":
-            console.print(Text("  \u25b6 knowledge graph", style=ACCENT_CYAN))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("graph", ""), daemon=True).start()
+            self._start_discovery("graph", "")
 
         elif cmd == "/dashboard":
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("dashboard", ""), daemon=True).start()
+            self._start_discovery("dashboard", "")
 
         elif cmd == "/discoveries":
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("discoveries", ""), daemon=True).start()
+            self._start_discovery("discoveries", "")
 
         elif cmd.startswith("/domain "):
             args = cmd[len("/domain "):].strip()
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("domain", args), daemon=True).start()
+            self._start_discovery("domain", args)
 
         elif cmd == "/domain":
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("domain", ""), daemon=True).start()
+            self._start_discovery("domain", "")
 
         elif cmd == "/experiment":
-            console.print(Text("  \u25b6 experiment design mode", style=ACCENT_CYAN))
+            self._show_tool_call("Experiment Designer", "Designing experiment...")
             if self.on_text_command:
                 threading.Thread(
                     target=self.on_text_command,
@@ -607,7 +1132,7 @@ class RumiUI:
                 ).start()
 
         elif cmd == "/papers":
-            console.print(Text("  \u25b6 paper search mode", style=ACCENT_CYAN))
+            self._show_tool_call("Paper Search", "Searching literature...")
             if self.on_text_command:
                 threading.Thread(
                     target=self.on_text_command,
@@ -616,16 +1141,15 @@ class RumiUI:
                 ).start()
 
         elif cmd == "/review":
-            console.print(Text("  \u25b6 peer review mode", style=ACCENT_CYAN))
+            self._show_tool_call("Peer Review", "Reviewing claim...")
             if self.on_text_command:
                 threading.Thread(
                     target=self.on_text_command,
-                    args=("Perform a peer review on a paper or scientific claim. Paste the text or describe what to review.",),
+                    args=("Perform a peer review on a paper or scientific claim.",),
                     daemon=True,
                 ).start()
 
         elif cmd == "/notebook":
-            console.print(Text("  \u25b6 lab notebook", style=ACCENT_CYAN))
             if self.on_text_command:
                 threading.Thread(
                     target=self.on_text_command,
@@ -638,330 +1162,482 @@ class RumiUI:
 
         elif cmd.startswith("/reason "):
             args = cmd[len("/reason "):].strip()
-            console.print(Text(f"  \u25b6 scientific reasoning: {args}", style=ACCENT_PURPLE))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("reason", args), daemon=True).start()
+            self._start_discovery("reason", args)
 
         elif cmd.startswith("/theorize "):
             args = cmd[len("/theorize "):].strip()
-            console.print(Text(f"  \u25b6 theorizing: {args}", style=ACCENT_PURPLE))
-            if self.on_discovery_command:
-                threading.Thread(target=self.on_discovery_command, args=("theorize", args), daemon=True).start()
+            self._start_discovery("theorize", args)
+
+        # === NEW: Simulation, Debate, Continuous, Transfer, Curiosity ===
+        elif cmd.startswith("/simulate "):
+            args = cmd[len("/simulate "):].strip()
+            self._start_discovery("simulate", args)
+
+        elif cmd == "/simulate":
+            console.print(Text("  usage: /simulate <hypothesis>", style=TXT_MUTED))
+
+        elif cmd.startswith("/debate "):
+            args = cmd[len("/debate "):].strip()
+            self._start_discovery("debate", args)
+
+        elif cmd == "/debate":
+            console.print(Text("  usage: /debate <hypothesis>", style=TXT_MUTED))
+
+        elif cmd.startswith("/continuous"):
+            args = cmd[len("/continuous"):].strip()
+            self._start_discovery("continuous", args)
+
+        elif cmd.startswith("/transfer "):
+            args = cmd[len("/transfer "):].strip()
+            self._start_discovery("transfer", args)
+
+        elif cmd == "/transfer":
+            console.print(Text("  usage: /transfer <domain>:<mechanism> to <domain>", style=TXT_MUTED))
+
+        elif cmd == "/curiosity":
+            self._start_discovery("curiosity", "")
+
+        elif cmd == "/evolve":
+            self._start_discovery("evolve", "")
+
+        elif cmd == "/consistency":
+            self._start_discovery("consistency", "")
 
         elif cmd == "/personality":
             self._handle_personality()
 
         elif cmd == "/exit":
-            console.print(Text("  \u2716 shutting down...", style=ACCENT_RED))
+            console.print()
+            console.print(Text("  Shutting down RUMI...", style=f"bold {ACCENT_RED}"))
+            console.print()
+            self._show_session_summary()
             self._running = False
-            os._exit(0)
+            _reset_terminal_bg()
+            time.sleep(0.3)
+            sys.exit(0)
 
         else:
-            # Unknown command — suggest closest match
             suggestions = []
             clean_cmd = cmd.strip().lower()
             for sc in SLASH_COMMANDS:
                 if clean_cmd in sc or sc in clean_cmd:
                     suggestions.append(sc)
+            console.print()
             if suggestions:
-                console.print(Text(f"  unknown command: {cmd}", style=ACCENT_RED))
-                console.print(Text(f"  did you mean: {', '.join(suggestions[:3])}?", style=ACCENT_ORANGE))
+                console.print(Text(f"  Unknown command: {cmd}", style=ACCENT_RED))
+                console.print(Text(f"  Did you mean: {', '.join(suggestions[:3])}?", style=ACCENT_AMBER))
             else:
-                console.print(Text(f"  unknown command: {cmd}", style=ACCENT_RED))
-                console.print(Text(f"  type /help for available commands", style=TEXT_MUTED))
+                console.print(Text(f"  Unknown command: {cmd}", style=ACCENT_RED))
+                console.print(Text(f"  Type /help for available commands", style=TXT_MUTED))
+            console.print()
 
+    # ----------------------------------------------------------------
+    # DISCOVERY STARTER
+    # ----------------------------------------------------------------
+    def _start_discovery(self, mode: str, args: str):
+        self._discovery_running = True
+        self._discovery_topic = args
+        self._pipeline.reset()
+        self._timeline.add("discovery", f"{mode}: {args[:50]}..." if args else mode)
+        self._activity_feed.add(f"discovery: {mode}", ACCENT_PURPLE)
+
+        console.print()
+        self._show_discovery_dashboard(args)
+
+        if self.on_discovery_command:
+            threading.Thread(target=self.on_discovery_command, args=(mode, args), daemon=True).start()
+
+    # ----------------------------------------------------------------
+    # TOOL CALL DISPLAY
+    # ----------------------------------------------------------------
+    def _show_tool_call(self, name: str, query: str = ""):
+        self._tool_calls.start(name, query)
+        self._activity_feed.add(f"{name}", ACCENT_TEAL)
+
+        line = Text()
+        line.append(f"  {name}", style=f"bold {TXT_SECOND}")
+        if query:
+            short = query[:40] + "..." if len(query) > 40 else query
+            line.append(f" {short}", style=TXT_DIM)
+        line.append(" ...", style=TXT_MUTED)
+        console.print(line)
+
+    def complete_tool_call(self, name: str, result: str = ""):
+        self._tool_calls.complete(name, result)
+
+        elapsed = ""
+        for call in reversed(self._tool_calls.get_recent(5)):
+            if call["name"] == name and call.get("elapsed"):
+                elapsed = f" ({call['elapsed']:.1f}s)"
+                break
+
+        line = Text()
+        line.append(f"  {name}", style=f"bold {ACCENT_GREEN}")
+        line.append(f"{elapsed}", style=TXT_DIM)
+        if result:
+            short = result[:50] + "..." if len(result) > 50 else result
+            line.append(f"  {short}", style=TXT_DIM)
+        console.print(line)
+
+    # ----------------------------------------------------------------
+    # STATUS (compact)
+    # ----------------------------------------------------------------
+    def _show_status_panel(self):
+        """Hermes-style compact status."""
+        uptime = self._get_uptime()
+        pct = min(100, int((self._total_tokens / 200000) * 100))
+        filled = int(pct / 10)
+        empty = 10 - filled
+        bar_text = f"[{'#' * filled}{'.' * empty}] {pct}%"
+        if pct < 50:
+            bar_color = ACCENT_GREEN
+        elif pct < 80:
+            bar_color = ACCENT_AMBER
+        elif pct < 95:
+            bar_color = "#f0883e"
+        else:
+            bar_color = ACCENT_RED
+
+        console.print()
+        line = Text()
+        line.append("  RUMI ", style=f"bold {ACCENT_BLUE}")
+        line.append(f"up {uptime} ", style=TXT_SECOND)
+        line.append(f"{self._message_count} msgs ", style=TXT_SECOND)
+        line.append(f"{self._total_tokens:,} tok ", style=TXT_SECOND)
+        line.append(f"${self._total_cost:.4f} ", style=ACCENT_GREEN)
+        line.append(f"{bar_text}", style=f"bold {bar_color}")
+        console.print(line)
+        console.print()
+
+    def _show_stats(self):
+        """Compact stats -- single line."""
+        uptime = int(time.time() - self._start_time)
+        line = Text()
+        line.append("  stats ", style=TXT_DIM)
+        line.append(f"{uptime // 3600:02d}:{(uptime % 3600) // 60:02d}:{uptime % 60:02d}", style=TXT_PRIMARY)
+        line.append(f"  {self._message_count} msgs", style=TXT_SECOND)
+        line.append(f"  {self._timeline.count()} events", style=TXT_SECOND)
+        line.append(f"  {self._graph_metrics.nodes} nodes", style=TXT_SECOND)
+        line.append(f"  {self._graph_metrics.edges} edges", style=TXT_SECOND)
+        console.print(line)
+
+    # ----------------------------------------------------------------
+    # TIMELINE DISPLAY
+    # ----------------------------------------------------------------
+    def _show_timeline(self):
+        """Compact timeline -- dense event list."""
+        events = self._timeline.get_events(last_n=10)
+
+        if not events:
+            console.print(Text("  No events yet.", style=TXT_DIM))
+            return
+
+        for ev in events:
+            type_color = {
+                "system": ACCENT_BLUE,
+                "user": ACCENT_CYAN,
+                "discovery": ACCENT_GREEN,
+                "mode": ACCENT_PURPLE,
+                "tool": ACCENT_AMBER,
+                "error": ACCENT_RED,
+            }.get(ev["type"], TXT_MUTED)
+
+            line = Text()
+            line.append(f"  {ev['time']} ", style=TXT_DIM)
+            line.append(f"{ev['desc']}", style=type_color)
+            console.print(line)
+
+    # ----------------------------------------------------------------
+    # SESSION SUMMARY
+    # ----------------------------------------------------------------
+    def _show_session_summary(self):
+        """Compact session summary."""
+        uptime = int(time.time() - self._start_time)
+        line = Text()
+        line.append("  session ", style=TXT_DIM)
+        line.append(f"{uptime // 3600:02d}:{(uptime % 3600) // 60:02d}:{uptime % 60:02d}", style=TXT_PRIMARY)
+        line.append(f"  {self._message_count} msgs", style=TXT_SECOND)
+        line.append(f"  {self._total_tokens:,} tok", style=TXT_SECOND)
+        line.append(f"  ${self._total_cost:.4f}", style=ACCENT_GREEN)
+        console.print(line)
+
+    # ----------------------------------------------------------------
+    # HEARTBEAT
+    # ----------------------------------------------------------------
     def _heartbeat_loop(self):
-        """Background thread for thinking state animations."""
-        dots = 0
+        kaomoji_idx = 0
         while self._running:
             if self._rumi_state in ("THINKING", "PROCESSING"):
-                dots = (dots + 1) % 4
+                kaomoji_idx = (kaomoji_idx + 1) % len(THINKING_MESSAGES)
                 time.sleep(0.5)
             else:
-                dots = 0
+                kaomoji_idx = 0
                 time.sleep(1)
 
-    # ── Public API ──────────────────────────────────────────────
-    def write_log(self, text: str):
-        """Display a log message - opencode minimal style.
+    def show_thinking(self, message: str = ""):
+        msg = message or random.choice(THINKING_MESSAGES)
+        console.print(Text(f"  ... {msg}", style=f"bold {ACCENT_BLUE}"))
 
-        Opencode: plain text, no panels, no borders.
-        """
+    def show_done(self, message: str = ""):
+        msg = message or "Done."
+        console.print(Text(f"  {msg}", style=f"bold {ACCENT_GREEN}"))
+
+    # ================================================================
+    # PUBLIC API
+    # ================================================================
+
+    def write_log(self, text: str):
         with self._input_lock:
             tl = text.lower().strip()
 
-            # Skip internal messages
             if any(skip in tl for skip in ["[rumi]", "[episodic]", "[selfawareness]",
                                             "[coordinator]", "[dreaming]", "[vectormemory]",
-                                            "[telegram]", "[api]", "cognitive gate",
-                                            "warning:", "non-data parts"]):
+                                            "[telegram]", "non-data parts"]):
                 return
 
             if tl.startswith("you:"):
                 content = text[4:].strip()
                 self.set_state("PROCESSING")
                 console.print()
-                console.print(Text(f"  {content}", style=f"bold {ACCENT_BLUE}"))
+                console.print(Text(f"  > {content}", style=f"bold {ACCENT_BLUE}"))
+                self.show_thinking()
 
             elif tl.startswith("rumi:") or tl.startswith("ai:"):
                 prefix_len = 5 if tl.startswith("rumi:") else 3
                 content = text[prefix_len:].strip()
-                # Filter out thinking sections (wrapped in **text**)
-                import re
-                content = re.sub(r'\*\*[^*]+\*\*\s*', '', content).strip()
+                content = _re.sub(r'\*\*Thinking(?:\s*\(.*?\))?\*\*\s*', '', content).strip()
+                content = _re.sub(r'\*\*Reasoning\*\*\s*', '', content).strip()
                 if content:
                     console.print()
                     try:
                         console.print(Markdown(content))
                     except Exception:
-                        console.print(Text(content, style=TEXT_PRIMARY))
+                        console.print(Text(f"  {content}", style=TXT_PRIMARY))
                 self.set_state("SPEAKING")
 
             elif tl.startswith("sys:"):
                 content = text[4:].strip()
-                console.print(Text(f"  {content}", style=f"dim {TEXT_MUTED}"))
+                self._activity_feed.add(content, TXT_SECOND)
+                console.print(Text(f"  {content}", style=TXT_SECOND))
 
             elif tl.startswith("err:") or tl.startswith("error:"):
-                console.print(Text(f"  {text[4:].strip()}", style=f"bold {ACCENT_RED}"))
+                err_msg = text[4:].strip() if ":" in text[4:5] else text[4:].strip()
+                self._activity_feed.add(f"error: {err_msg}", ACCENT_RED)
+                console.print(Text(f"  error: {err_msg}", style=f"bold {ACCENT_RED}"))
 
             else:
-                # Skip empty or noise messages
                 if not text.strip() or text.strip().startswith("["):
                     return
-                console.print(Text(f"  {text}", style=TEXT_PRIMARY))
+                console.print(Text(f"  {text}", style=TXT_PRIMARY))
 
     def set_state(self, state: str):
-        """Update RUMI's state indicator."""
         self._rumi_state = state
         self.status_text = state
-        if state == "THINKING":
-            console.print(Text("  \u23f3 RUMI is thinking...", style=f"italic {C_AMBER}"))
 
     def set_discovery_step(self, step: str):
-        """Update discovery pipeline progress with phase indicator."""
         self._discovery_step = step
-        # Color-code by phase type
-        if "paper" in step.lower() or "fetch" in step.lower() or "arxiv" in step.lower() or "pubmed" in step.lower():
-            color = C_GREEN  # Green for real data
-        elif "comput" in step.lower() or "bayesian" in step.lower() or "monte carlo" in step.lower() or "metric" in step.lower():
-            color = C_PURPLE  # Purple for calculations
-        elif "label" in step.lower() or "ground" in step.lower() or "cit" in step.lower() or "valid" in step.lower():
-            color = C_AMBER  # Amber for validation
-        elif "generat" in step.lower() or "llm" in step.lower() or "hypothes" in step.lower():
-            color = C_CYAN  # Cyan for LLM generation
-        elif "extract" in step.lower() or "entity" in step.lower() or "relat" in step.lower():
-            color = C_BLUE  # Blue for extraction
-        elif "graph" in step.lower() or "knowledge" in step.lower():
-            color = C_PURPLE  # Purple for graph
-        elif "contradict" in step.lower() or "skeptic" in step.lower() or "refin" in step.lower():
-            color = C_RED  # Red for critique
-        elif "novelt" in step.lower() or "similar" in step.lower():
-            color = C_AMBER  # Amber for novelty
-        elif "experiment" in step.lower() or "plan" in step.lower():
-            color = C_GREEN  # Green for experiments
-        else:
-            color = C_DIM
+        self._activity_feed.add(step, ACCENT_PURPLE)
 
-        # Format with step indicator
-        step_display = step.upper()
-        console.print(Text(f"  ◆ {step_display}", style=f"bold {color}"))
+        step_lower = step.lower()
+        if any(k in step_lower for k in ["paper", "fetch", "arxiv", "pubmed", "literature"]):
+            self._pipeline.start_phase("paper_retrieval")
+            color = ACCENT_GREEN
+        elif any(k in step_lower for k in ["extract", "entity", "relation"]):
+            self._pipeline.start_phase("entity_extraction")
+            color = ACCENT_BLUE
+        elif any(k in step_lower for k in ["graph", "knowledge"]):
+            self._pipeline.start_phase("knowledge_graph")
+            color = ACCENT_PURPLE
+        elif any(k in step_lower for k in ["contradict", "skeptic", "refin"]):
+            self._pipeline.start_phase("contradiction_mine")
+            color = ACCENT_RED
+        elif any(k in step_lower for k in ["generat", "llm", "hypothes"]):
+            self._pipeline.start_phase("hypothesis_gen")
+            color = ACCENT_CYAN
+        elif any(k in step_lower for k in ["novelt", "similar"]):
+            self._pipeline.start_phase("novelty_check")
+            color = ACCENT_AMBER
+        elif any(k in step_lower for k in ["experiment", "plan"]):
+            self._pipeline.start_phase("experiment_plan")
+            color = ACCENT_GREEN
+        elif any(k in step_lower for k in ["comput", "bayesian", "monte carlo", "metric"]):
+            color = ACCENT_PURPLE
+        elif any(k in step_lower for k in ["label", "ground", "cit", "valid"]):
+            color = ACCENT_AMBER
+        else:
+            color = ACCENT_CYAN
+
+        # Hermes-style: step name + inline progress
+        pct = self._pipeline.get_progress_pct()
+        bar = _make_progress_bar(pct, 8)
+        line = Text()
+        line.append(f"  {step} ", style=f"{color}")
+        line.append(bar, style=TXT_DIM)
+        console.print(line)
 
     def set_discovery_done(self):
         self._discovery_running = False
         self._discovery_step = ""
+        self._pipeline.reset()
+        self._activity_feed.add("Discovery complete", ACCENT_GREEN)
 
     def start_speaking(self):
-        """Mark the start of speech output."""
         self.set_state("SPEAKING")
 
     def stop_speaking(self):
-        """Mark the end of speech output."""
         self.set_state("LISTENING")
 
     def show_toast(self, message: str, duration: float = 2.5):
-        """Display a brief notification message."""
-        console.print(Text(f"  \u25c8 {message}", style=f"bold {C_CYAN}"))
+        console.print(Text(f"  {message}", style=f"bold {ACCENT_BLUE}"))
 
     def feed_amplitude(self, amplitude: float):
-        """Receive voice amplitude data (no-op in terminal mode)."""
         pass
 
     def wait_for_api_key(self):
-        """Block until API keys are configured."""
         while not self._api_key_ready:
             time.sleep(0.1)
 
-    def _show_science_help(self):
-        """Show Scientist AI capabilities — compact table."""
-        table = Table(
-            border_style=C_BORDER,
-            box=SIMPLE,
-            show_header=True,
-            header_style=f"bold {TEXT_MUTED}",
-            padding=(0, 1),
-        )
-        table.add_column("Module", style=ACCENT_CYAN, min_width=22)
-        table.add_column("What It Does", style=TEXT_PRIMARY)
-        table.add_column("Example", style=ACCENT_ORANGE)
+    def update_tokens(self, tokens: int, cost: float = 0.0, latency: float = 0.0):
+        self._total_tokens += tokens
+        self._total_cost += cost
+        if latency > 0:
+            self._last_latency = latency
 
-        capabilities = [
-            ("discovery_engine", "Full pipeline: idea → experiment → paper", "Discover new insights about quantum computing"),
-            ("tournament_hypothesis", "GFlowNet-style diverse generation", "Generate 10 hypotheses about neural scaling laws"),
-            ("knowledge_graph", "Structured knowledge, gap finding", "Add paper to KG and find gaps"),
-            ("novelty_checker", "Check novelty against literature", "Is this idea novel: GFlowNets for protein design?"),
-            ("experiment_designer", "Design sandboxed experiments", "Design experiment to test attention hypothesis"),
-            ("reproducibility", "Extract and verify claims", "Reproduce claims in Chinchilla scaling paper"),
-            ("active_experiment", "Bayesian optimal experiment selection", "What experiment to run next?"),
-            ("cross_domain", "Find analogies across fields", "Analogies between evolution and NAS"),
-            ("peer_reviewer", "Automated peer review", "Review this paper for rigor"),
-            ("paper_generator", "Generate LaTeX manuscripts", "Write paper about scaling law findings"),
-            ("research_team", "Multi-agent debate", "Debate whether transformers scale to AGI"),
-            ("feynman_reducer", "First-principles decomposition", "Explain backprop from first principles"),
-            ("cross_validator", "Statistical validation", "Validate results with bootstrap sampling"),
-            ("scientist_search", "Search researcher papers", "Find papers by Bengio on GFlowNets"),
-            ("lab_notebook", "Track experiments", "Create notebook entry for scaling experiment"),
-            ("scientific_reasoning", "Multi-pass discovery cycle", "Reason about neural scaling laws"),
-            ("theory_formation", "Bengio-inspired theory engine", "Form theories from observations"),
+    def update_graph_metrics(self, **kwargs):
+        self._graph_metrics.update(**kwargs)
+
+    # ----------------------------------------------------------------
+    # SCIENCE HELP
+    # ----------------------------------------------------------------
+    def _show_science_help(self):
+        """Compact modules list."""
+        console.print()
+        modules = [
+            ("discovery_engine", "full pipeline"),
+            ("tournament_hypothesis", "GFlowNet generation"),
+            ("knowledge_graph", "structured knowledge"),
+            ("novelty_checker", "novelty check"),
+            ("experiment_designer", "experiment design"),
+            ("reproducibility", "claim verification"),
+            ("active_experiment", "Bayesian selection"),
+            ("cross_domain", "cross-field analogies"),
+            ("peer_reviewer", "automated review"),
+            ("paper_generator", "LaTeX manuscripts"),
+            ("research_team", "multi-agent debate"),
+            ("feynman_reducer", "first principles"),
+            ("cross_validator", "statistical validation"),
+            ("scientist_search", "researcher search"),
+            ("lab_notebook", "experiment tracking"),
+            ("scientific_reasoning", "multi-pass discovery"),
+            ("theory_formation", "theory engine"),
+            ("simulation_pipeline", "Monte Carlo testing"),
+            ("math_consistency", "equation verification"),
+            ("multi_agent_debate", "proposer/critic/advocate/synthesizer"),
+            ("continuous_operation", "autonomous research loop"),
+            ("cross_domain_transfer", "mechanism transfer across fields"),
+            ("domain_ontologies", "real physics for 17 domains"),
         ]
 
-        for name, desc, example in capabilities:
-            table.add_row(name, desc, example)
-
-        console.print()
-        console.print(table)
+        for name, desc in modules:
+            line = Text()
+            line.append(f"  {name}", style=f"bold {ACCENT_CYAN}")
+            line.append(f"  {desc}", style=TXT_SECOND)
+            console.print(line)
         console.print()
 
     def _show_domains(self):
-        """Show available Discovery Engine domains with calculation availability."""
+        """Compact domain list."""
         from discovery.domains import list_domains
         from discovery.domain_computational import DOMAIN_COMPUTATIONS
-        table = Table(
-            border_style=BORDER_NORMAL,
-            box=SIMPLE,
-            show_header=True,
-            header_style=f"bold {TEXT_MUTED}",
-            padding=(0, 1),
-        )
-        table.add_column("Domain", style=ACCENT_CYAN, min_width=20)
-        table.add_column("Label", style=ACCENT_GREEN)
-        table.add_column("Real Calculations", style=TEXT_PRIMARY)
-        table.add_column("Sources", style=ACCENT_ORANGE)
 
-        domain_sources = {
-            "drug_discovery": "PubChem, OpenFDA, PDB",
-            "materials_science": "PubChem, Materials Project",
-            "neuroscience": "UniProt, PDB",
-            "molecular_biology": "UniProt, PDB",
-            "climate_energy": "NASA POWER",
-            "space_astronomy": "NASA API, arXiv, HITRAN",
-            "ecology": "GBIF",
-            "physics": "arXiv",
-            "computer_science": "GitHub, Semantic Scholar",
-            "earth_science": "USGS",
-            "oceanography": "NOAA",
-            "economics": "World Bank",
-            "public_health": "WHO",
-            "mathematics": "OEIS, arXiv",
-            "chemistry": "PubChem, CIR",
-        }
-
+        console.print()
         for d in list_domains():
             key = d["key"]
             has_calc = key in DOMAIN_COMPUTATIONS or key == "space_astronomy"
-            calc_status = "YES - real formulas" if has_calc else "generic (Bayesian only)"
-            calc_color = ACCENT_GREEN if has_calc else TEXT_MUTED
-            sources = domain_sources.get(key, "Semantic Scholar")
-            table.add_row(key, d["label"],
-                         Text(calc_status, style=calc_color),
-                         sources)
-
-        console.print()
-        console.print(table)
-        console.print(Text("  /domain <key> to switch  ·  /discover <domain>: <topic>", style=ACCENT_ORANGE))
-        console.print(Text("  Domains with 'YES' use real physics/chemistry/biology formulas", style=ACCENT_GREEN))
+            calc = " *" if has_calc else ""
+            line = Text()
+            line.append(f"  {key}", style=f"bold {ACCENT_CYAN}")
+            line.append(f"  {d['label']}{calc}", style=TXT_SECOND)
+            console.print(line)
+        console.print(Text("  /domain <key>  |  /discover <domain>: <topic>", style=TXT_DIM))
         console.print()
 
     def _handle_personality(self):
-        """Handle /personality command."""
         console.print()
-        console.print(Text(f"  current: {self._personality}", style=ACCENT_ORANGE))
+        console.print(Text(f"  Current: {self._personality}", style=ACCENT_AMBER))
         console.print()
 
         pers_keys = list(PERSONALITIES.keys())
         for i, k in enumerate(pers_keys):
             p = PERSONALITIES[k]
-            console.print(Text(f"  [{i+1}] {p['label']}", style=TEXT_PRIMARY))
-            console.print(Text(f"      {p['desc']}", style=TEXT_MUTED))
+            console.print(Text(f"  [{i+1}] {p['label']}", style=TXT_PRIMARY))
+            console.print(Text(f"      {p['desc']}", style=TXT_MUTED))
         console.print()
 
         choice = input("  > ").strip()
         try:
             idx = int(choice) - 1
             if idx < 0:
-                console.print(Text("  cancelled", style=C_AMBER))
+                console.print(Text("  cancelled", style=ACCENT_AMBER))
                 return
             chosen = pers_keys[idx]
         except (ValueError, IndexError):
-            console.print(Text("  invalid choice", style=C_RED))
+            console.print(Text("  invalid choice", style=ACCENT_RED))
             return
 
         if _set_personality(chosen):
             self._personality = chosen
-            console.print(Text(f"  switched to {PERSONALITIES[chosen]['label']}", style=C_GREEN))
-            console.print(Text(f"  takes effect next session", style=C_AMBER))
+            console.print(Text(f"  OK Switched to {PERSONALITIES[chosen]['label']}", style=ACCENT_GREEN))
+            console.print(Text(f"  Takes effect next session", style=ACCENT_AMBER))
         else:
-            console.print(Text("  failed to switch", style=C_RED))
+            console.print(Text("  X Failed to switch", style=ACCENT_RED))
         console.print()
 
-    # ── API Key Setup ───────────────────────────────────────────
+    # ----------------------------------------------------------------
+    # API KEY SETUP
+    # ----------------------------------------------------------------
     def _show_setup_ui(self):
-        """Terminal-based first-time setup — clean and compact."""
         console.print()
         console.print(Rule(style=f"bold {ACCENT_PURPLE}"))
-        console.print(Text("  FIRST BOOT — API KEY SETUP", style=f"bold {TEXT_PRIMARY}"), justify="center")
+        console.print(Text("  FIRST BOOT -- API KEY SETUP", style=f"bold {TXT_PRIMARY}"), justify="center")
         console.print(Rule(style=f"bold {ACCENT_PURPLE}"))
         console.print()
 
         detected = _detect_os()
 
-        # Gemini
         console.print(Text("  Enter your Gemini API key:", style=ACCENT_CYAN))
-        console.print(Text("  (Get one at: https://aistudio.google.com/apikey)", style=f"dim {TEXT_MUTED}"))
-        gemini_key = input("  \U0001F511 ").strip()
+        console.print(Text("  (Get one at: https://aistudio.google.com/apikey)", style=TXT_MUTED))
+        gemini_key = input("  > ").strip()
         while not gemini_key:
             console.print(Text("  API key cannot be empty.", style=f"bold {ACCENT_RED}"))
-            gemini_key = input("  \U0001F511 ").strip()
+            gemini_key = input("  > ").strip()
 
         console.print()
 
-        # Groq
         console.print(Text("  Enter your Groq API key:", style=ACCENT_CYAN))
-        console.print(Text("  (Get one at: https://console.groq.com/keys)", style=f"dim {TEXT_MUTED}"))
-        groq_key = input("  \U0001F511 ").strip()
+        console.print(Text("  (Get one at: https://console.groq.com/keys)", style=TXT_MUTED))
+        groq_key = input("  > ").strip()
         while not groq_key:
             console.print(Text("  API key cannot be empty.", style=f"bold {ACCENT_RED}"))
-            groq_key = input("  \U0001F511 ").strip()
+            groq_key = input("  > ").strip()
 
         console.print()
 
-        # Optional: second Groq key
-        console.print(Text("  Second Groq key (optional, for rate limiting)", style=f"dim {TEXT_MUTED}"))
-        groq_key2 = input("  \U0001F511 ").strip()
+        console.print(Text("  Second Groq key (optional, for rate limiting)", style=TXT_MUTED))
+        groq_key2 = input("  > ").strip()
 
         console.print()
 
-        # Callsign
         console.print(Text("  Your callsign (default: OPERATOR):", style=ACCENT_CYAN))
-        user_name = input("  \U0001F464 ").strip().upper() or "OPERATOR"
+        user_name = input("  > ").strip().upper() or "OPERATOR"
 
-        # Personality
         console.print()
         console.print(Text("  Personality:", style=ACCENT_CYAN))
         pers_keys = list(PERSONALITIES.keys())
         for i, k in enumerate(pers_keys):
             p = PERSONALITIES[k]
-            console.print(Text(f"  [{i+1}] {p['label']}", style=ACCENT_ORANGE))
-        pers_choice = input("  \U0001F3B2 ").strip() or "1"
+            console.print(Text(f"  [{i+1}] {p['label']}", style=ACCENT_AMBER))
+        pers_choice = input("  > ").strip() or "1"
         try:
             idx = int(pers_choice) - 1
             chosen_pers = pers_keys[idx] if 0 <= idx < len(pers_keys) else "professional"
@@ -970,35 +1646,31 @@ class RumiUI:
         _set_personality(chosen_pers)
         self._personality = chosen_pers
 
-        # Telegram (optional)
         console.print()
-        console.print(Text("  Telegram bot? (y/N)", style=f"dim {C_DIM}"))
+        console.print(Text("  Telegram bot? (y/N)", style=TXT_MUTED))
         tg_choice = input("  > ").strip().lower()
         tg_token = ""
         tg_user = ""
         if tg_choice in ("y", "yes"):
-            console.print(Text("  Bot token:", style=C_WHITE))
-            tg_token = input("  \U0001F511 ").strip()
-            console.print(Text("  User ID:", style=C_WHITE))
+            console.print(Text("  Bot token:", style=TXT_PRIMARY))
+            tg_token = input("  > ").strip()
+            console.print(Text("  User ID:", style=TXT_PRIMARY))
             tg_user = input("  > ").strip()
 
-        # Enrichment keys (optional)
         console.print()
-        console.print(Text("  Optional enrichment keys (enter to skip):", style=f"dim {C_DIM}"))
+        console.print(Text("  Optional enrichment keys (enter to skip):", style=TXT_MUTED))
 
-        console.print(Text("  NASA API key:", style=f"dim {C_DIM}"))
+        console.print(Text("  NASA API key:", style=TXT_MUTED))
         nasa_key = input("  > ").strip()
 
-        console.print(Text("  Materials Project key:", style=f"dim {C_DIM}"))
+        console.print(Text("  Materials Project key:", style=TXT_MUTED))
         mp_key = input("  > ").strip()
 
-        # Voice mode
         console.print()
-        console.print(Text("  Voice mode: [1] Text only  [2] Text + Voice", style=C_AMBER))
+        console.print(Text("  Voice mode: [1] Text only  [2] Text + Voice", style=ACCENT_AMBER))
         vm_choice = input("  > ").strip() or "1"
         voice_enabled = vm_choice == "2"
 
-        # Save config
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(API_FILE, "w", encoding="utf-8") as f:
             json.dump({
@@ -1025,5 +1697,5 @@ class RumiUI:
         self.set_state("LISTENING")
 
         console.print()
-        console.print(Text(f"  \u25c8 RUMI online. Welcome, {user_name}.", style=f"bold {C_GREEN}"))
+        console.print(Text(f"  * RUMI online. Welcome, {user_name}.", style=f"bold {ACCENT_GREEN}"))
         console.print()

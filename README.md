@@ -24,7 +24,7 @@
 
 <p align="center">
   <b>Autonomous Scientific Cognition Framework</b><br>
-  Terminal-native. 57 Brain Modules. 17 Scientist Modules. 42 Discovery Modules. 17 Domains.
+  Terminal-native. 44 Brain Modules. 17 Scientist Modules. 48 Discovery Modules. 17 Domains.
 </p>
 
 <p align="center">
@@ -38,8 +38,11 @@
 - [About RUMI](#-about-rumi)
 - [Motivation](#-motivation)
 - [Cognitive Architecture](#-cognitive-architecture)
-- [Scientist AI Pipeline](#-scientist-ai-pipeline)
-- [Brain Systems (60+ Modules)](#-brain-systems-60-modules)
+- [Discovery Engine](#-discovery-engine)
+  - [What's New in v2.1](#whats-new-in-v21--simulation-debate-and-autonomous-operation)
+- [Full Scientist Pipeline](#-full-scientist-pipeline)
+- [Run RUMI with AI Assistants](#-run-rumi-with-ai-assistants-recommended)
+- [Brain Systems (44 Modules)](#-brain-systems-44-modules)
 - [Features Overview](#-features-overview)
 - [Tech Stack](#-tech-stack)
 - [Installation](#-installation)
@@ -55,14 +58,14 @@
 
 ## 🧪 About RUMI
 
-**RUMI** (Research & Unified Machine Intelligence) is a terminal-native autonomous scientific cognition framework that generates novel, testable, evidence-grounded hypotheses via a 10-stage stage-based pipeline. It bridges the gap between raw LLM capability and autonomous scientific research by combining a sophisticated cognitive architecture — memory, reasoning, planning, consciousness modeling — with a modular discovery pipeline featuring entity extraction, knowledge graph construction, contradiction mining, confidence scoring, skeptic review, novelty verification, and experiment planning — all orchestrated through a checkpointed, retry-fault-tolerant stage-based system.
+**RUMI** (Research & Unified Machine Intelligence) is a terminal-native autonomous scientific cognition framework that generates novel, testable, evidence-grounded hypotheses via a 12-phase scientist pipeline. It bridges the gap between raw LLM capability and autonomous scientific research by combining a 44-module cognitive architecture — memory, reasoning, planning, consciousness modeling — with a modular discovery pipeline featuring entity extraction, knowledge graph construction, contradiction mining, confidence scoring, skeptic review, novelty verification, and experiment planning — all orchestrated through a checkpointed, retry-fault-tolerant stage-based system.
 
 | Dimension | RUMI |
 |-----------|------|
 | **Interface** | Terminal-native (Rich + prompt_toolkit) — no bloat |
 | **Model** | Gemini 2.5 Flash + Groq (Llama 3.3 70B), multi-model routing with token-aware rate limiting |
-| **Architecture** | 57 cognitive brain modules + 17 Scientist AI modules + 42 Discovery modules |
-| **Pipeline** | PubMed retrieval -> relevance filter -> entity extraction -> knowledge graph -> contradiction mining -> hypothesis generation -> skeptic review -> novelty verification -> experiment planning -> metrics logging |
+| **Architecture** | 57 cognitive brain modules + 17 Scientist AI modules + 48 Discovery modules |
+| **Pipeline** | PubMed retrieval -> relevance filter -> entity extraction -> knowledge graph -> contradiction mining -> hypothesis generation -> skeptic review -> novelty verification -> experiment planning -> math consistency check -> Monte Carlo simulation -> metrics logging |
 | **Memory** | 9-type system: neural, episodic, vector, procedural, working, associative, predictive, consolidated, global workspace; SQLite hypothesis memory for cross-session persistence |
 | **Learning** | Active inference, curiosity-driven exploration, dreaming (offline replay), meta-learning |
 | **Reasoning** | Causal (Pearl's hierarchy), analogical (Gentner's structure mapping), neurosymbolic, first-principles |
@@ -215,6 +218,13 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
   → Domain-specific enrichment (PubChem / OpenFDA / UniProt)
   → Mathematical graph metrics (Jaccard, betweenness, degree, density, entropy, clustering, edge strength)
   → Pattern mining + hypothesis generation with domain-aware definitions
+  → Skeptic review + iterative refinement
+  → Novelty verification
+  → Experiment planning
+  → Tournament evolution (GFlowNet-style)
+  → Deep-research improvement loop
+  → Math consistency check (equations, parameters, constraints)
+  → Monte Carlo simulation (1000 runs, confidence intervals)
   → Web dashboard (vis-network graph + hypothesis browser)
 
 /contradictions
@@ -229,6 +239,13 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 /discoveries  — List past discovery sessions
 /domain       — Show or set current domain
 /domains      — List all available domains
+/simulate     — Monte Carlo simulation on a hypothesis
+/debate       — 4-agent debate on a hypothesis
+/continuous   — Run N autonomous research cycles
+/transfer     — Cross-domain mechanism transfer
+/curiosity    — View RUMI's research frontier
+/evolve       — Theory evolution status
+/consistency  — Math consistency check on hypotheses
 ```
 
 ### Modules
@@ -276,10 +293,16 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 | **Molecule Designer** | `discovery/molecule.py` | Groq SMILES -> RDKit validation -> PubChem -> scoring (drug) |
 | **Output** | `discovery/output.py` | Terminal formatting, session saving |
 | **Dashboard** | `discovery/dashboard/index.html` | vis-network graph + tabs for hypotheses, contradictions, molecules |
+| **Domain Ontologies** | `discovery/domain_ontologies.py` | Real physics/biology/chemistry ontologies for 17 domains — equations, mechanisms, constraints, known anomalies |
+| **Math Consistency Checker** | `discovery/math_consistency_checker.py` | Verify theories are mathematically sound — equation parsing, parameter validation, unit checking, constraint violations |
+| **Simulation Pipeline** | `discovery/simulation_pipeline.py` | Monte Carlo simulation to test hypotheses — 1000 runs, confidence intervals, domain-specific sims (Hubble tension, etc.) |
+| **Multi-Agent Debate** | `discovery/multi_agent_debate.py` | 4-agent debate system: Proposer generates, Critic attacks, Advocate defends, Synthesizer finds truth |
+| **Cross-Domain Transfer** | `discovery/cross_domain_transfer.py` | Apply discoveries across fields — 7 built-in analogies, LLM-powered new analogy discovery |
+| **Continuous Operation** | `discovery/continuous_operation.py` | Autonomous research loop — curiosity-driven topic selection, theory evolution tracking, persistent memory |
 
 ---
 
-## 🧠 Brain Systems (57 Modules)
+## 🧠 Brain Systems (44 Modules)
 
 ### Memory Systems
 
@@ -366,12 +389,203 @@ Manual: `/discover materials: battery cathodes` or `/domain materials_science`
 
 ---
 
+## 🔄 Full Scientist Pipeline
+
+RUMI has THREE discovery pipelines:
+
+### 1. Grounded Discovery (`run_grounded_discovery.py`)
+Real papers → computational verification → claim labeling → provenance tracking.
+
+```bash
+python run_grounded_discovery.py --topic "KRAS G12C inhibitor resistance" --domain drug_discovery
+```
+
+### 2. Full Scientist Pipeline (`scientist/pipeline.py`)
+The complete 14-phase research lifecycle with ALL modules wired:
+
+### 3. Discovery Engine v2.1 (`discovery/discovery_pipeline_v2.py`) — NEW
+The genuine scientific discovery pipeline. Not a research assistant — a discovery engine. Now with simulation, debate, and autonomous operation.
+
+```
+Phase 1:  Literature Search (arXiv + PubMed)
+Phase 2:  Knowledge Graph (entity extraction + relationship building)
+Phase 3:  Gap Detection (structural holes, orphan observations, missing mechanisms)
+Phase 4:  Anomaly Detection (conflicting evidence, outliers, prediction violations)
+Phase 5:  Missing Variable Generator (propose hidden entities/processes)
+Phase 6:  Mechanism Generation (causal pathways, not just correlations)
+Phase 7:  Prediction Engine (testable predictions with falsification criteria)
+Phase 8:  Theory Competition (multiple competing explanations, scored)
+Phase 9:  Computational Verification (actual graph analysis, Monte Carlo, statistics)
+Phase 10: Contradiction Mining (algorithmic graph analysis)
+Phase 11: Skeptic Review (adversarial critique)
+Phase 12: Math Consistency Check (equation validation, parameter ranges, unit checking)
+Phase 13: Monte Carlo Simulation (1000 runs, confidence intervals, domain-specific testing)
+Phase 14: Discovery Scoring (novelty, explanatory power, predictive power, falsifiability, simplicity, evidence)
+```
+
+```bash
+python discovery/discovery_pipeline_v2.py "anomalous stellar dimming"
+```
+
+```python
+from discovery.discovery_pipeline_v2 import run_discovery_pipeline
+result = run_discovery_pipeline(
+    topic="KRAS G12C inhibitor resistance",
+    domain="drug_discovery",
+    mode="full",  # quick | standard | full
+)
+```
+
+#### What makes v2.1 different from v1:
+
+| Dimension | v1 (run_full_pipeline) | v2.1 (discovery_pipeline_v2) |
+|-----------|----------------------|---------------------------|
+| **Gap Detection** | None | Structural holes, orphan observations, missing mechanisms |
+| **Anomaly Detection** | None | Conflicting evidence, outliers, prediction violations |
+| **Hidden Variables** | None | Proposes unseen entities/processes (dark matter style) |
+| **Mechanisms** | Correlations | Causal pathways with steps |
+| **Predictions** | None | Testable predictions with falsification criteria |
+| **Theory Competition** | Single hypothesis | Multiple competing explanations scored |
+| **Computational Verification** | "Computations run: 0" | Real graph analysis, Monte Carlo, statistics |
+| **Math Consistency** | None | Equation parsing, parameter validation, constraint checking |
+| **Monte Carlo Simulation** | None | 1000-run simulations with confidence intervals |
+| **Multi-Agent Debate** | Single critic | 4-agent debate: Proposer, Critic, Advocate, Synthesizer |
+| **Cross-Domain Transfer** | None | 7 built-in analogies + LLM-discovered transfers |
+| **Continuous Operation** | Single run | Autonomous loop with curiosity-driven topic selection |
+| **Domain Ontologies** | Generic terms | Real physics equations, mechanisms, constraints for 17 domains |
+| **Discovery Scoring** | Basic confidence | 6-dimension scoring (0-100) |
+| **Output** | Literature summary | Observation → Problem → Gap → Mechanism → Predictions → Score |
+
+#### New Discovery Modules:
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Knowledge Gap Detector** | `discovery/knowledge_gap_detector.py` | Find structural holes, orphan observations, missing mechanisms |
+| **Anomaly Detector** | `discovery/anomaly_detector.py` | Find conflicting evidence, outliers, prediction violations |
+| **Missing Variable Generator** | `discovery/missing_variable_generator.py` | Propose hidden variables (dark matter style reasoning) |
+| **Mechanism Generator** | `discovery/mechanism_generator.py` | Generate causal pathways, not just correlations |
+| **Prediction Engine** | `discovery/prediction_engine.py` | Generate testable predictions with falsification criteria |
+| **Theory Competition** | `discovery/theory_competition.py` | Compare multiple explanations, score on 7 dimensions |
+| **Discovery Scorer** | `discovery/discovery_scorer.py` | Final quality gate: novelty, explanatory power, falsifiability |
+| **Computational Verification** | `discovery/computational_verification.py` | Real computations: graph analysis, Monte Carlo, statistics |
+| **Domain Ontologies** | `discovery/domain_ontologies.py` | Real physics for 17 domains: entities, mechanisms, equations, constraints, anomalies |
+| **Math Consistency Checker** | `discovery/math_consistency_checker.py` | Verify theories: equation parsing, parameter ranges, unit checking, physical constants |
+| **Simulation Pipeline** | `discovery/simulation_pipeline.py` | Monte Carlo testing: 1000 runs, confidence intervals, domain-specific simulations |
+| **Multi-Agent Debate** | `discovery/multi_agent_debate.py` | 4-role debate: Proposer, Critic, Advocate, Synthesizer with scoring |
+| **Cross-Domain Transfer** | `discovery/cross_domain_transfer.py` | 7 known analogies + LLM-powered new analogy discovery across fields |
+| **Continuous Operation** | `discovery/continuous_operation.py` | Autonomous loop: CuriosityEngine, TheoryEvolution, MemoryManager |
+
+### What's New in v2.1 — Simulation, Debate, and Autonomous Operation
+
+#### Domain Ontologies (`domain_ontologies.py`)
+RUMI now has real scientific knowledge for all 17 domains. Not generic terms — actual physics:
+- **Entities**: magnetar, synchrotron radiation, dispersion measure, pyramidal neuron, AMPA receptor, Lotka-Volterra
+- **Mechanisms**: "Magnetic reconnection in magnetar magnetosphere releases ~10^46 erg in <1ms"
+- **Equations**: Friedmann, synchrotron frequency, Hodgkin-Huxley, Michaelis-Menten, Stefan-Boltzmann
+- **Constraints**: speed of light, Hubble constant range (60-80), Lipinski's Rule of 5
+- **Known anomalies**: Hubble tension, cosmic lithium problem, dark matter, muon g-2
+
+#### Math Consistency Checker (`math_consistency_checker.py`)
+Before accepting a theory, RUMI verifies it's mathematically sound:
+- Parses equations and checks they're valid
+- Validates parameter ranges (H0 between 60-80, no FTL, no negative mass)
+- Checks unit consistency
+- Compares against known physical constants
+- Scores 0-100, flags inconsistent theories
+
+#### Simulation Pipeline (`simulation_pipeline.py`)
+RUMI tests hypotheses with Monte Carlo simulations:
+- Runs 1000 simulations with parameter perturbation
+- Computes 68% and 95% confidence intervals
+- Domain-specific simulations (Hubble tension with Early Dark Energy model)
+- Generic MC for any hypothesis with numeric parameters
+- No LLM needed — pure computation
+
+#### Multi-Agent Debate (`multi_agent_debate.py`)
+Instead of one LLM rubber-stamping its own theories:
+1. **Proposer** generates the hypothesis (bold, quantitative, falsifiable)
+2. **Critic** attacks it (finds flaws, cites physics, checks numbers)
+3. **Advocate** defends it (addresses flaws, finds supporting evidence)
+4. **Synthesizer** finds the truth between them (net assessment, revisions, experiments)
+
+#### Cross-Domain Transfer (`cross_domain_transfer.py`)
+Real breakthroughs come from applying ideas across fields:
+- 7 built-in analogies: physics↔information theory, ecology↔economics, neuroscience↔CS, physics↔climate, biology↔materials, physics↔economics, oceanography↔neuroscience
+- LLM-powered discovery of new analogies
+- Transfer suggestions for any discovery
+
+#### Continuous Operation (`continuous_operation.py`)
+RUMI runs forever, self-directed:
+- **CuriosityEngine**: Weighted topic selection (less explored = more curious, promising = more curious)
+- **TheoryEvolution**: Tracks hypothesis lineage across versions (v1 → v2 → v3...)
+- **MemoryManager**: Persists discoveries to disk, survives across sessions
+- **Full autonomous loop**: select → hypothesize → simulate → debate → evolve → publish → sleep → repeat
+
+#### New Terminal Commands
+
+```
+/simulate <hypothesis>     — Run Monte Carlo simulation
+/debate <hypothesis>       — 4-agent debate
+/continuous [N]            — Run N autonomous research cycles
+/transfer <domain>:<mech> to <domain>  — Cross-domain transfer
+/curiosity                 — See RUMI's research frontier
+/evolve                    — See theory evolution status
+/consistency               — Check math consistency of hypotheses
+```
+
+---
+
+## 🤖 Run RUMI with AI Assistants (Recommended)
+
+The easiest way to use RUMI is through an AI coding assistant. Just tell it where RUMI is and what to discover.
+
+### With Hermes Agent
+
+```
+Hey Hermes, I have RUMI at C:\Users\Admin\Desktop
+umi.
+Run RUMI's full scientist pipeline to do an edge discovery
+in the space astronomy domain. Topic: anomalous stellar
+dimming and technosignature detection.
+```
+
+Hermes will:
+1. Navigate to the RUMI directory
+2. Load the correct Python environment
+3. Run `scientist/pipeline.py` or `run_grounded_discovery.py`
+4. Save the report and summarize findings
+
+### With Claude Code
+
+```
+Claude, I have a scientific discovery AI called RUMI at
+C:\Users\Admin\Desktop
+umi. Run the full pipeline to
+generate novel hypotheses about dark matter detection
+methods. Use the physics domain.
+```
+
+Claude will:
+1. Read RUMI's structure and understand the pipeline
+2. Execute the appropriate discovery runner
+3. Parse and present the results
+
+### Tips for AI Assistants
+
+- **Always specify the domain**: `space_astronomy`, `drug_discovery`, `physics`, `neuroscience`, `climate_energy`, `ecology`, `materials_science`, `computer_science`, `public_health`, `chemistry`, `mathematics`
+- **Use `mode="full"`** for complete pipeline (all 12 phases)
+- **Use `mode="quick"`** for fast exploration (literature + novelty + hypothesis only)
+- **Python path**: Always use `C:\Users\Admin\AppData\Local\Programs\Python\Python313\python.exe` (not MSYS2 Python)
+- **Reports save to**: `data/` directory as `.json` and `.md` files
+
+---
+
 ## 🚀 Features Overview
 
 | Category | Description |
 |----------|-------------|
-| 🔬 **Discovery Engine** | 17-domain scientific discovery: drug, materials, neuroscience, molbio, climate, space, ecology, physics, CS, earth, ocean, economics, health, math, social, chemistry, general. PubMed → domain-specific extraction → graph → enrichment (15+ APIs) → metrics → hypotheses → molecules. Auto-detect or manual domain. |
-| 🧠 **Cognition** | 57 brain modules — causal reasoning, analogy, active inference, curiosity, metacognition, dreaming, learning |
+| 🔬 **Discovery Engine** | 17-domain scientific discovery: drug, materials, neuroscience, molbio, climate, space, ecology, physics, CS, earth, ocean, economics, health, math, social, chemistry, general. PubMed → domain-specific extraction → graph → enrichment (15+ APIs) → metrics → hypotheses → molecules. Auto-detect or manual domain. NEW: Monte Carlo simulation, math consistency checking, multi-agent debate, cross-domain transfer, continuous autonomous operation. |
+| 🧠 **Cognition** | 44 brain modules — causal reasoning, analogy, active inference, curiosity, metacognition, dreaming, learning |
 | 🌐 **Research** | Paper search (arXiv + Semantic Scholar), deep web research, scientific knowledge graphs |
 | 🧠 **Memory** | 9 memory types — neural, episodic, vector, procedural, working, global workspace, associative, predictive, consolidated |
 | 🤖 **Scientist Agents** | 11 specialized research agent personas: literature reviewer, hypothesis generator, experiment designer, paper writer, peer reviewer, novelty analyst, cross-domain bridge, reproducibility engineer, data analyst, knowledge curator, research coordinator |
@@ -602,6 +816,13 @@ rumi
 | `/graph` | Knowledge graph statistics |
 | `/dashboard` | Open web-based interactive dashboard |
 | `/discoveries` | List past discovery sessions |
+| `/simulate <hypothesis>` | Run Monte Carlo simulation on a hypothesis |
+| `/debate <hypothesis>` | 4-agent debate: Proposer, Critic, Advocate, Synthesizer |
+| `/continuous [N]` | Run N autonomous research cycles (default: 20) |
+| `/transfer <domain>:<mech> to <domain>` | Cross-domain mechanism transfer analysis |
+| `/curiosity` | View RUMI's research frontier and topic queue |
+| `/evolve` | View theory evolution status and best theories |
+| `/consistency` | Mathematical consistency check on latest hypotheses |
 | `/focus` | Toggle Focus mode (respond only when addressed) |
 | `/think` | Toggle Think mode (reasoning before responses) |
 | `/dive` | Toggle Deep Dive mode (thorough research) |

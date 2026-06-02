@@ -235,9 +235,9 @@ def _run_thinking_loop(
         try:
             thought = _generate(prompt, system=system)
             elapsed = time.time() - t0
-            print(f"[ThinkingLoop] ✅ Pass {pass_num} done ({elapsed:.1f}s)")
+            print(f"[ThinkingLoop] OK Pass {pass_num} done ({elapsed:.1f}s)")
         except Exception as e:
-            print(f"[ThinkingLoop] ⚠️ Pass {pass_num} failed: {e} — using previous thought")
+            print(f"[ThinkingLoop] WARN Pass {pass_num} failed: {e} -- using previous thought")
             break
 
     print(f"[ThinkingLoop] 🎯 Reasoning complete")

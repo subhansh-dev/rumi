@@ -296,9 +296,23 @@ def run_full_pipeline(topic: str, domain: str = "", generations: int = 3):
         nov = h.get("novelty", "?")
         print(f"    [{nov}|{conf:.2f}] {h.get('title', 'Untitled')[:70]}", flush=True)
 
-    # Skip tournament (async issues) — use hypotheses directly
-    evolved = hypotheses
-    print(f"\n[7/9] TOURNAMENT — Using {len(evolved)} hypotheses directly (tournament bypassed)", flush=True)
+    # Run hypothesis tournament (evolutionary selection)
+    print(f"\n[5b/9] TOURNAMENT — Evolving {len(hypotheses)} hypotheses over {generations} generations...", flush=True)
+    try:
+        from discovery.hypothesis_tournament import HypothesisTournament
+        tournament = HypothesisTournament()
+        evolved = asyncio.run(
+            tournament.run(hypotheses, graph, topic, domain, generations=generations)
+        )
+        for i, h in enumerate(evolved[:5]):
+            rank = h.get("tournament_rank", i + 1)
+            conf = h.get("confidence", 0)
+            nov = h.get("novelty", "?")
+            print(f"    #{rank} [{nov}|{conf:.2f}] {h.get('title', 'Untitled')[:60]}", flush=True)
+    except Exception as e:
+        print(f"  Tournament failed ({e}), using original hypotheses", flush=True)
+        evolved = hypotheses
+    print(f"\n[7/9] TOURNAMENT — {len(evolved)} hypotheses after evolution", flush=True)
 
     # ════════════════════════════════════════════════════════════════
     # STAGE 6: SKEPTIC REVIEW — Adversarial falsification
@@ -418,9 +432,9 @@ Output JSON: {{"experiment_type": "observational|computational", "design": "deta
         skeptic_result, experiment
     )
 
-    print("  Generating final report via LLM...")
+    print("  Generating final report via LLM...", flush=True)
     t0 = time.time()
-    raw_output = llm_call(final_prompt, max_tokens=32768)
+    raw_output = llm_call(final_prompt[:8000], max_tokens=8192, provider="groq")
     elapsed = time.time() - t0
     print(f"  Generated in {elapsed:.1f}s ({len(raw_output or '')} chars)")
 

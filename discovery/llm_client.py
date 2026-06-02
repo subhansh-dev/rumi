@@ -103,6 +103,7 @@ def _call_groq(prompt: str, json_mode: bool = False,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
         max_tokens=max_tokens,
+        timeout=30,  # 30 second timeout to prevent hangs
     )
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
@@ -192,10 +193,17 @@ def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
     Call an LLM. Provider order: Groq -> Gemini (auto mode).
     Set provider='groq' or 'gemini' to force a specific backend.
     """
+    import sys as _sys
     if provider == "groq":
-        return _call_groq(prompt, json_mode, max_tokens, temperature)
+        result = _call_groq(prompt, json_mode, max_tokens, temperature)
+        if result is None:
+            print(f"    [LLM DEBUG] Groq returned None (json_mode={json_mode}, tokens={max_tokens})", file=_sys.stderr, flush=True)
+        return result
     if provider == "gemini":
-        return _call_gemini(prompt, json_mode, max_tokens, temperature)
+        result = _call_gemini(prompt, json_mode, max_tokens, temperature)
+        if result is None:
+            print(f"    [LLM DEBUG] Gemini returned None (json_mode={json_mode}, tokens={max_tokens})", file=_sys.stderr, flush=True)
+        return result
 
     # Auto: try Groq first, fallback to Gemini
     result = _call_groq(prompt, json_mode, max_tokens, temperature)

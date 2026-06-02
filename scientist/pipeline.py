@@ -246,13 +246,13 @@ class ResearchPipeline:
         """Search and synthesize related literature."""
         try:
             from scientist.scientist_search import get_scientist_search
-            from actions.paper_search import paper_search
+            from actions.paper_search import execute_paper_search
 
             literature = {"papers": [], "key_findings": [], "research_gaps": []}
 
             # Search papers across sources
             try:
-                papers_result = paper_search(query=topic, max_results=15, source="all")
+                papers_result = execute_paper_search(query=topic, max_results=15, source="all")
                 if isinstance(papers_result, dict) and "papers" in papers_result:
                     literature["papers"] = papers_result["papers"][:10]
                 elif isinstance(papers_result, str):
@@ -330,17 +330,41 @@ class ResearchPipeline:
                 report.selected_hypothesis = hypothesis
                 report.hypotheses = [{"title": hypothesis, "score": 1.0}]
             else:
-                result = engine.generate_and_select(
+                # Step 1: Generate diverse population
+                population = engine.generate_population(
                     topic=topic,
-                    population_size=8,
+                    size=8,
+                )
+
+                # Step 2: Run tournament evolution
+                evolved = engine.run_tournament(
+                    size=4,
                     generations=3,
                 )
-                if isinstance(result, dict):
-                    report.hypotheses = result.get("candidates", [])
-                    report.selected_hypothesis = result.get("selected", "")
-                elif isinstance(result, str):
-                    report.selected_hypothesis = result
-                    report.hypotheses = [{"title": result, "score": 1.0}]
+
+                # Step 3: Get best candidates
+                best = engine.get_best(n=3)
+
+                if best:
+                    report.hypotheses = [
+                        {
+                            "title": h.get("title", str(h)),
+                            "score": h.get("reward", h.get("score", 0.5)),
+                            "description": h.get("description", h.get("mechanistic_rationale", "")),
+                        }
+                        for h in best
+                    ]
+                    report.selected_hypothesis = best[0].get("title", topic)
+                elif evolved:
+                    # Fallback: use evolved population
+                    report.hypotheses = [
+                        {
+                            "title": getattr(c, "title", str(c)),
+                            "score": getattr(c, "reward", 0.5),
+                        }
+                        for c in evolved[:5]
+                    ]
+                    report.selected_hypothesis = getattr(evolved[0], "title", topic)
                 else:
                     report.selected_hypothesis = topic
                     report.hypotheses = [{"title": topic, "score": 0.5}]
@@ -396,14 +420,21 @@ class ResearchPipeline:
             from scientist.reproducibility_engine import get_reproducibility_engine
             engine = get_reproducibility_engine()
 
-            report.reproducibility_check = engine.reproduce(
-                text=json.dumps({
+            repro_result = engine.reproduce_paper(
+                paper_text=json.dumps({
                     "hypothesis": report.selected_hypothesis,
                     "methodology": report.experiment_design.get("methodology", ""),
                     "results": report.experiment_result.get("results", {}),
                 }, default=str),
-                title=f"Reproducing: {report.topic[:80]}",
+                paper_title=f"Reproducing: {report.topic[:80]}",
             )
+            # Convert to dict if it's a ReproducibilityReport object
+            if hasattr(repro_result, "to_dict"):
+                report.reproducibility_check = repro_result.to_dict()
+            elif isinstance(repro_result, dict):
+                report.reproducibility_check = repro_result
+            else:
+                report.reproducibility_check = {"overall_score": 0.5, "summary": str(repro_result)}
             report.phase = "reproducibility_checked"
         except Exception as e:
             report.errors.append(f"Reproducibility phase: {e}")

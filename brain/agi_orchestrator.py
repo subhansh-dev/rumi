@@ -21,22 +21,14 @@ Integration points (all optional, graceful degradation):
 - world_model: latent dynamics prediction
 - neurosymbolic_reasoner: symbolic reasoning
 - self_improve_engine: RLHF-inspired improvement
-- code_planner: hierarchical goal decomposition
-- code_simulator: code simulation
-- code_intelligence: code analysis
-- code_reasoning_engine: deep code reasoning
 - learning: Q-learning, error-driven learning
 - dreaming: replay, consolidation
 - self_model: capability tracking
 - procedural_memory: skill memory
-- benchmark_runner: performance benchmarking
-- agi_benchmark_v2: autonomous cognitive architecture evaluation (v2)
 - self_modifier: self-modification analysis, safe code changes, evolution tracking
 - cognitive_integration: unified cognitive pipeline (System 1/2 routing)
 - intuition_engine: fast System 1 pattern matching, RPD decisions
-- emotional_regulation: somatic markers, mood tracking, decision pruning
 - metacognitive_monitor: thinking quality, calibration, strategy effectiveness
-- cognitive_appraisal: emotion generation from 6 appraisal dimensions
 - cognitive_load: working memory monitoring, overload detection
 - self_awareness: consciousness state tracking, theory of mind
 - neural_memory: Hebbian learning persistent memory
@@ -44,7 +36,6 @@ Integration points (all optional, graceful degradation):
 - vector_memory: semantic search embeddings
 - curiosity: novelty detection, user interest mirroring
 - proactive_engine: anticipatory suggestions
-- proactive_checkin: tiered idle check-ins
 """
 
 import json
@@ -161,16 +152,10 @@ class AGIOrchestrator:
             "world_model": ("brain.world_model", "get_world_model"),
             "neurosymbolic_reasoner": ("brain.neurosymbolic_reasoner", "get_neurosymbolic_reasoner"),
             "self_improve_engine": ("brain.self_improve_engine", "get_self_improve_engine"),
-            "code_planner": ("brain.code_planner", "get_code_planner"),
-            "code_simulator": ("brain.code_simulator", "get_code_simulator"),
-            "code_intelligence": ("brain.code_intelligence", "get_code_intelligence"),
-            "code_reasoning_engine": ("brain.code_reasoning_engine", "get_code_reasoning_engine"),
             "learning_engine": ("brain.learning", "get_learning_engine"),
             "dreaming_system": ("brain.dreaming", "get_dreaming_system"),
             "self_model": ("brain.self_model", "get_self_model"),
             "procedural_memory": ("brain.procedural_memory", "get_procedural_memory"),
-            "benchmark_runner": ("brain.benchmark_runner", "get_benchmark_runner"),
-            "agi_benchmark_v2": ("benchmarks.agi_benchmark_v2", "get_agi_benchmark_v2"),
             "transfer_learning": ("brain.transfer_learning", "get_transfer_learning"),
             "analogy_engine": ("brain.analogy_engine", "get_analogy_engine"),
             "causal_reasoner": ("brain.causal_reasoner", "get_causal_reasoner"),
@@ -186,10 +171,8 @@ class AGIOrchestrator:
             # Cognitive integration & System 1/2 routing
             "cognitive_integration": ("brain.cognitive_integration", "get_cognitive_integration"),
             "intuition_engine": ("brain.intuition_engine", "get_intuition_engine"),
-            # Emotional & metacognitive systems
-            "emotional_regulation": ("brain.emotional_regulation", "get_emotional_regulation"),
+            # Metacognitive systems
             "metacognitive_monitor": ("brain.metacognitive_monitor", "get_metacognitive_monitor"),
-            "cognitive_appraisal": ("brain.cognitive_appraisal", "get_cognitive_appraisal"),
             "cognitive_load": ("brain.cognitive_load", "get_cognitive_load_manager"),
             # Memory systems (also loaded directly in main.py)
             "self_awareness": ("brain.self_awareness", "get_self_awareness"),
@@ -199,9 +182,6 @@ class AGIOrchestrator:
             "curiosity": ("brain.curiosity", "get_curiosity_module"),
             # Proactive & voice
             "proactive_engine": ("brain.proactive_engine", "get_proactive_engine"),
-            "proactive_checkin": ("brain.proactive_checkin", "get_proactive_checkin"),
-            # Code reflection & cyber reasoning
-            "code_reflector": ("brain.code_reflector", "get_code_reflector"),
             # AGI Pillars — Multi-agent & autonomous systems
             "multi_agent_orchestrator": ("brain.multi_agent_orchestrator", "get_multi_agent_orchestrator"),
             "goal_engine": ("brain.goal_engine", "get_goal_engine"),
@@ -217,7 +197,6 @@ class AGIOrchestrator:
             # AGI Pillars — Self-awareness & world modeling
             "introspection_engine": ("brain.introspection_engine", "get_introspection_engine"),
             "world_simulation": ("brain.world_simulation", "get_world_simulation"),
-            "code_evolution": ("brain.code_evolution", "get_code_evolution"),
         }
 
         for name, (module_path, func_name) in module_loaders.items():
@@ -251,13 +230,12 @@ class AGIOrchestrator:
             "reflection": ["causal_reasoner", "meta_learner", "narrative_intelligence",
                            "metacognitive_monitor", "introspection_engine"],
             "simulation": ["world_model", "enhanced_world_model", "world_simulation"],
-            "verification": ["neurosymbolic_reasoner", "code_reasoning_engine"],
-            "improvement": ["self_improve_engine", "transfer_learning", "code_evolution"],
+            "verification": ["neurosymbolic_reasoner"],
+            "improvement": ["self_improve_engine", "transfer_learning"],
             "competition": ["module_competition"],
             "consciousness": ["integrated_info", "self_awareness"],
             "routing": ["model_router", "cognitive_integration"],
             "communication": ["findings_bus"],
-            "emotional": ["emotional_regulation", "cognitive_appraisal"],
             "memory": ["neural_memory", "episodic_memory", "vector_memory",
                        "memory_coordinator", "procedural_memory",
                        "memory_consolidation", "associative_memory", "predictive_memory"],
@@ -266,7 +244,6 @@ class AGIOrchestrator:
             "social": ["theory_of_mind"],
             "abstraction": ["abstraction_engine"],
             "multi_agent": ["multi_agent_orchestrator"],
-            "code_reflection": ["code_reflector"],
         }
         for stage, module_names in wiring.items():
             available = [n for n in module_names if self._modules.get(n) is not None]
@@ -652,16 +629,6 @@ class AGIOrchestrator:
             if hasattr(mod, "get_stats"):
                 return mod.get_stats()
 
-        elif name == "code_evolution":
-            if hasattr(mod, "propose_evolution"):
-                try:
-                    proposal = mod.propose_evolution(request[:300])
-                    return {"evolution_proposal": str(proposal)[:200]}
-                except Exception:
-                    pass
-            if hasattr(mod, "get_stats"):
-                return mod.get_stats()
-
         # ── Newly wired modules ──────────────────────────────────────
 
         elif name == "intuition_engine":
@@ -675,18 +642,6 @@ class AGIOrchestrator:
             if hasattr(mod, "get_stats"):
                 return mod.get_stats()
 
-        elif name == "emotional_regulation":
-            if hasattr(mod, "get_current_mood"):
-                mood = mod.get_current_mood()
-                return {"mood": mood}
-            if hasattr(mod, "apply_somatic_markers"):
-                # Build options from request for marker application
-                options = [{"action": "respond", "context": request[:200]}]
-                marked = mod.apply_somatic_markers(options)
-                return {"marked_options": len(marked or [])}
-            if hasattr(mod, "get_stats"):
-                return mod.get_stats()
-
         elif name == "metacognitive_monitor":
             if hasattr(mod, "check_cognitive_load"):
                 load_state = mod.check_cognitive_load()
@@ -697,15 +652,6 @@ class AGIOrchestrator:
             if hasattr(mod, "suggest_strategy"):
                 suggestion = mod.suggest_strategy("cognitive_request", context[:200])
                 return {"strategy_suggestion": suggestion}
-            if hasattr(mod, "get_stats"):
-                return mod.get_stats()
-
-        elif name == "cognitive_appraisal":
-            if hasattr(mod, "appraise"):
-                appraisal = mod.appraise(request[:200], context={"depth": depth})
-                return {"appraisal": appraisal}
-            if hasattr(mod, "get_status"):
-                return mod.get_status()
             if hasattr(mod, "get_stats"):
                 return mod.get_stats()
 
@@ -770,21 +716,7 @@ class AGIOrchestrator:
             if hasattr(mod, "get_stats"):
                 return mod.get_stats()
 
-        elif name == "code_reasoning_engine":
-            if hasattr(mod, "get_stats"):
-                return mod.get_stats()
-
         elif name == "proactive_engine":
-            if hasattr(mod, "get_stats"):
-                return mod.get_stats()
-
-        elif name == "proactive_checkin":
-            if hasattr(mod, "get_stats"):
-                return mod.get_stats()
-        elif name == "code_reflector":
-            if hasattr(mod, "analyze_failure"):
-                analysis = mod.analyze_failure(request[:300])
-                return {"failure_analysis": str(analysis)[:300]}
             if hasattr(mod, "get_stats"):
                 return mod.get_stats()
 
@@ -1211,19 +1143,6 @@ class AGIOrchestrator:
         """
         metrics: Dict[str, Any] = {}
 
-        # Code task success rate (SWE-bench proxy)
-        code_planner = self._get_module("code_planner")
-        code_intel = self._get_module("code_intelligence")
-        if code_planner and hasattr(code_planner, "get_stats"):
-            try:
-                cp_stats = code_planner.get_stats()
-                plans = cp_stats.get("total_plans", 0)
-                success = cp_stats.get("successful_plans", 0)
-                metrics["swe_bench_estimate"] = round(success / max(plans, 1), 4)
-                metrics["total_plans"] = plans
-            except Exception:
-                metrics["swe_bench_estimate"] = 0.0
-
         # Decision entropy from active inference
         ai = self._get_module("active_inference")
         if ai and hasattr(ai, "get_stats"):
@@ -1373,24 +1292,6 @@ class AGIOrchestrator:
             except Exception as e:
                 result["error"] = str(e)[:200]
                 print(f"[AGIOrchestrator] H-AIF error: {e}")
-
-        # Fallback to code planner
-        if not result["success"]:
-            cp = self._get_module("code_planner")
-            if cp:
-                try:
-                    if hasattr(cp, "decompose_goal"):
-                        plan = cp.decompose_goal(goal)
-                        result["plan"] = plan.to_dict() if hasattr(plan, "to_dict") else plan
-                        result["success"] = True
-                        result["fallback"] = "code_planner"
-                    elif hasattr(cp, "get_active_plans"):
-                        plans = cp.get_active_plans()
-                        result["plan"] = {"active_plans": plans, "method": "code_planner"}
-                        result["success"] = True
-                        result["fallback"] = "code_planner"
-                except Exception as e:
-                    result["error"] = str(e)[:200]
 
         # Fallback to active inference
         if not result["success"]:
@@ -1542,39 +1443,11 @@ class AGIOrchestrator:
         # Determine execution strategy based on goal type
         goal_lower = goal.lower()
 
-        # Code-related goals
-        if any(kw in goal_lower for kw in ["code", "implement", "fix", "refactor", "debug", "write"]):
-            cp = self._get_module("code_planner")
-            if cp:
-                try:
-                    if hasattr(cp, "decompose_goal"):
-                        plan = cp.decompose_goal(goal)
-                        # Simulate the plan if possible
-                        if hasattr(cp, "simulate_plan"):
-                            sim_result = cp.simulate_plan(plan)
-                            result["execution"] = sim_result
-                        else:
-                            result["execution"] = plan.to_dict() if hasattr(plan, "to_dict") else plan
-                        result["success"] = True
-                        result["executor"] = "code_planner"
-                except Exception as e:
-                    result["error"] = str(e)[:200]
-
-            # Also try code simulator
-            if not result["success"]:
-                cs = self._get_module("code_simulator")
-                if cs:
-                    try:
-                        if hasattr(cs, "simulate_code"):
-                            sim_result = cs.simulate_code(goal)
-                            result["execution"] = sim_result
-                            result["success"] = True
-                            result["executor"] = "code_simulator"
-                    except Exception as e:
-                        result["error"] = str(e)[:200]
+        # Code-related goals — skip (code_planner/code_simulator removed)
+        # Fall through to general execution
 
         # Memory-related goals
-        elif any(kw in goal_lower for kw in ["remember", "recall", "search", "find", "memory"]):
+        if any(kw in goal_lower for kw in ["remember", "recall", "search", "find", "memory"]):
             mc = self._get_module("memory_coordinator")
             if mc:
                 try:

@@ -3053,6 +3053,52 @@ class RumiLive:
 
         metrics.save(run_id)
 
+        # Stage 12: NEW — Mathematical Consistency Check
+        self._post_output("[bold cyan]Checking mathematical consistency...[/bold cyan]")
+        self.ui.set_discovery_step("consistency check")
+        t0 = time.time()
+        try:
+            from discovery.math_consistency_checker import MathConsistencyChecker
+            checker = MathConsistencyChecker()
+            for h in hypotheses[:3]:
+                result = checker.check_theory(h, domain)
+                if not result["consistent"]:
+                    h["confidence"] = max(0.0, h.get("confidence", 0.5) - 0.2)
+                    h["consistency_violations"] = result["violations"]
+                    self._post_output(f"  [yellow]Consistency warning: {h.get('title', '')[:50]} — {result['violations'][0][:60]}[/yellow]")
+                else:
+                    h["consistency_score"] = result["score"]
+            metrics.record("consistency_check", "ok", time.time() - t0)
+        except Exception as e:
+            self._post_output(f"  [dim]Consistency check skipped: {e}[/dim]")
+
+        # Stage 13: NEW — Monte Carlo Simulation (top hypothesis only)
+        self._post_output("[bold cyan]Running Monte Carlo simulation on top hypothesis...[/bold cyan]")
+        self.ui.set_discovery_step("Monte Carlo simulation")
+        t0 = time.time()
+        try:
+            from discovery.simulation_pipeline import SimulationPipeline
+            sim = SimulationPipeline()
+            top_h = sorted(hypotheses, key=lambda x: x.get("confidence", 0), reverse=True)[:1]
+            for h in top_h:
+                import re as _re
+                params = {}
+                for m in _re.finditer(r'(\w+)\s*[=:]\s*([\d.]+(?:e[+-]?\d+)?)', h.get("description", "") + " " + json.dumps(h.get("key_parameters", []))):
+                    try:
+                        params[m.group(1)] = float(m.group(2))
+                    except ValueError:
+                        pass
+                if not params:
+                    params = {"f_ede": 0.127, "z_c": 5100, "alpha": 2.83}
+                sim_result = sim.run(h.get("title", ""), domain, params)
+                h["simulation_score"] = sim_result.score
+                h["simulation_passed"] = sim_result.passed_consistency
+                h["simulation_predictions"] = sim_result.predictions
+                self._post_output(f"  Simulation: score={sim_result.score:.0f}, passed={sim_result.passed_consistency}")
+            metrics.record("simulation", "ok", time.time() - t0)
+        except Exception as e:
+            self._post_output(f"  [dim]Simulation skipped: {e}[/dim]")
+
         # Save & Output
         from discovery.output import format_hypotheses, save_hypotheses
         save_hypotheses(hypotheses)
@@ -3430,6 +3476,355 @@ Output ONLY valid JSON as a list of objects with this structure:
                 )
             else:
                 self._post_output("Specify a topic: /theorize <topic>")
+
+        # === NEW COMMANDS: Simulation, Debate, Continuous, Transfer ===
+        elif command == "simulate":
+            if args:
+                self._safe_run_coroutine(
+                    self._run_simulate(args), "Monte Carlo simulation"
+                )
+            else:
+                self._post_output("Specify a hypothesis: /simulate <hypothesis>")
+
+        elif command == "debate":
+            if args:
+                self._safe_run_coroutine(
+                    self._run_debate(args), "multi-agent debate"
+                )
+            else:
+                self._post_output("Specify a hypothesis: /debate <hypothesis>")
+
+        elif command == "continuous":
+            max_cycles = 20
+            if args:
+                try:
+                    max_cycles = int(args.strip())
+                except ValueError:
+                    pass
+            self._safe_run_coroutine(
+                self._run_continuous(max_cycles), "continuous operation"
+            )
+
+        elif command == "transfer":
+            if args:
+                self._run_transfer(args)
+            else:
+                self._post_output("Usage: /transfer <source_domain>:<mechanism> to <target_domain>")
+
+        elif command == "curiosity":
+            self._run_curiosity()
+
+        elif command == "evolve":
+            self._run_evolve_status()
+
+        elif command == "consistency":
+            self._safe_run_coroutine(
+                self._run_consistency_check(), "consistency check"
+            )
+
+    # === NEW: Simulation, Debate, Continuous, Transfer implementations ===
+
+    async def _run_simulate(self, hypothesis: str):
+        """Run Monte Carlo simulation on a hypothesis."""
+        from discovery.simulation_pipeline import SimulationPipeline
+        from discovery.domain_ontologies import get_ontology
+
+        self._post_output(f"[bold cyan]Running Monte Carlo simulation...[/bold cyan]")
+        self.ui.set_discovery_step("running simulations")
+
+        sim = SimulationPipeline()
+
+        # Detect domain
+        domain = self.current_domain or "general"
+
+        # Extract parameters from hypothesis text
+        import re
+        params = {}
+        for match in re.finditer(r'(\w+)\s*[=:]\s*([\d.]+(?:e[+-]?\d+)?)', hypothesis):
+            try:
+                params[match.group(1)] = float(match.group(2))
+            except ValueError:
+                pass
+
+        # If no params found, try known Hubble params
+        if not params:
+            if any(k in hypothesis.lower() for k in ["hubble", "h0", "ede", "dark energy"]):
+                params = {"f_ede": 0.127, "z_c": 5100, "alpha": 2.83, "theta_s": 0.0104}
+            else:
+                params = {"param1": 1.0, "param2": 0.5}
+
+        result = sim.run(hypothesis, domain, params, n_simulations=1000)
+
+        output = [
+            f"\n[bold cyan]Simulation Results[/bold cyan]",
+            f"Hypothesis: {result.hypothesis[:100]}",
+            f"Simulations: {result.n_simulations}",
+            f"",
+        ]
+
+        for k, v in result.predictions.items():
+            ci = result.confidence_intervals.get(f"{k}_68", ("?", "?"))
+            output.append(f"  {k} = {v}  (68% CI: {ci[0]} - {ci[1]})")
+
+        output.append(f"")
+        output.append(f"Consistency: {'[green]PASSED[/green]' if result.passed_consistency else '[red]FAILED[/red]'}")
+        output.append(f"Score: {result.score:.0f}/100")
+        output.append(f"")
+        output.append(f"Details: {result.details}")
+
+        self._post_output("\n".join(output))
+        self.ui.set_discovery_step("")
+        self.ui._discovery_running = False
+
+    async def _run_debate(self, hypothesis: str):
+        """Run multi-agent debate on a hypothesis."""
+        from discovery.multi_agent_debate import MultiAgentDebate
+
+        self._post_output(f"[bold cyan]Starting multi-agent debate...[/bold cyan]")
+        self.ui.set_discovery_step("multi-agent debate")
+
+        debate = MultiAgentDebate()
+
+        # Build LLM function
+        async def llm_fn(prompt: str) -> str:
+            try:
+                result = await self._call_llm(prompt, max_tokens=2048)
+                return result
+            except Exception as e:
+                return f"LLM error: {e}"
+
+        # Run debate (sync wrapper for async llm_fn)
+        import asyncio
+        def sync_llm(prompt):
+            try:
+                future = asyncio.run_coroutine_threadsafe(llm_fn(prompt), self._loop)
+                return future.result(timeout=60)
+            except Exception:
+                return f"Could not call LLM"
+
+        debate_result = debate.run_debate(
+            hypothesis=hypothesis,
+            topic=self.current_topic if hasattr(self, 'current_topic') else "",
+            llm_fn=sync_llm
+        )
+
+        output = [
+            f"\n[bold cyan]Multi-Agent Debate Results[/bold cyan]",
+            f"Hypothesis: {debate_result.hypothesis[:100]}",
+            f"",
+        ]
+
+        for r in debate_result.rounds:
+            color = "green" if r.strength == "strong" else "yellow" if r.strength == "moderate" else "red"
+            output.append(f"  [{color}]{r.agent.upper()}[/{color}] ({r.role}): score={r.score:.0f}")
+            for p in r.specific_points[:2]:
+                output.append(f"    - {p[:100]}")
+            output.append(f"")
+
+        verdict_color = "green" if debate_result.final_verdict == "accept" else "red" if debate_result.final_verdict == "reject" else "yellow"
+        output.append(f"Verdict: [{verdict_color}]{debate_result.final_verdict.upper()}[/{verdict_color}]")
+        output.append(f"Confidence: {debate_result.confidence:.0%}")
+        output.append(f"")
+        output.append(f"Key Insights:")
+        for ins in debate_result.key_insights[:3]:
+            output.append(f"  - {ins[:100]}")
+        if debate_result.revisions_needed:
+            output.append(f"Revisions Needed:")
+            for rev in debate_result.revisions_needed[:3]:
+                output.append(f"  - {rev[:100]}")
+
+        self._post_output("\n".join(output))
+        self.ui.set_discovery_step("")
+        self.ui._discovery_running = False
+
+    async def _run_continuous(self, max_cycles: int = 20):
+        """Run continuous autonomous research loop."""
+        from discovery.continuous_operation import ContinuousOperation
+
+        self._post_output(f"[bold cyan]Starting continuous operation ({max_cycles} cycles)...[/bold cyan]")
+        self.ui.set_discovery_step("continuous operation")
+
+        co = ContinuousOperation(pipeline=None)
+
+        # Build LLM function
+        async def llm_fn(prompt: str) -> str:
+            try:
+                return await self._call_llm(prompt, max_tokens=2048)
+            except Exception as e:
+                return f"LLM error: {e}"
+
+        import asyncio
+        def sync_llm(prompt):
+            try:
+                future = asyncio.run_coroutine_threadsafe(llm_fn(prompt), self._loop)
+                return future.result(timeout=60)
+            except Exception:
+                return ""
+
+        def on_cycle(result):
+            cycle = result.get("cycle", "?")
+            topic = result.get("topic", "?")[:50]
+            score = result.get("final_score", 0)
+            verdict = result.get("verdict", "?")
+            self._post_output(f"  Cycle {cycle}: {topic}... score={score:.0f} verdict={verdict}")
+            self.ui.set_discovery_step(f"cycle {cycle}")
+
+        # Run in thread to not block
+        import threading
+        def run_loop():
+            try:
+                summary = co.run_continuous(
+                    max_cycles=max_cycles,
+                    llm_fn=sync_llm,
+                    callback=on_cycle
+                )
+                output = [
+                    f"\n[bold cyan]Continuous Operation Complete[/bold cyan]",
+                    f"Total cycles: {summary['total_cycles']}",
+                    f"Hypotheses tested: {summary['hypotheses_tested']}",
+                    f"Accepted: {summary['theories_accepted']}",
+                    f"Rejected: {summary['theories_rejected']}",
+                    f"Revised: {summary['theories_revised']}",
+                    f"Elapsed: {summary['elapsed_seconds']:.0f}s",
+                ]
+                if summary.get('best_theories'):
+                    output.append(f"\nBest Theories:")
+                    for t in summary['best_theories'][:3]:
+                        output.append(f"  [{t['id']}] {t['hypothesis'][:80]} (score={t['score']:.0f})")
+                self._post_output("\n".join(output))
+            except Exception as e:
+                self._post_output(f"[red]Continuous operation error: {e}[/red]")
+            finally:
+                self.ui.set_discovery_step("")
+                self.ui._discovery_running = False
+
+        threading.Thread(target=run_loop, daemon=True).start()
+
+    def _run_transfer(self, args: str):
+        """Run cross-domain transfer analysis."""
+        from discovery.cross_domain_transfer import CrossDomainTransfer
+
+        cdt = CrossDomainTransfer()
+
+        # Parse: "physics:entropy to information_theory"
+        parts = args.split(" to ")
+        if len(parts) == 2:
+            source = parts[0].strip()
+            target = parts[1].strip()
+            if ":" in source:
+                domain, mechanism = source.split(":", 1)
+            else:
+                domain = source
+                mechanism = ""
+        else:
+            domain = self.current_domain or "physics"
+            mechanism = args
+            target = ""
+
+        if target:
+            analogies = cdt.find_analogies(domain, target)
+        else:
+            analogies = cdt.find_all_source_analogies(domain)
+
+        if not analogies:
+            self._post_output(f"No known analogies found for {domain} -> {target or 'any domain'}")
+            return
+
+        output = [f"\n[bold cyan]Cross-Domain Transfer: {domain} -> {target or 'all'}[/bold cyan]"]
+        for a in analogies:
+            output.append(f"")
+            output.append(f"  [bold]{a.source_domain}[/bold] -> [bold]{a.target_domain}[/bold]")
+            output.append(f"  Mechanism: {a.source_mechanism}")
+            if a.mapping:
+                output.append(f"  Mapping:")
+                for s, t in list(a.mapping.items())[:4]:
+                    output.append(f"    {s} -> {t}")
+            if a.precedent:
+                output.append(f"  Precedent: {a.precedent[:100]}")
+            if a.prediction:
+                output.append(f"  Prediction: {a.prediction[:100]}")
+
+        self._post_output("\n".join(output))
+
+    def _run_curiosity(self):
+        """Show what RUMI is curious about."""
+        from discovery.continuous_operation import CuriosityEngine, RESEARCH_FRONTIER
+
+        ce = CuriosityEngine()
+
+        output = [f"\n[bold cyan]RUMI's Research Frontier[/bold cyan]", ""]
+        for domain, topics in RESEARCH_FRONTIER.items():
+            output.append(f"  [bold]{domain}[/bold]:")
+            for t in topics[:3]:
+                output.append(f"    - {t}")
+            if len(topics) > 3:
+                output.append(f"    ... and {len(topics)-3} more")
+            output.append(f"")
+
+        stats = ce.get_stats()
+        output.append(f"Topics explored: {stats['topics_explored']}")
+        output.append(f"Total explorations: {stats['total_explorations']}")
+
+        self._post_output("\n".join(output))
+
+    def _run_evolve_status(self):
+        """Show theory evolution status."""
+        from discovery.continuous_operation import TheoryEvolution
+
+        te = TheoryEvolution()
+
+        output = [f"\n[bold cyan]Theory Evolution Status[/bold cyan]", ""]
+
+        best = te.get_best_theories(10)
+        if best:
+            output.append("Top Theories:")
+            for t in best:
+                output.append(f"  [{t['id']}] {t['hypothesis'][:80]}")
+                output.append(f"    Score: {t['score']:.0f} | Versions: {t['versions']} | Status: {t['status']}")
+        else:
+            output.append("No theories tracked yet. Run /continuous to start.")
+
+        stats = te.get_stats()
+        output.append(f"")
+        output.append(f"Total theories: {stats['total_theories']}")
+        output.append(f"Statuses: {stats['statuses']}")
+        output.append(f"Avg versions: {stats['avg_versions']:.1f}")
+
+        self._post_output("\n".join(output))
+
+    async def _run_consistency_check(self):
+        """Check mathematical consistency of latest hypotheses."""
+        from discovery.math_consistency_checker import MathConsistencyChecker
+        from discovery.hypothesis_memory import HypothesisMemory
+
+        self._post_output("[bold cyan]Running mathematical consistency check...[/bold cyan]")
+
+        checker = MathConsistencyChecker()
+        memory = HypothesisMemory()
+
+        # Get latest hypotheses
+        hypotheses = memory.get_recent(limit=5) if hasattr(memory, 'get_recent') else []
+
+        if not hypotheses:
+            self._post_output("No hypotheses to check. Run /discover or /hypothesize first.")
+            return
+
+        output = [f"\n[bold cyan]Consistency Check Results[/bold cyan]", ""]
+
+        for h in hypotheses:
+            result = checker.check_theory(h, self.current_domain)
+            status = "[green]CONSISTENT[/green]" if result["consistent"] else "[red]INCONSISTENT[/red]"
+            output.append(f"  {h.get('title', 'Unknown')[:60]}")
+            output.append(f"    Status: {status} | Score: {result['score']}/100")
+            if result["violations"]:
+                for v in result["violations"][:2]:
+                    output.append(f"    [red]VIOLATION: {v[:80]}[/red]")
+            if result["warnings"]:
+                for w in result["warnings"][:2]:
+                    output.append(f"    [yellow]WARNING: {w[:80]}[/yellow]")
+            output.append(f"")
+
+        self._post_output("\n".join(output))
 
     async def _run_scientific_reasoning(self, topic: str):
         """Run a scientific reasoning cycle on a topic."""

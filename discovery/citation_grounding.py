@@ -19,24 +19,35 @@ import re
 import time
 from discovery.arxiv_api import search_papers as arxiv_search
 from discovery.pubmed import search as pubmed_search, fetch as pubmed_fetch
+from discovery.semantic_scholar import search_papers as s2_search
 
 
-def fetch_papers(query: str, max_arxiv: int = 8, max_pubmed: int = 8) -> list[dict]:
+def fetch_papers(query: str, max_arxiv: int = 20, max_pubmed: int = 20,
+                 max_s2: int = 20) -> list[dict]:
     """
-    Fetch real papers from arXiv + PubMed.
+    Fetch real papers from arXiv + PubMed + Semantic Scholar.
     Returns unified list sorted by date (newest first).
+    Targets 50+ papers for comprehensive coverage.
     """
     papers = []
+    seen_titles = set()
+
+    def _add_paper(paper_dict):
+        """Add paper if not duplicate."""
+        title_key = paper_dict.get("title", "").lower().strip()[:60]
+        if title_key and title_key not in seen_titles:
+            seen_titles.add(title_key)
+            papers.append(paper_dict)
 
     # ── arXiv ──
     try:
         arxiv_results = arxiv_search(query, max_results=max_arxiv)
         for p in arxiv_results:
-            papers.append({
+            _add_paper({
                 "source": "arxiv",
                 "id": p.get("arxiv_id", ""),
                 "title": p.get("title", "").strip(),
-                "abstract": p.get("abstract", "")[:400],
+                "abstract": p.get("abstract", "")[:600],
                 "authors": p.get("authors", []),
                 "year": p.get("published", "")[:4],
                 "url": p.get("url", ""),
@@ -51,11 +62,11 @@ def fetch_papers(query: str, max_arxiv: int = 8, max_pubmed: int = 8) -> list[di
         if pmids:
             pm_results = pubmed_fetch(pmids)
             for p in pm_results:
-                papers.append({
+                _add_paper({
                     "source": "pubmed",
                     "id": p.get("pmid", ""),
                     "title": p.get("title", "").strip(),
-                    "abstract": p.get("abstract", "")[:400],
+                    "abstract": p.get("abstract", "")[:600],
                     "authors": p.get("authors", []),
                     "year": p.get("year", ""),
                     "url": f"https://pubmed.ncbi.nlm.nih.gov/{p.get('pmid', '')}/",
@@ -63,6 +74,25 @@ def fetch_papers(query: str, max_arxiv: int = 8, max_pubmed: int = 8) -> list[di
                 })
     except Exception as e:
         print(f"  [PubMed] Error: {e}")
+
+    # ── Semantic Scholar (third source — fills gaps) ──
+    try:
+        s2_results = s2_search(query, limit=max_s2)
+        for p in s2_results:
+            _add_paper({
+                "source": "semantic_scholar",
+                "id": p.get("paperId", ""),
+                "title": p.get("title", "").strip(),
+                "abstract": p.get("abstract", "")[:600] if p.get("abstract") else "",
+                "authors": [a.get("name", "") for a in p.get("authors", [])[:5]],
+                "year": str(p.get("year", "")),
+                "url": f"https://www.semanticscholar.org/paper/{p.get('paperId', '')}",
+                "citation_key": f"S2:{p.get('paperId', '')[:8]}",
+                "citation_count": p.get("citationCount", 0),
+                "influential_citations": p.get("influentialCitationCount", 0),
+            })
+    except Exception as e:
+        print(f"  [SemanticScholar] Error: {e}")
 
     # Sort by year descending
     papers.sort(key=lambda p: p.get("year", "0000"), reverse=True)

@@ -1,0 +1,352 @@
+"""
+mechanism_generator.py — Generate CAUSAL MECHANISMS, not just correlations.
+
+The difference between a research assistant and a discovery engine:
+  Research assistant: "X is associated with Y"
+  Discovery engine: "X causes Y through mechanism Z, where intermediate step W converts signal"
+
+This module generates causal explanations by:
+1. Building causal pathways from graph structure
+2. Using Pearl's causal hierarchy (association → intervention → counterfactual)
+3. Applying analogical reasoning from known mechanisms
+4. LLM-powered creative mechanism synthesis
+"""
+
+import json
+from typing import List, Dict, Optional
+
+
+class MechanismGenerator:
+    """
+    Generate causal mechanisms that explain observed relationships.
+    """
+
+    def __init__(self, graph=None, llm_call=None):
+        self.graph = graph
+        self.llm_call = llm_call
+
+    def generate_mechanisms(self, hidden_variables: list, gaps: list,
+                            anomalies: list, topic: str, domain: str,
+                            papers: list = None) -> dict:
+        """
+        Generate causal mechanisms for the proposed hidden variables and observed gaps.
+
+        Returns:
+            {
+                "mechanisms": [
+                    {
+                        "name": "...",
+                        "type": "causal_pathway|feedback_loop|emergent_property|threshold_effect|cascade",
+                        "description": "...",
+                        "steps": ["step1", "step2", ...],
+                        "inputs": [...],
+                        "outputs": [...],
+                        "hidden_variable": "...",  # if applicable
+                        "explains": [...],
+                        "confidence": 0.0-1.0,
+                        "causal_level": "association|intervention|counterfactual",
+                        "predictions": [...]
+                    }
+                ]
+            }
+        """
+        if not self.llm_call:
+            return {"mechanisms": [], "error": "No LLM client available"}
+
+        # Build context
+        hv_text = self._format_hidden_variables(hidden_variables[:5])
+        gap_text = self._format_gaps(gaps[:4])
+        anomaly_text = self._format_anomalies(anomalies[:4])
+        graph_context = self._build_graph_context()
+
+        paper_context = ""
+        if papers:
+            for p in papers[:5]:
+                abstract = p.get("abstract", "")[:250]
+                if abstract:
+                    paper_context += f"\n- [{p.get('title', '?')}] {abstract}\n"
+
+        # Get existing causal relationships from graph
+        causal_context = self._extract_causal_chains()
+
+        prompt = f"""You are a mechanistic scientist — you explain HOW things work, not just THAT they correlate.
+
+TOPIC: {topic}
+DOMAIN: {domain}
+
+HIDDEN VARIABLES PROPOSED:
+{hv_text}
+
+KNOWLEDGE GAPS:
+{gap_text}
+
+ANOMALIES:
+{anomaly_text}
+
+EXISTING CAUSAL CHAINS IN KNOWLEDGE GRAPH:
+{causal_context}
+
+PAPERS:
+{paper_context}
+
+Your task: generate CAUSAL MECHANISMS that explain the observations.
+
+A mechanism is NOT just "X causes Y." A mechanism is:
+  "X activates pathway P with rate constant k1, which produces intermediate I
+   at concentration [I] = k1[X]/k2, which converts to effect Y when [I] > threshold"
+
+CRITICAL REQUIREMENTS:
+1. Every mechanism MUST include at least one quantitative relationship (equation, rate, threshold)
+2. Every mechanism MUST cite existing literature on related mechanisms
+3. Every prediction MUST include expected MAGNITUDE (not just direction)
+4. Identify the KEY PARAMETER that controls the mechanism and its expected range
+5. Distinguish: is this a KNOWN mechanism applied in new context, or genuinely NOVEL?
+
+For each mechanism, provide:
+1. A clear name (descriptive, not creative)
+2. Type (causal_pathway, feedback_loop, emergent_property, threshold_effect, cascade)
+3. Step-by-step causal chain (minimum 3 steps, each with quantitative content)
+4. Mathematical model: equations governing the mechanism, rate constants, thresholds
+5. Literature grounding: what existing mechanisms is this based on?
+6. Inputs and outputs (with expected magnitudes)
+7. Which hidden variable it instantiates (if any)
+8. Quantitative predictions with expected magnitudes
+9. Key parameter to measure and its expected range
+10. Falsification: specific quantitative threshold
+
+Output JSON:
+{{
+  "mechanisms": [
+    {{
+      "name": "Descriptive Mechanism Name",
+      "type": "causal_pathway|feedback_loop|emergent_property|threshold_effect|cascade",
+      "description": "Detailed description with quantitative content",
+      "steps": [
+        "Step 1: Initial trigger — [what happens] with [quantitative detail]",
+        "Step 2: Intermediate process — [rate/threshold/concentration]",
+        "Step 3: Final effect — [magnitude of effect]"
+      ],
+      "mathematical_model": "Equations governing this mechanism (e.g. rate equations, thresholds)",
+      "key_parameters": [
+        {{"name": "parameter_name", "expected_value": "order of magnitude or range", "units": "units"}}
+      ],
+      "literature_basis": ["cite 2-3 related known mechanisms or papers"],
+      "is_novel_vs_known": "novel|extension_of_known|new_context_for_known",
+      "inputs": ["what goes in (with magnitude)"],
+      "outputs": ["what comes out (with magnitude)"],
+      "hidden_variable": "which hidden variable this explains (if any)",
+      "explains": ["observation 1", "anomaly 2"],
+      "confidence": 0.0-1.0,
+      "causal_level": "association|intervention|counterfactual",
+      "predictions": [
+        "If you intervene on X by amount A, Y should change by amount B",
+        "Counterfactual: if X hadn't happened, Y would differ by amount C"
+      ],
+      "key_parameter_to_measure": "What single measurement would confirm this?",
+      "falsification": "Specific quantitative observation that disproves this"
+    }}
+  ]
+}}
+
+Generate 3-5 mechanisms. Each must have at least 3 causal steps. 
+Prefer mechanisms that make counterfactual predictions (most powerful causal level)."""
+
+        try:
+            raw = self.llm_call(prompt, max_tokens=8192)
+            # Fallback: if primary provider fails, try the other
+            if not raw:
+                try:
+                    from discovery.llm_client import call_json
+                    raw = call_json(prompt, max_tokens=8192, provider="gemini")
+                except Exception:
+                    pass
+            if raw:
+                if isinstance(raw, str):
+                    raw = raw.strip()
+                    if raw.startswith("```"):
+                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                        raw = raw.rsplit("```", 1)[0].strip()
+                    result = json.loads(raw)
+                else:
+                    result = raw
+
+                if isinstance(result, dict):
+                    for m in result.get("mechanisms", []):
+                        m.setdefault("name", "Unnamed Mechanism")
+                        m.setdefault("type", "causal_pathway")
+                        m.setdefault("steps", [])
+                        m.setdefault("confidence", 0.5)
+                        m.setdefault("causal_level", "association")
+                        m.setdefault("predictions", [])
+                        # Ensure minimum 2 steps
+                        if len(m["steps"]) < 2:
+                            m["steps"] = [m.get("description", "Unknown mechanism")]
+                    return result
+
+        except Exception as e:
+            return {"mechanisms": [], "error": str(e)}
+
+        return {"mechanisms": []}
+
+    def generate_from_graph_paths(self, topic: str, domain: str) -> dict:
+        """
+        Generate mechanisms by analyzing existing graph paths and 
+        proposing extensions/completions.
+        """
+        if not self.graph or not self.llm_call:
+            return {"mechanisms": []}
+
+        entities = self.graph.entities if hasattr(self.graph, 'entities') else {}
+        relationships = self.graph.relationships if hasattr(self.graph, 'relationships') else []
+
+        # Find incomplete causal chains
+        incomplete = self._find_incomplete_chains(entities, relationships)
+
+        if not incomplete:
+            return {"mechanisms": []}
+
+        prompt = f"""You have a knowledge graph with {len(entities)} entities and {len(relationships)} relationships.
+Topic: {topic}, Domain: {domain}
+
+INCOMPLETE CAUSAL CHAINS (paths that exist but are missing steps):
+{json.dumps(incomplete[:5], indent=2)}
+
+For each incomplete chain, propose the MISSING MECHANISM STEPS that would complete it.
+
+Output JSON:
+{{
+  "mechanisms": [
+    {{
+      "name": "...",
+      "description": "...",
+      "completes_chain": "A → ? → B",
+      "proposed_steps": ["A activates X", "X converts to Y", "Y inhibits B"],
+      "confidence": 0.0-1.0,
+      "predictions": ["..."]
+    }}
+  ]
+}}"""
+
+        try:
+            raw = self.llm_call(prompt, max_tokens=4096)
+            if not raw:
+                try:
+                    from discovery.llm_client import call_json
+                    raw = call_json(prompt, max_tokens=4096, provider="gemini")
+                except Exception:
+                    pass
+            if raw:
+                if isinstance(raw, str):
+                    raw = raw.strip()
+                    if raw.startswith("```"):
+                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                        raw = raw.rsplit("```", 1)[0].strip()
+                    result = json.loads(raw)
+                else:
+                    result = raw
+                if isinstance(result, dict):
+                    return result
+        except Exception:
+            pass
+
+        return {"mechanisms": []}
+
+    def _find_incomplete_chains(self, entities: dict, relationships: list) -> list:
+        """
+        Find paths where the causal chain is broken — A leads to D
+        but the intermediate steps B, C are missing.
+        """
+        from collections import defaultdict
+
+        adj = defaultdict(list)
+        for rel in relationships:
+            adj[rel["source"]].append({
+                "target": rel["target"],
+                "relation": rel.get("relation", "related_to")
+            })
+
+        incomplete = []
+        checked = set()
+
+        # Find pairs connected by long paths but missing intermediates
+        for eid in entities:
+            direct_neighbors = {r["target"] for r in adj.get(eid, set())}
+
+            # Check 2-hop neighbors
+            for hop1 in adj.get(eid, set()):
+                for hop2 in adj.get(hop1["target"], set()):
+                    target = hop2["target"]
+                    if target == eid:
+                        continue
+                    key = (eid, target)
+                    if key in checked:
+                        continue
+                    checked.add(key)
+
+                    # If there's a 2-hop path but no direct connection
+                    if target not in direct_neighbors:
+                        a_name = entities.get(eid, {}).get("name", eid)
+                        c_name = entities.get(target, {}).get("name", target)
+                        b_name = entities.get(hop1["target"], {}).get("name", hop1["target"])
+
+                        incomplete.append({
+                            "start": a_name,
+                            "end": c_name,
+                            "known_intermediate": b_name,
+                            "path": f"{a_name} --{hop1['relation']}--> {b_name} --{hop2['relation']}--> {c_name}",
+                            "gap": f"Is there a more direct mechanism from {a_name} to {c_name}?",
+                        })
+
+        return incomplete[:6]
+
+    def _extract_causal_chains(self) -> str:
+        """Extract existing causal chains from the graph for context."""
+        if not self.graph:
+            return "No graph available."
+
+        relationships = self.graph.relationships if hasattr(self.graph, 'relationships') else []
+        entities = self.graph.entities if hasattr(self.graph, 'entities') else {}
+
+        CAUSAL = {"causes", "activates", "inhibits", "produces", "enables",
+                  "prevents", "induces", "triggers", "mediates", "regulates"}
+
+        chains = []
+        for rel in relationships:
+            if rel.get("relation", "").lower() in CAUSAL:
+                src = entities.get(rel["source"], {}).get("name", rel["source"])
+                tgt = entities.get(rel["target"], {}).get("name", rel["target"])
+                rel_name = rel.get("relation", "?")
+                conf = rel.get("confidence", 0.5)
+                chains.append(f"  {src} --{rel_name}--> {tgt} (conf: {conf:.2f})")
+
+        if not chains:
+            return "No causal relationships found in graph."
+
+        return "Existing causal relationships:\n" + "\n".join(chains[:15])
+
+    def _format_hidden_variables(self, hvs: list) -> str:
+        if not hvs:
+            return "No hidden variables proposed yet."
+        text = ""
+        for i, hv in enumerate(hvs, 1):
+            text += f"\n{i}. {hv.get('name', '?')} ({hv.get('type', '?')})\n"
+            text += f"   {hv.get('description', '')[:200]}\n"
+            text += f"   Predictions: {hv.get('predictions', [])}\n"
+        return text
+
+    def _format_gaps(self, gaps: list) -> str:
+        if not gaps:
+            return "No gaps."
+        return "\n".join(f"- [{g.get('type', '?')}] {g.get('reason', '')[:150]}" for g in gaps)
+
+    def _format_anomalies(self, anomalies: list) -> str:
+        if not anomalies:
+            return "No anomalies."
+        return "\n".join(f"- [{a.get('type', '?')}] {a.get('reason', '')[:150]}" for a in anomalies)
+
+    def _build_graph_context(self) -> str:
+        if not self.graph:
+            return "No graph."
+        entities = self.graph.entities if hasattr(self.graph, 'entities') else {}
+        relationships = self.graph.relationships if hasattr(self.graph, 'relationships') else {}
+        return f"Graph: {len(entities)} entities, {len(relationships)} relationships"
