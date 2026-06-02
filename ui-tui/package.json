@@ -1,6 +1,7 @@
 {
   "name": "rumi-tui",
   "version": "3.0.0",
+  "type": "module",
   "description": "RUMI Terminal UI — React Ink, Hermes Agent style",
   "main": "dist/entry.js",
   "scripts": {
