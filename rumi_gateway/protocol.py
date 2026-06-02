@@ -9,9 +9,9 @@ from typing import Any, Optional
 @dataclass
 class JsonRpcRequest:
     jsonrpc: str = "2.0"
-    id: int | str = 0
+    id: int | str | None = 0
     method: str = ""
-    params: dict = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
@@ -19,10 +19,12 @@ class JsonRpcRequest:
     @classmethod
     def from_json(cls, data: str) -> "JsonRpcRequest":
         obj = json.loads(data)
+        if "method" not in obj:
+            raise ValueError("Missing required field 'method' in JSON-RPC request")
         return cls(
             jsonrpc=obj.get("jsonrpc", "2.0"),
             id=obj.get("id", 0),
-            method=obj.get("method", ""),
+            method=obj["method"],
             params=obj.get("params", {}),
         )
 
@@ -30,13 +32,13 @@ class JsonRpcRequest:
 @dataclass
 class JsonRpcResponse:
     jsonrpc: str = "2.0"
-    id: int | str = 0
+    id: int | str | None = 0
     result: Any = None
-    error: Optional[dict] = None
+    error: Optional[dict[str, Any]] = None
 
     def to_json(self) -> str:
         d = {"jsonrpc": self.jsonrpc, "id": self.id}
-        if self.error:
+        if self.error is not None:
             d["error"] = self.error
         else:
             d["result"] = self.result
@@ -47,7 +49,7 @@ class JsonRpcResponse:
 class JsonRpcEvent:
     jsonrpc: str = "2.0"
     method: str = ""
-    params: dict = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
         return json.dumps(
