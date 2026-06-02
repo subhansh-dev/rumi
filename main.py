@@ -8,6 +8,8 @@ Autonomous Cognitive AI for Scientific Research & Software Engineering.
 - Gemini 2.5 Flash primary model with multi-model routing
 """
 import asyncio
+import io
+import contextlib
 import json
 import os
 import re
