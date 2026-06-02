@@ -1,0 +1,23 @@
+{
+  "name": "rumi-tui",
+  "version": "3.0.0",
+  "description": "RUMI Terminal UI — React Ink, Hermes Agent style",
+  "main": "dist/entry.js",
+  "scripts": {
+    "build": "tsc && node esbuild.config.mjs",
+    "dev": "tsc --watch",
+    "start": "node dist/entry.js"
+  },
+  "dependencies": {
+    "ink": "^4.1.0",
+    "ink-text-input": "^5.0.1",
+    "ink-spinner": "^4.0.3",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "esbuild": "^0.20.0"
+  }
+}
