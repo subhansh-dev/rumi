@@ -543,7 +543,7 @@ class DreamingSystem:
                 target=self._dream_loop, daemon=True
             )
             self._dream_thread.start()
-            print("[Dreaming] Background dream loop started")
+            # print("[Dreaming] Background dream loop started")
 
     # ── Public API ─────────────────────────────────────────────────────
 

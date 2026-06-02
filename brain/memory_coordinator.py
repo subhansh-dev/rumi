@@ -103,7 +103,7 @@ class MemoryCoordinator:
                 print(f"[Coordinator] Procedural memory: {e}")
 
             self._initialized = True
-            print("[Coordinator] All memory stores initialized")
+            # print("[Coordinator] All memory stores initialized")
 
     # ── Unified Encode ──────────────────────────────────────────────────
 

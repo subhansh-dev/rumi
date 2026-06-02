@@ -112,7 +112,7 @@ class AGIOrchestrator:
                     raw = json.loads(STATE_FILE.read_text(encoding="utf-8"))
                     self._deep_merge(self._data, raw)
                     goals = len(self._data.get("goal_history", []))
-                    print(f"[AGIOrchestrator] Loaded state ({goals} goals processed)")
+                    # print(f"[AGIOrchestrator] Loaded state ({goals} goals processed)")
                 except Exception as e:
                     print(f"[AGIOrchestrator] Load error: {e}")
 
@@ -214,7 +214,7 @@ class AGIOrchestrator:
         self._modules_loaded = True
         available = sum(1 for v in self._data["module_status"].values() if v == "available")
         total = len(module_loaders)
-        print(f"[AGIOrchestrator] Loaded {available}/{total} modules")
+        # print(f"[AGIOrchestrator] Loaded {available}/{total} modules")
 
     def _get_module(self, name: str) -> Any:
         """Get a loaded module or None."""

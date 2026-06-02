@@ -433,7 +433,7 @@ class CausalReasoner:
         self._counterfactual_log: List[dict] = []
         self._load()
         self._start_consolidation_thread()
-        print("[CausalReasoner] Initialized")
+        # print("[CausalReasoner] Initialized")
 
     # ── Persistence ─────────────────────────────────────────────────────
 
@@ -448,8 +448,7 @@ class CausalReasoner:
             self.scm = StructuralCausalModel.from_dict(data.get("scm", {}))
             self._intervention_log = data.get("intervention_log", [])
             self._counterfactual_log = data.get("counterfactual_log", [])
-            print(f"[CausalReasoner] Loaded: {len(self.graph.nodes)} nodes, "
-                  f"{len(self.graph.edges)} edges")
+
         except (json.JSONDecodeError, IOError) as e:
             print(f"[CausalReasoner] Load failed, starting fresh: {e}")
 

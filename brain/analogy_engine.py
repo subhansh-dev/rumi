@@ -293,8 +293,7 @@ class AnalogyEngine:
             for k, v in data.get("stats", {}).items():
                 if k in self._stats:
                     self._stats[k] = v
-            print(f"[AnalogyEngine] Loaded {len(self._analogy_library)} templates, "
-                  f"{len(self._domain_cache)} cached domains")
+
         except (json.JSONDecodeError, IOError) as e:
             print(f"[AnalogyEngine] Load error: {e}")
             self._save()

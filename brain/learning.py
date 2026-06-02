@@ -147,8 +147,6 @@ class LearningEngine:
                 self.written_learnings = set(
                     data.get("written_learnings", []))
                 self.error_count = data.get("error_count", 0)
-                print(f"[Learning] Loaded {len(self.written_learnings)} "
-                      f"learnings, {len(self.q_table)} q-values")
             except json.JSONDecodeError as e:  # [#2]
                 print(f"[Learning] ⚠️ Corrupted data file: {e} — resetting")
                 self._backup_corrupted_file()

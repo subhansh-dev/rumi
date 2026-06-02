@@ -80,8 +80,6 @@ class EpisodicMemory:
                 if key not in data:
                     data[key] = self._empty_store()[key]
             self._data = data
-            print(f"[Episodic] Loaded {len(self._data['events'])} events, "
-                  f"{len(self._data['episodes'])} episodes")
         except (json.JSONDecodeError, IOError) as e:
             print(f"[Episodic] Load error: {e}. Starting fresh.")
             self._data = self._empty_store()

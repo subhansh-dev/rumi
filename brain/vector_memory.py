@@ -384,7 +384,7 @@ class VectorMemory:
                     self._vectors = None
                     print("[VectorMemory] Index/vectors mismatch — cleared")
                 else:
-                    print(f"[VectorMemory] Loaded {len(self._entries)} cached vectors")
+                    pass
         except Exception as e:
             print(f"[VectorMemory] Load error: {e}")
             self._entries = []

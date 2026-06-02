@@ -403,7 +403,7 @@ class GlobalWorkspace:
         self._flush_thread = threading.Thread(target=self._flush_loop, daemon=True)
         self._flush_thread.start()
 
-        print("[GLOBAL_WORKSPACE] Initialized — thalamus online", flush=True)
+        # print("[GLOBAL_WORKSPACE] Initialized — thalamus online", flush=True)
 
     # ─── Module Registration ──────────────────────────────────────────────
 
@@ -414,8 +414,6 @@ class GlobalWorkspace:
             interests = participant.get_interests()
             for event_type in interests:
                 self._subscribers[event_type].append(participant)
-            print(f"[GLOBAL_WORKSPACE] Registered: {participant.get_name()} "
-                  f"(interests: {len(interests)} event types)", flush=True)
 
     def unregister(self, participant: WorkspaceParticipant):
         """Remove a module from the workspace."""

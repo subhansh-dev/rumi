@@ -738,7 +738,7 @@ class RumiUI:
     # BOOT SEQUENCE (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_boot_sequence(self):
-        """Claude Code / Hermes-style clean boot."""
+        """Clean boot with cyan ASCII logo."""
         console.clear()
 
         from discovery.llm_client import get_status
@@ -748,58 +748,23 @@ class RumiUI:
         groq_keys = status.get("groq", {}).get("keys", 0)
         gemini_keys = status.get("gemini", {}).get("keys", 0)
 
-        term_width = console.width or 80
-
-        # Minimal logo — just the name
+        # ASCII Logo in cyan
         console.print()
-        console.print(Text("  RUMI", style=f"bold {ACCENT_BLUE}"))
+        console.print(Text(RUMI_LOGO, style=f"bold {ACCENT_BLUE}"))
         console.print(Text("  Research Unified Machine Intelligence", style=TXT_DIM))
         console.print()
 
-        # Compact status — one line per system
-        console.print(Text("  Providers", style=f"bold {TXT_SECOND}"))
+        # Provider status — one line
         line = Text()
-        line.append("    ●", style=ACCENT_GREEN if groq_ok else ACCENT_RED)
-        line.append(f" Groq", style=TXT_PRIMARY)
-        line.append(f"  {groq_keys} keys", style=TXT_DIM)
+        line.append("  ●", style=ACCENT_GREEN if groq_ok else ACCENT_RED)
+        line.append(f" Groq ({groq_keys})", style=TXT_PRIMARY)
         line.append("  ", style=TXT_DIM)
         line.append("●", style=ACCENT_GREEN if gemini_ok else ACCENT_RED)
-        line.append(f" Gemini", style=TXT_PRIMARY)
-        line.append(f"  {gemini_keys} keys", style=TXT_DIM)
-        console.print(line)
-        console.print()
-
-        # Compact capabilities
-        console.print(Text("  Capabilities", style=f"bold {TXT_SECOND}"))
-        caps = [
-            ("48 discovery modules", ACCENT_BLUE),
-            ("17 domains", ACCENT_PURPLE),
-            ("44 brain modules", ACCENT_GREEN),
-            ("Monte Carlo sim", ACCENT_TEAL),
-            ("Multi-agent debate", ACCENT_AMBER),
-            ("Cross-domain transfer", ACCENT_PINK),
-        ]
-        line = Text()
-        line.append("    ", style=TXT_DIM)
-        for i, (name, color) in enumerate(caps):
-            if i > 0:
-                line.append("  ·  ", style=TXT_DIM)
-            line.append(name, style=color)
-        console.print(line)
-        console.print()
-
-        # Commands hint
-        console.print(Text("  Commands", style=f"bold {TXT_SECOND}"))
-        cmds = [
-            "/discover", "/simulate", "/debate", "/continuous",
-            "/transfer", "/curiosity", "/evolve", "/help",
-        ]
-        line = Text()
-        line.append("    ", style=TXT_DIM)
-        for i, cmd in enumerate(cmds):
-            if i > 0:
-                line.append("  ", style=TXT_DIM)
-            line.append(cmd, style=ACCENT_BLUE)
+        line.append(f" Gemini ({gemini_keys})", style=TXT_PRIMARY)
+        line.append("  │  ", style=TXT_DIM)
+        line.append("17 domains", style=TXT_SECOND)
+        line.append("  │  ", style=TXT_DIM)
+        line.append("48 modules", style=TXT_SECOND)
         console.print(line)
         console.print()
 

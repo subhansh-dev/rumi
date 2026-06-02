@@ -37,7 +37,7 @@ class ProactiveEngine:
         self._patterns: dict = {}
         self._suggestions_queue: List[dict] = []
         self._load()
-        print("[ProactiveEngine] Initialized")
+        # print("[ProactiveEngine] Initialized")
 
     def _load(self):
         """Load learned patterns from disk."""
@@ -54,7 +54,7 @@ class ProactiveEngine:
                         "contexts": set(v.get("contexts", [])),
                         "success_count": v.get("success_count", 0),
                     }
-                print(f"[ProactiveEngine] Loaded {len(self._patterns)} patterns")
+                # print(f"[ProactiveEngine] Loaded {len(self._patterns)} patterns")
             except Exception as e:
                 print(f"[ProactiveEngine] Load error: {e}")
                 self._patterns = {}

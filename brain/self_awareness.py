@@ -1161,7 +1161,7 @@ class SelfAwarenessEngine:
         )
         self._save_thread.start()
 
-        print("[SelfAwareness] Consciousness engine initialized")
+        # print("[SelfAwareness] Consciousness engine initialized")
 
     # ── Core Consciousness Loop ─────────────────────────────────────────
 
@@ -1385,7 +1385,7 @@ class SelfAwarenessEngine:
             # Load domain expertise for theory of mind
             self.theory_of_mind._domain_expertise = data.get("domain_expertise", {})
 
-            print(f"[SelfAwareness] Loaded state: {len(self.narrative._entries)} narrative entries")
+            # print(f"[SelfAwareness] Loaded state: {len(self.narrative._entries)} narrative entries")
 
         except (json.JSONDecodeError, IOError) as e:
             print(f"[SelfAwareness] Load failed: {e}")
@@ -1432,7 +1432,7 @@ class SelfAwarenessEngine:
         """Graceful shutdown."""
         self._consciousness_state = "shutting_down"
         self.flush()
-        print("[SelfAwareness] Consciousness engine stopped")
+        # print("[SelfAwareness] Consciousness engine stopped")
 
 
 # ─── Singleton ─────────────────────────────────────────────────────────────

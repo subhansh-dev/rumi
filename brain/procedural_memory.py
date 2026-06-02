@@ -108,7 +108,7 @@ class ProceduralMemory:
             for p in data.get("procedures", []):
                 proc = Procedure.from_dict(p)
                 self._procedures[proc.proc_id] = proc
-            print(f"[Procedural] Loaded {len(self._procedures)} procedures")
+            # print(f"[Procedural] Loaded {len(self._procedures)} procedures")
         except Exception as e:
             print(f"[Procedural] Load error: {e}")
 

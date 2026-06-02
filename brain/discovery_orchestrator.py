@@ -191,7 +191,7 @@ class DiscoveryOrchestrator:
         self._discovery_engine = None
 
         self._load_state()
-        print(f"[DiscoveryOrchestrator] Initialized ({self._total_discoveries} prior discoveries)")
+        # print(f"[DiscoveryOrchestrator] Initialized ({self._total_discoveries} prior discoveries)")
 
     # ── Brain Module Access ─────────────────────────────────────────────
 
