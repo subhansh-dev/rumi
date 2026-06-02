@@ -104,7 +104,7 @@ Output JSON with exactly this structure:
 Extract 10-25 entities and 10-30 relationships. Be specific, not generic."""
 
     try:
-        result = call_json(prompt, max_tokens=4096)
+        result = call_json(prompt, max_tokens=2048)
         if result:
             if isinstance(result, str):
                 # Strip markdown fences if present
@@ -115,8 +115,10 @@ Extract 10-25 entities and 10-30 relationships. Be specific, not generic."""
                 result = json.loads(text)
             if isinstance(result, dict):
                 return result
+        else:
+            print("    [WARN] Entity extraction LLM returned None — using fallback", flush=True)
     except Exception as e:
-        print(f"    Entity extraction LLM call failed: {e}")
+        print(f"    Entity extraction LLM call failed: {e}", flush=True)
 
     # Fallback: extract basic entities from titles
     entities = []
@@ -247,7 +249,7 @@ def run_full_pipeline(topic: str, domain: str = "", generations: int = 3):
     hyp_raw = None
     for attempt in range(3):
         try:
-            hyp_raw = llm_call(hyp_prompt, json_mode=True, max_tokens=8192, provider="groq")
+            hyp_raw = llm_call(hyp_prompt, json_mode=True, max_tokens=3072, provider="auto")
             if hyp_raw and len(hyp_raw) > 50:
                 break
         except Exception as e:
@@ -340,7 +342,7 @@ Output JSON: {{"critique": "...", "weaknesses": ["w1","w2","w3"], "recommendatio
 
     skeptic_raw = None
     try:
-        skeptic_raw = llm_call(skeptic_prompt, json_mode=True, max_tokens=4096, provider="groq")
+        skeptic_raw = llm_call(skeptic_prompt, json_mode=True, max_tokens=2048, provider="auto")
     except Exception as e:
         print(f"  Skeptic call failed: {e}", flush=True)
 
@@ -384,7 +386,7 @@ Output JSON: {{"experiment_type": "observational|computational", "design": "deta
 
     exp_raw = None
     try:
-        exp_raw = llm_call(exp_prompt, json_mode=True, max_tokens=4096, provider="groq")
+        exp_raw = llm_call(exp_prompt, json_mode=True, max_tokens=2048, provider="auto")
     except Exception as e:
         print(f"  Experiment call failed: {e}", flush=True)
 
@@ -434,7 +436,7 @@ Output JSON: {{"experiment_type": "observational|computational", "design": "deta
 
     print("  Generating final report via LLM...", flush=True)
     t0 = time.time()
-    raw_output = llm_call(final_prompt[:8000], max_tokens=8192, provider="groq")
+    raw_output = llm_call(final_prompt[:8000], max_tokens=4096, provider="auto")
     elapsed = time.time() - t0
     print(f"  Generated in {elapsed:.1f}s ({len(raw_output or '')} chars)")
 

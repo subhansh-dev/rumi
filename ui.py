@@ -1,8 +1,8 @@
 """
-ui.py -- RUMI Terminal UI (v8.0 Professional AI Research OS)
-Compact, dense, professional. Inspired by Claude Code, OpenCode, Hermes Agent.
-Premium dark theme, distinct panels, clean box-drawing, progress indicators.
-Every screen maximizes information density while remaining visually clean.
+ui.py -- RUMI Terminal UI (v9.0 Hermes Agent Style)
+Faithful recreation of Hermes Agent's TUI: kaomoji faces, tool trails,
+collapsible sections, context bar with color coding, responsive layout.
+Every pixel inspired by Nous Research's Hermes Agent.
 """
 
 import sys
@@ -161,30 +161,92 @@ import atexit
 atexit.register(_reset_terminal_bg)
 
 # ================================================================
-# CONSTANTS
+# HERMES AGENT CONSTANTS
 # ================================================================
 
-PROMPT_SYMBOL = "> "
-PROMPT_BUSY   = "..."
-PROMPT_READY  = "> "
+# Prompt symbols (Hermes style)
+PROMPT_SYMBOL = "❯ "
+PROMPT_BUSY   = "❯ "
+PROMPT_READY  = "❯ "
 
-SPINNER_CHARS = "|/-\\"
-
-# Thinking animations
-THINKING_MESSAGES = [
-    "Thinking...",
-    "Analyzing Literature...",
-    "Constructing Hypotheses...",
-    "Searching Knowledge Graph...",
-    "Mining Contradictions...",
-    "Synthesizing Evidence...",
-    "Validating Claims...",
-    "Formulating Reasoning...",
-    "Processing Research Data...",
-    "Connecting Patterns...",
+# 15 kaomoji faces rotating every 2.5 seconds (Hermes Agent)
+KAOMOJI_FACES = [
+    "(｡•́︿•̀｡)",   # sad/worried
+    "(◔_◔)",        # skeptical
+    "(¬‿¬)",        # devious
+    "( •_•)>⌐■-■",  # putting on sunglasses
+    "(⌐■_■)",        # sunglasses on
+    "(´･_･`)",      # neutral
+    "◉_◉",          # wide eyes
+    "(°ロ°)",        # surprised
+    "( ˘⌣˘)♡",     # loving
+    "ヽ(>∀<☆)☆",    # excited star
+    "٩(๑❛ᴗ❛๑)۶",   # celebrating
+    "(⊙_⊙)",        # blank stare
+    "(¬_¬)",         # side-eye
+    "( ͡° ͜ʖ ͡°)",  # lenny face
+    "ಠ_ಠ"           # disapproval
 ]
 
-# Status badges
+# 15 verbs rotating every 2.5 seconds (Hermes Agent)
+THINKING_VERBS = [
+    "pondering", "contemplating", "musing", "cogitating", "ruminating",
+    "deliberating", "mulling", "reflecting", "processing", "reasoning",
+    "analyzing", "computing", "synthesizing", "formulating", "brainstorming"
+]
+
+# Per-tool verbs (Hermes Agent)
+TOOL_VERBS = {
+    "search": "searching",
+    "read": "reading",
+    "write": "writing",
+    "edit": "editing",
+    "graph": "graphing",
+    "discover": "discovering",
+    "hypothesize": "hypothesizing",
+    "review": "reviewing",
+    "experiment": "experimenting",
+    "analyze": "analyzing",
+    "papers": "fetching",
+    "contradictions": "mining",
+    "enrich": "enriching",
+}
+
+# 4 indicator styles (Hermes Agent)
+INDICATOR_STYLES = {
+    "kaomoji": {
+        "frames": KAOMOJI_FACES,
+        "tick": 2.5,
+        "show_verb": True,
+    },
+    "emoji": {
+        "frames": ["⚕", "🌀", "🤔", "✨", "🍵", "🔮"],
+        "tick": 0.6,
+        "show_verb": True,
+    },
+    "ascii": {
+        "frames": ["|", "/", "-", "\\"],
+        "tick": 0.1,
+        "show_verb": True,
+    },
+    "unicode": {
+        "frames": ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
+        "tick": 0.08,
+        "show_verb": False,
+    },
+}
+
+# Default indicator style
+INDICATOR_STYLE = "kaomoji"
+
+# Streaming cursor (blinking at 420ms)
+STREAMING_CURSOR = "▍"
+
+# Legacy compatibility
+SPINNER_CHARS = "|/-\\"
+THINKING_MESSAGES = THINKING_VERBS  # Alias for backward compatibility
+
+# Status badges (Hermes style)
 BADGE_ONLINE    = "[ONLINE]"
 BADGE_THINKING  = "[THINKING]"
 BADGE_RESEARCH  = "[RESEARCHING]"
@@ -276,10 +338,11 @@ def _api_keys_exist() -> bool:
         return False
 
 
-def _make_progress_bar(pct: int, width: int = 20) -> str:
+def _make_progress_bar(pct: int, width: int = 10) -> str:
+    """Hermes-style progress bar: [████░░░░░░] with color coding."""
     filled = int(pct / 100 * width)
     empty = width - filled
-    return f"[{'#' * filled}{'.' * empty}] {pct}%"
+    return f"[{'█' * filled}{'░' * empty}] {pct}%"
 
 
 def _make_status_badge(text: str, color: str) -> Text:
@@ -666,7 +729,7 @@ class RumiUI:
     # BOOT SEQUENCE (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_boot_sequence(self):
-        """Hermes-style boot -- ASCII logo centered, compact info."""
+        """Hermes-style boot with collapsible sections."""
         console.clear()
 
         from discovery.llm_client import get_status
@@ -691,33 +754,39 @@ class RumiUI:
         console.print(Text(f"{' ' * sub_pad}{subtitle}", style=TXT_DIM))
         console.print()
 
-        # Status line centered
-        status_parts = []
-        status_parts.append("groq" if groq_ok else "groq?")
-        status_parts.append("gemini" if gemini_ok else "gemini?")
-        status_parts.append("17 domains")
-        status_parts.append("88 modules")
-        status_str = "  |  ".join(status_parts)
-        s_pad = max(0, (term_width - len(status_str) - 2) // 2)
+        # Tools section (expanded by default) - Hermes style
+        console.print(Text("  ▾ Tools", style=f"bold {ACCENT_BLUE}"))
+        tools_line = Text()
+        tools_line.append("    groq", style=ACCENT_GREEN if groq_ok else ACCENT_RED)
+        tools_line.append("  ", style=TXT_DIM)
+        tools_line.append("gemini", style=ACCENT_GREEN if gemini_ok else ACCENT_RED)
+        tools_line.append("  │  ", style=TXT_DIM)
+        tools_line.append("17 domains", style=TXT_SECOND)
+        tools_line.append("  │  ", style=TXT_DIM)
+        tools_line.append("88 modules", style=TXT_SECOND)
+        console.print(tools_line)
+        console.print()
 
-        status_line = Text()
-        status_line.append(f"{' ' * s_pad}", style="")
-        status_line.append("groq", style=ACCENT_GREEN if groq_ok else ACCENT_RED)
-        status_line.append("  |  ", style=TXT_DIM)
-        status_line.append("gemini", style=ACCENT_GREEN if gemini_ok else ACCENT_RED)
-        status_line.append("  |  ", style=TXT_DIM)
-        status_line.append("17 domains", style=TXT_SECOND)
-        status_line.append("  |  ", style=TXT_DIM)
-        status_line.append("88 modules", style=TXT_SECOND)
-        console.print(status_line)
+        # Skills section (collapsed by default)
+        console.print(Text("  ▸ Skills", style=f"bold {TXT_DIM}"))
+        console.print()
 
+        # System Prompt section (collapsed by default)
+        console.print(Text("  ▸ System Prompt", style=f"bold {TXT_DIM}"))
+        console.print()
+
+        # MCP Servers section (collapsed by default)
+        console.print(Text("  ▸ MCP Servers", style=f"bold {TXT_DIM}"))
+        console.print()
+
+        # Help text centered
         help_text = "/help for commands"
         h_pad = max(0, (term_width - len(help_text) - 2) // 2)
         console.print(Text(f"{' ' * h_pad}{help_text}", style=TXT_DIM))
         console.print()
 
     # ----------------------------------------------------------------
-    # HEADER PANEL (Hermes style)
+    # HEADER PANEL (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_header_panel(self):
         """Hermes-style compact header."""
@@ -744,7 +813,7 @@ class RumiUI:
         return " ".join(modes) if modes else "normal"
 
     # ----------------------------------------------------------------
-    # ACTIVITY FEED (compact)
+    # ACTIVITY FEED (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_activity_feed(self):
         """Hermes-style compact event stream."""
@@ -759,12 +828,12 @@ class RumiUI:
             console.print(line)
 
     # ----------------------------------------------------------------
-    # DISCOVERY DASHBOARD (dense, professional)
+    # DISCOVERY DASHBOARD (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_discovery_dashboard(self, topic: str = ""):
         """Hermes-style discovery dashboard."""
         pct = self._pipeline.get_progress_pct()
-        bar = _make_progress_bar(pct, 16)
+        bar = _make_progress_bar(pct, 10)
 
         table = Table(show_header=False, box=None, padding=(0, 1), expand=False)
         table.add_column(style=TXT_DIM, min_width=14)
@@ -783,29 +852,30 @@ class RumiUI:
         console.print()
 
     # ----------------------------------------------------------------
-    # THINKING ANIMATION (compact)
+    # THINKING ANIMATION (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_thinking_animation(self, message: str = ""):
-        """Compact thinking indicator."""
-        msg = message or random.choice(THINKING_MESSAGES)
-        console.print(Text(f"  ... {msg}", style=f"bold {ACCENT_CYAN}"))
+        """Hermes-style kaomoji thinking indicator."""
+        face = random.choice(KAOMOJI_FACES)
+        verb = message or random.choice(THINKING_VERBS)
+        console.print(Text(f"  {face} {verb}…", style=f"bold {ACCENT_CYAN}"))
 
     # ----------------------------------------------------------------
-    # INPUT BOX (compact)
+    # INPUT BOX (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_input_box(self):
-        """Compact input hint."""
+        """Hermes-style input hint."""
         console.print(Text("  /discover /research /status /help", style=TXT_DIM))
 
     # ----------------------------------------------------------------
-    # PANELS (compact, dense)
+    # PANELS (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_panel(self, title: str, content: str, color: str = BORDER_NORMAL):
-        """Compact panel."""
+        """Hermes-style compact panel."""
         console.print(Text(f"  [{title}] {content}", style=f"bold {color}"))
 
     def _show_dream_panel(self):
-        """Dream Engine status -- compact."""
+        """Hermes-style Dream Engine status."""
         line = Text()
         line.append("  [dream] ", style=f"bold {ACCENT_PINK}")
         line.append("active  ", style=ACCENT_GREEN)
@@ -814,10 +884,10 @@ class RumiUI:
         console.print(line)
 
     # ----------------------------------------------------------------
-    # SIDEBAR (compact)
+    # SIDEBAR (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_sidebar(self):
-        """Compact sidebar -- single line."""
+        """Hermes-style compact sidebar."""
         line = Text()
         line.append("  memory ", style=f"{ACCENT_GREEN}")
         line.append("dream ", style=f"{ACCENT_PINK}")
@@ -826,71 +896,105 @@ class RumiUI:
         console.print(line)
 
     # ----------------------------------------------------------------
-    # STATUS UPDATER
+    # STATUS UPDATER (Hermes Agent style)
     # ----------------------------------------------------------------
     def _status_updater(self):
+        """Hermes-style status updater with kaomoji rotation."""
+        face_idx = 0
+        verb_idx = 0
+        indicator = INDICATOR_STYLES[INDICATOR_STYLE]
+        tick = indicator["tick"]
+
         while self._running:
             self._current_spin_idx = (self._current_spin_idx + 1) % len(SPINNER_CHARS)
-            if self._current_spin_idx == 0:
-                self._current_word_idx = (self._current_word_idx + 1) % len(THINKING_MESSAGES)
-            time.sleep(0.15)
+            face_idx = (face_idx + 1) % len(KAOMOJI_FACES)
+            verb_idx = (verb_idx + 1) % len(THINKING_VERBS)
+            time.sleep(tick)
 
     # ----------------------------------------------------------------
-    # CONTEXT BAR
+    # CONTEXT BAR (Hermes Agent style)
     # ----------------------------------------------------------------
     def _get_context_bar(self, tokens_used: int = 0, max_tokens: int = 200000) -> str:
+        """Hermes-style context bar: [████░░░░░░] with color coding."""
         pct = min(100, int((tokens_used / max_tokens) * 100))
         filled = int(pct / 10)
         empty = 10 - filled
-        bar = "#" * filled + "." * empty
+        bar = "█" * filled + "░" * empty
+
+        # Hermes color thresholds
         if pct < 50:
-            color = "#39d353"
+            color = "#8FBC8F"  # Dark sea green - plenty of room
         elif pct < 80:
-            color = "#d29922"
+            color = "#FFD700"  # Gold - getting full
         elif pct < 95:
-            color = "#f0883e"
+            color = "#FF8C00"  # Dark orange - approaching limit
         else:
-            color = "#f85149"
+            color = "#FF6B6B"  # Light red - near overflow
+
         return f"<style fg='{color}'>[{bar}] {pct}%</style>"
 
     # ----------------------------------------------------------------
-    # TOOLBAR
+    # TOOLBAR (Hermes Agent style)
     # ----------------------------------------------------------------
     def _get_toolbar(self):
+        """Hermes-style persistent status bar with progressive disclosure."""
         if not HAVE_PT:
             return ""
 
-        spin = SPINNER_CHARS[self._current_spin_idx]
         elapsed = int(time.time() - self._start_time)
         uptime = f"{elapsed // 3600:02d}:{(elapsed % 3600) // 60:02d}:{elapsed % 60:02d}"
 
+        # Get terminal width for responsive layout
+        term_width = console.width or 80
+
         parts = []
-        parts.append(f"<style fg='#58a6ff'>RUMI</style>")
-        parts.append(f"<style fg='#30363d'> | </style>")
 
+        # Left border accent
+        parts.append("<style fg='#30363d'>─</style>")
+
+        # Status/Indicator (always shown)
         if self._is_busy or self._discovery_running:
-            word = self._discovery_step or THINKING_MESSAGES[self._current_word_idx]
-            parts.append(f"<style fg='#39d353'>{spin} {word}</style>")
+            face = random.choice(KAOMOJI_FACES)
+            verb = self._discovery_step or random.choice(THINKING_VERBS)
+            parts.append(f"<style fg='#39d353'>{face} {verb}…</style>")
         else:
-            parts.append(f"<style fg='#8b949e'>idle</style>")
+            parts.append("<style fg='#8FBC8F'>ready</style>")
 
-        parts.append(f"<style fg='#30363d'> | </style>")
-        parts.append(self._get_context_bar(self._total_tokens, 200000))
+        parts.append("<style fg='#30363d'>│</style>")
 
-        parts.append(f"<style fg='#30363d'> | </style>")
-        parts.append(f"<style fg='#8b949e'>${self._total_cost:.3f}</style>")
-        parts.append(f"<style fg='#30363d'> | </style>")
-        parts.append(f"<style fg='#8b949e'>{uptime}</style>")
+        # Model name (always shown, truncated to 26 chars)
+        model = "Gemini 2.5"
+        parts.append(f"<style fg='#58a6ff'>{model}</style>")
+        parts.append("<style fg='#30363d'>│</style>")
 
+        # Context: tokens (always shown)
+        parts.append(f"<style fg='#8b949e'>{self._total_tokens:,} tok</style>")
+
+        # Context bar (≥72 cols)
+        if term_width >= 72:
+            parts.append("<style fg='#30363d'>│</style>")
+            parts.append(self._get_context_bar(self._total_tokens, 200000))
+
+        # Duration (≥76 cols)
+        if term_width >= 76:
+            parts.append("<style fg='#30363d'>│</style>")
+            parts.append(f"<style fg='#8b949e'>{uptime}</style>")
+
+        # Mode badges
         if self._think_mode:
-            parts.append(f"<style fg='#30363d'> | </style>")
-            parts.append(f"<style fg='#bc8cff'>think</style>")
+            parts.append("<style fg='#30363d'>│</style>")
+            parts.append("<style fg='#bc8cff'>think</style>")
         if self._deep_dive_active:
-            parts.append(f"<style fg='#30363d'> | </style>")
-            parts.append(f"<style fg='#39d353'>dive</style>")
+            parts.append("<style fg='#30363d'>│</style>")
+            parts.append("<style fg='#39d353'>dive</style>")
 
-        parts.append(f"<style fg='#30363d'> | </style>")
-        parts.append(f"<style fg='#484f58'>Ctrl+K</style>")
+        # Cost (≥96 cols)
+        if term_width >= 96:
+            parts.append("<style fg='#30363d'>│</style>")
+            parts.append(f"<style fg='#8b949e'>${self._total_cost:.4f}</style>")
+
+        # Right border + cwd
+        parts.append("<style fg='#30363d'> ─</style>")
 
         return HTML("".join(parts))
 
@@ -992,21 +1096,12 @@ class RumiUI:
                 time.sleep(0.1)
 
     # ----------------------------------------------------------------
-    # COMMAND PALETTE
+    # COMMAND PALETTE (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_command_palette(self):
         """Hermes-style command palette."""
         console.print()
-        console.print(Text(f"  Commands", style=f"bold {ACCENT_BLUE}"))
-        console.print()
-        for i, (key, label, cmd) in enumerate(COMMAND_PALETTE_ITEMS):
-            line = Text()
-            line.append(f"  {i+1:2d} ", style=TXT_DIM)
-            line.append(f"{label}", style=TXT_PRIMARY)
-            line.append(f"  {cmd}", style=ACCENT_BLUE)
-            console.print(line)
-        console.print()
-        console.print(Text(f"  Type number or command directly", style=TXT_DIM))
+        console.print(Text("  (^_^)? Commands", style=f"bold {ACCENT_BLUE}"))
         console.print()
         for i, (key, label, cmd) in enumerate(COMMAND_PALETTE_ITEMS):
             line = Text()
@@ -1208,7 +1303,7 @@ class RumiUI:
 
         elif cmd == "/exit":
             console.print()
-            console.print(Text("  Shutting down RUMI...", style=f"bold {ACCENT_RED}"))
+            console.print(Text("  (╥_╥) Shutting down RUMI...", style=f"bold {ACCENT_RED}"))
             console.print()
             self._show_session_summary()
             self._running = False
@@ -1248,21 +1343,27 @@ class RumiUI:
             threading.Thread(target=self.on_discovery_command, args=(mode, args), daemon=True).start()
 
     # ----------------------------------------------------------------
-    # TOOL CALL DISPLAY
+    # TOOL CALL DISPLAY (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_tool_call(self, name: str, query: str = ""):
+        """Hermes-style tool call with tree display."""
         self._tool_calls.start(name, query)
         self._activity_feed.add(f"{name}", ACCENT_TEAL)
 
+        # Get tool-specific verb if available
+        tool_verb = TOOL_VERBS.get(name.lower(), "processing")
+
         line = Text()
-        line.append(f"  {name}", style=f"bold {TXT_SECOND}")
+        line.append("  ├─ ", style=TXT_DIM)
+        line.append(f"✓ ", style=f"bold {ACCENT_GREEN}")
+        line.append(f"{name}", style=f"bold {ACCENT_BLUE}")
         if query:
             short = query[:40] + "..." if len(query) > 40 else query
-            line.append(f" {short}", style=TXT_DIM)
-        line.append(" ...", style=TXT_MUTED)
+            line.append(f" {short}", style=TXT_SECOND)
         console.print(line)
 
     def complete_tool_call(self, name: str, result: str = ""):
+        """Hermes-style tool completion with duration."""
         self._tool_calls.complete(name, result)
 
         elapsed = ""
@@ -1272,7 +1373,9 @@ class RumiUI:
                 break
 
         line = Text()
-        line.append(f"  {name}", style=f"bold {ACCENT_GREEN}")
+        line.append("  └─ ", style=TXT_DIM)
+        line.append(f"✓ ", style=f"bold {ACCENT_GREEN}")
+        line.append(f"{name}", style=f"bold {ACCENT_GREEN}")
         line.append(f"{elapsed}", style=TXT_DIM)
         if result:
             short = result[:50] + "..." if len(result) > 50 else result
@@ -1280,15 +1383,16 @@ class RumiUI:
         console.print(line)
 
     # ----------------------------------------------------------------
-    # STATUS (compact)
+    # STATUS (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_status_panel(self):
-        """Hermes-style compact status."""
+        """Hermes-style responsive status panel."""
         uptime = self._get_uptime()
         pct = min(100, int((self._total_tokens / 200000) * 100))
         filled = int(pct / 10)
         empty = 10 - filled
-        bar_text = f"[{'#' * filled}{'.' * empty}] {pct}%"
+        bar_text = f"[{'█' * filled}{'░' * empty}] {pct}%"
+        
         if pct < 50:
             bar_color = ACCENT_GREEN
         elif pct < 80:
@@ -1298,19 +1402,35 @@ class RumiUI:
         else:
             bar_color = ACCENT_RED
 
+        # Get responsive layout mode
+        term_width = console.width or 80
+        
         console.print()
         line = Text()
-        line.append("  RUMI ", style=f"bold {ACCENT_BLUE}")
-        line.append(f"up {uptime} ", style=TXT_SECOND)
-        line.append(f"{self._message_count} msgs ", style=TXT_SECOND)
-        line.append(f"{self._total_tokens:,} tok ", style=TXT_SECOND)
-        line.append(f"${self._total_cost:.4f} ", style=ACCENT_GREEN)
-        line.append(f"{bar_text}", style=f"bold {bar_color}")
+        
+        if term_width >= 76:
+            # Full layout
+            line.append("  RUMI ", style=f"bold {ACCENT_BLUE}")
+            line.append(f"{self._total_tokens:,}/200K ", style=TXT_SECOND)
+            line.append(f"{bar_text} ", style=f"bold {bar_color}")
+            line.append(f"${self._total_cost:.4f} ", style=ACCENT_GREEN)
+            line.append(f"{uptime}", style=TXT_SECOND)
+        elif term_width >= 52:
+            # Compact layout
+            line.append("  RUMI ", style=f"bold {ACCENT_BLUE}")
+            line.append(f"{pct}% ", style=f"bold {bar_color}")
+            line.append(f"${self._total_cost:.3f} ", style=ACCENT_GREEN)
+            line.append(f"{uptime}", style=TXT_SECOND)
+        else:
+            # Minimal layout
+            line.append("  RUMI ", style=f"bold {ACCENT_BLUE}")
+            line.append(f"{uptime}", style=TXT_SECOND)
+        
         console.print(line)
         console.print()
 
     def _show_stats(self):
-        """Compact stats -- single line."""
+        """Hermes-style compact stats."""
         uptime = int(time.time() - self._start_time)
         line = Text()
         line.append("  stats ", style=TXT_DIM)
@@ -1322,10 +1442,10 @@ class RumiUI:
         console.print(line)
 
     # ----------------------------------------------------------------
-    # TIMELINE DISPLAY
+    # TIMELINE DISPLAY (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_timeline(self):
-        """Compact timeline -- dense event list."""
+        """Hermes-style compact timeline."""
         events = self._timeline.get_events(last_n=10)
 
         if not events:
@@ -1348,10 +1468,10 @@ class RumiUI:
             console.print(line)
 
     # ----------------------------------------------------------------
-    # SESSION SUMMARY
+    # SESSION SUMMARY (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_session_summary(self):
-        """Compact session summary."""
+        """Hermes-style compact session summary."""
         uptime = int(time.time() - self._start_time)
         line = Text()
         line.append("  session ", style=TXT_DIM)
@@ -1375,18 +1495,22 @@ class RumiUI:
                 time.sleep(1)
 
     def show_thinking(self, message: str = ""):
-        msg = message or random.choice(THINKING_MESSAGES)
-        console.print(Text(f"  ... {msg}", style=f"bold {ACCENT_BLUE}"))
+        """Hermes-style kaomoji thinking indicator."""
+        face = random.choice(KAOMOJI_FACES)
+        verb = random.choice(THINKING_VERBS)
+        console.print(Text(f"  {face} {verb}…", style=f"bold {ACCENT_BLUE}"))
 
     def show_done(self, message: str = ""):
+        """Hermes-style kaomoji done indicator."""
         msg = message or "Done."
-        console.print(Text(f"  {msg}", style=f"bold {ACCENT_GREEN}"))
+        console.print(Text(f"  (◕‿◕✿) {msg}", style=f"bold {ACCENT_GREEN}"))
 
     # ================================================================
     # PUBLIC API
     # ================================================================
 
     def write_log(self, text: str):
+        """Hermes-style streaming message display."""
         with self._input_lock:
             tl = text.lower().strip()
 
@@ -1399,7 +1523,7 @@ class RumiUI:
                 content = text[4:].strip()
                 self.set_state("PROCESSING")
                 console.print()
-                console.print(Text(f"  > {content}", style=f"bold {ACCENT_BLUE}"))
+                console.print(Text(f"  ❯ {content}", style=f"bold {ACCENT_BLUE}"))
                 self.show_thinking()
 
             elif tl.startswith("rumi:") or tl.startswith("ai:"):
@@ -1423,7 +1547,7 @@ class RumiUI:
             elif tl.startswith("err:") or tl.startswith("error:"):
                 err_msg = text[4:].strip() if ":" in text[4:5] else text[4:].strip()
                 self._activity_feed.add(f"error: {err_msg}", ACCENT_RED)
-                console.print(Text(f"  error: {err_msg}", style=f"bold {ACCENT_RED}"))
+                console.print(Text(f"  ✗ error: {err_msg}", style=f"bold {ACCENT_RED}"))
 
             else:
                 if not text.strip() or text.strip().startswith("["):
@@ -1435,6 +1559,7 @@ class RumiUI:
         self.status_text = state
 
     def set_discovery_step(self, step: str):
+        """Hermes-style discovery step with inline progress."""
         self._discovery_step = step
         self._activity_feed.add(step, ACCENT_PURPLE)
 
@@ -1465,13 +1590,14 @@ class RumiUI:
         elif any(k in step_lower for k in ["label", "ground", "cit", "valid"]):
             color = ACCENT_AMBER
         else:
-            color = ACCENT_CYAN
+            color = ACCENT_BLUE
 
         # Hermes-style: step name + inline progress
         pct = self._pipeline.get_progress_pct()
         bar = _make_progress_bar(pct, 8)
         line = Text()
-        line.append(f"  {step} ", style=f"{color}")
+        line.append(f"  ├─ ", style=TXT_DIM)
+        line.append(f"{step} ", style=f"{color}")
         line.append(bar, style=TXT_DIM)
         console.print(line)
 
@@ -1507,10 +1633,10 @@ class RumiUI:
         self._graph_metrics.update(**kwargs)
 
     # ----------------------------------------------------------------
-    # SCIENCE HELP
+    # SCIENCE HELP (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_science_help(self):
-        """Compact modules list."""
+        """Hermes-style compact modules list."""
         console.print()
         modules = [
             ("discovery_engine", "full pipeline"),
@@ -1546,7 +1672,7 @@ class RumiUI:
         console.print()
 
     def _show_domains(self):
-        """Compact domain list."""
+        """Hermes-style compact domain list."""
         from discovery.domains import list_domains
         from discovery.domain_computational import DOMAIN_COMPUTATIONS
 
@@ -1563,6 +1689,7 @@ class RumiUI:
         console.print()
 
     def _handle_personality(self):
+        """Hermes-style personality selector."""
         console.print()
         console.print(Text(f"  Current: {self._personality}", style=ACCENT_AMBER))
         console.print()
@@ -1574,7 +1701,7 @@ class RumiUI:
             console.print(Text(f"      {p['desc']}", style=TXT_MUTED))
         console.print()
 
-        choice = input("  > ").strip()
+        choice = input("  ❯ ").strip()
         try:
             idx = int(choice) - 1
             if idx < 0:
@@ -1587,16 +1714,17 @@ class RumiUI:
 
         if _set_personality(chosen):
             self._personality = chosen
-            console.print(Text(f"  OK Switched to {PERSONALITIES[chosen]['label']}", style=ACCENT_GREEN))
+            console.print(Text(f"  (^_^) Switched to {PERSONALITIES[chosen]['label']}", style=ACCENT_GREEN))
             console.print(Text(f"  Takes effect next session", style=ACCENT_AMBER))
         else:
-            console.print(Text("  X Failed to switch", style=ACCENT_RED))
+            console.print(Text("  (╥_╥) Failed to switch", style=ACCENT_RED))
         console.print()
 
     # ----------------------------------------------------------------
-    # API KEY SETUP
+    # API KEY SETUP (Hermes Agent style)
     # ----------------------------------------------------------------
     def _show_setup_ui(self):
+        """Hermes-style first boot setup."""
         console.print()
         console.print(Rule(style=f"bold {ACCENT_PURPLE}"))
         console.print(Text("  FIRST BOOT -- API KEY SETUP", style=f"bold {TXT_PRIMARY}"), justify="center")
@@ -1607,29 +1735,29 @@ class RumiUI:
 
         console.print(Text("  Enter your Gemini API key:", style=ACCENT_CYAN))
         console.print(Text("  (Get one at: https://aistudio.google.com/apikey)", style=TXT_MUTED))
-        gemini_key = input("  > ").strip()
+        gemini_key = input("  ❯ ").strip()
         while not gemini_key:
             console.print(Text("  API key cannot be empty.", style=f"bold {ACCENT_RED}"))
-            gemini_key = input("  > ").strip()
+            gemini_key = input("  ❯ ").strip()
 
         console.print()
 
         console.print(Text("  Enter your Groq API key:", style=ACCENT_CYAN))
         console.print(Text("  (Get one at: https://console.groq.com/keys)", style=TXT_MUTED))
-        groq_key = input("  > ").strip()
+        groq_key = input("  ❯ ").strip()
         while not groq_key:
             console.print(Text("  API key cannot be empty.", style=f"bold {ACCENT_RED}"))
-            groq_key = input("  > ").strip()
+            groq_key = input("  ❯ ").strip()
 
         console.print()
 
         console.print(Text("  Second Groq key (optional, for rate limiting)", style=TXT_MUTED))
-        groq_key2 = input("  > ").strip()
+        groq_key2 = input("  ❯ ").strip()
 
         console.print()
 
         console.print(Text("  Your callsign (default: OPERATOR):", style=ACCENT_CYAN))
-        user_name = input("  > ").strip().upper() or "OPERATOR"
+        user_name = input("  ❯ ").strip().upper() or "OPERATOR"
 
         console.print()
         console.print(Text("  Personality:", style=ACCENT_CYAN))
@@ -1637,7 +1765,7 @@ class RumiUI:
         for i, k in enumerate(pers_keys):
             p = PERSONALITIES[k]
             console.print(Text(f"  [{i+1}] {p['label']}", style=ACCENT_AMBER))
-        pers_choice = input("  > ").strip() or "1"
+        pers_choice = input("  ❯ ").strip() or "1"
         try:
             idx = int(pers_choice) - 1
             chosen_pers = pers_keys[idx] if 0 <= idx < len(pers_keys) else "professional"
@@ -1648,27 +1776,27 @@ class RumiUI:
 
         console.print()
         console.print(Text("  Telegram bot? (y/N)", style=TXT_MUTED))
-        tg_choice = input("  > ").strip().lower()
+        tg_choice = input("  ❯ ").strip().lower()
         tg_token = ""
         tg_user = ""
         if tg_choice in ("y", "yes"):
             console.print(Text("  Bot token:", style=TXT_PRIMARY))
-            tg_token = input("  > ").strip()
+            tg_token = input("  ❯ ").strip()
             console.print(Text("  User ID:", style=TXT_PRIMARY))
-            tg_user = input("  > ").strip()
+            tg_user = input("  ❯ ").strip()
 
         console.print()
         console.print(Text("  Optional enrichment keys (enter to skip):", style=TXT_MUTED))
 
         console.print(Text("  NASA API key:", style=TXT_MUTED))
-        nasa_key = input("  > ").strip()
+        nasa_key = input("  ❯ ").strip()
 
         console.print(Text("  Materials Project key:", style=TXT_MUTED))
-        mp_key = input("  > ").strip()
+        mp_key = input("  ❯ ").strip()
 
         console.print()
         console.print(Text("  Voice mode: [1] Text only  [2] Text + Voice", style=ACCENT_AMBER))
-        vm_choice = input("  > ").strip() or "1"
+        vm_choice = input("  ❯ ").strip() or "1"
         voice_enabled = vm_choice == "2"
 
         os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1697,5 +1825,5 @@ class RumiUI:
         self.set_state("LISTENING")
 
         console.print()
-        console.print(Text(f"  * RUMI online. Welcome, {user_name}.", style=f"bold {ACCENT_GREEN}"))
+        console.print(Text(f"  (◕‿◕✿) RUMI online. Welcome, {user_name}.", style=f"bold {ACCENT_GREEN}"))
         console.print()

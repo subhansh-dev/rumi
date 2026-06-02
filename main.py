@@ -2790,7 +2790,7 @@ class RumiLive:
         """Auto-detect domain from topic using LLM."""
         prompt = build_detect_prompt() + topic + '"'
         try:
-            result = await self._call_llm(prompt, json_mode=False, provider="groq")
+            result = await self._call_llm(prompt, json_mode=False, provider="auto")
             result = result.strip().lower().strip('"').strip("'")
             if result in DOMAINS or result in DOMAIN_ALIAS_MAP:
                 return result if result in DOMAINS else DOMAIN_ALIAS_MAP[result]
@@ -2856,7 +2856,7 @@ class RumiLive:
         entities, relationships = [], []
         self.ui.set_discovery_step("extracting entities")
         for attempt in range(3):
-            extraction_result = await self._call_llm(extraction_prompt, json_mode=True, provider="groq", max_tokens=8192)
+            extraction_result = await self._call_llm(extraction_prompt, json_mode=True, provider="auto", max_tokens=8192)
             entities, relationships = self._parse_extraction(extraction_result)
             if entities:
                 break
