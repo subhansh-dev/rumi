@@ -5,7 +5,7 @@ Generate 20 hypotheses → simulate → score → eliminate worst →
 mutate survivors → repeat.
 
 Inspired by:
-  - Sakana AI's hypothesis tournament
+  - 
   - Genetic algorithms
   - GFlowNet-style diverse hypothesis evolution
   - AI Scientist's iterative idea refinement
