@@ -95,17 +95,26 @@ A mechanism is NOT just "X causes Y." A mechanism is:
   "X activates pathway P with rate constant k1, which produces intermediate I
    at concentration [I] = k1[X]/k2, which converts to effect Y when [I] > threshold"
 
-CRITICAL REQUIREMENTS:
-1. Every mechanism MUST include at least one quantitative relationship (equation, rate, threshold)
-2. Every mechanism MUST cite existing literature on related mechanisms
-3. Every prediction MUST include expected MAGNITUDE (not just direction)
-4. Identify the KEY PARAMETER that controls the mechanism and its expected range
-5. Distinguish: is this a KNOWN mechanism applied in new context, or genuinely NOVEL?
-6. EPISTEMIC LABELING: For every key_parameter, label its source:
-   - "cited": the value/range comes from a specific paper in the literature (cite it in source_detail)
-   - "derived": the value is calculated from other parameters via equations in the mechanism
-   - "estimated": the value is your best physical estimate, NOT from literature — state your reasoning
-   NEVER present an estimated value as if it were cited. Transparency is more important than confidence.
+REQUIREMENTS — prefer quantitative, derive when possible:
+1. PREFER quantitative relationships (equations, rates, thresholds). If no equation exists
+   yet, provide the physical quantity and how it couples to observables.
+2. Ground in existing literature when possible. For novel mechanisms, state what known
+   physics it extends or combines.
+3. DERIVATION: If an equation can be derived from known physics, SHOW THE DERIVATION.
+   Don't just state the result — show the steps. Example:
+     "From Newton's second law and the gravitational force law:
+      F = ma = GMm/r² → a = GM/r² → for M = 10³⁰ kg, r = 7×10⁸ m: a ≈ 0.006 m/s²"
+   A derived value is stronger than an estimated one.
+4. PREFER predictions with MAGNITUDE. If no magnitude is possible, state the direction
+   and what measurement would constrain it.
+5. Identify the KEY PARAMETER that controls the mechanism and its expected range.
+6. Distinguish: is this a KNOWN mechanism applied in new context, or genuinely NOVEL?
+   Also classify: is this NEW synthesis of existing data, or NEW physics?
+7. EPISTEMIC LABELING: For every key_parameter, label its source:
+   - "cited": the value/range comes from a specific paper (cite it)
+   - "derived": the value is CALCULATED from other parameters — show the derivation
+   - "estimated": your best physical estimate, NOT from literature — state reasoning
+   NEVER present an estimated value as cited. Transparency > confidence.
 
 For each mechanism, provide:
 1. A clear name (descriptive, not creative)
@@ -132,6 +141,8 @@ Output JSON:
         "Step 3: Final effect — [magnitude of effect]"
       ],
       "mathematical_model": "Equations governing this mechanism (e.g. rate equations, thresholds)",
+      "derivation": "If the equation can be derived from known physics, show the derivation steps here. Otherwise state 'not derivable — estimated from [reasoning]'",
+      "classification": "new_synthesis|new_physics|new_context_for_known|replication",
       "key_parameters": [
         {{"name": "parameter_name", "expected_value": "order of magnitude or range", "units": "units", "source": "cited|derived|estimated", "source_detail": "paper citation or derivation basis or estimation rationale"}}
       ],

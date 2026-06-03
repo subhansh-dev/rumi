@@ -103,15 +103,20 @@ RELEVANT PAPERS:
 Your task: propose HIDDEN VARIABLES — unseen entities, processes, forces, or conditions
 that could explain the gaps and anomalies above.
 
-CRITICAL REQUIREMENTS — DO NOT SKIP ANY:
-1. Every hidden variable MUST have mathematical formalism. Include at least one equation
-   or quantitative relationship. Use plain-text math notation if needed (e.g. "F = G*M*m/r^2").
-2. Every hidden variable MUST cite existing literature that is RELATED to it. Even if the
-   exact variable is novel, it must connect to known physics/biology/chemistry.
-3. Every prediction MUST include NUMBERS — expected magnitude, order of magnitude, or
-   quantitative bound. Not "X should change" but "X should change by approximately Y%".
+REQUIREMENTS — PREFER quantitative, but don't reject qualitative:
+1. PREFER mathematical formalism. If you can derive an equation from first principles or
+   combine known relations, DO the derivation — show your work, don't just state the result.
+   If no equation is possible yet, provide: (a) the physical quantity involved,
+   (b) how it couples to observables, (c) expected order of magnitude.
+   A qualitative proposal with clear testability beats no proposal.
+2. Ground in existing literature when possible. If the variable is truly novel and has no
+   direct literature precedent, state what KNOWN concepts it extends or combines.
+3. PREFER predictions with NUMBERS. If no numbers are possible, state the DIRECTION
+   and what measurement would constrain it.
 4. Distinguish clearly: is this a NEW entity, or an EXTENSION of a known mechanism?
 5. State what PARAMETER or COUPLING CONSTANT would need to be measured.
+6. DERIVATION: If the equation can be derived from known physics, SHOW THE DERIVATION.
+   Don't just state "F = ma" — show how you got there from the mechanism steps.
 
 Think like the scientists who discovered:
 - Dark matter: Zwicky (1933) proposed invisible mass. He calculated: visible mass gives
@@ -147,7 +152,8 @@ Output JSON:
       "name": "Descriptive Name (not creative — say what it IS)",
       "type": "entity|process|force|field|mechanism|condition",
       "description": "Detailed description with physical/mathematical content",
-      "mathematical_formalism": "Equations, relationships, parameter definitions. At least one equation.",
+      "mathematical_formalism": "Equations, relationships, parameter definitions. Prefer equations but qualitative is OK if testable.",
+      "derivation": "If the equation can be derived from known physics, show derivation steps. Otherwise state 'not derivable — estimated from [reasoning]'.",
       "coupling_constants": "What parameters define this? What are their expected magnitudes?",
       "literature_grounding": "cite 2-3 existing papers or concepts this builds on",
       "is_novel_vs_extension": "novel|extension_of_known|modification_of_known",

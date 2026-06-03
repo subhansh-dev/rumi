@@ -455,21 +455,24 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             if mechanisms:
                 print(f"  Algorithmic fallback: {len(mechanisms)} mechanisms")
 
-        # Validate mechanisms — reject those without concrete details
+        # Validate mechanisms — allow single-step direct observations
         validated_mechanisms = []
         for m in mechanisms:
             name = m.get("name", "")
             steps = m.get("steps", [])
             # Reject generic "Hidden mechanism connecting X" without details
-            if "Hidden mechanism connecting" in name and len(steps) < 2:
+            if "Hidden mechanism connecting" in name and len(steps) < 1:
                 continue
-            # Require at least 2 steps for a valid mechanism
-            if len(steps) < 2:
+            # Allow single-step mechanisms (direct observations are valid)
+            if len(steps) < 1:
                 continue
-            # Mark as speculative if missing key fields
+            # Tag single-step as direct_observation
+            if len(steps) == 1:
+                m.setdefault("type", "direct_observation")
+            # Mark as speculative if missing key fields — no confidence cap
             if not m.get("inputs") and not m.get("outputs"):
                 m["status"] = "speculative"
-                m["max_confidence"] = 0.3
+                # Don't cap confidence — let scorer decide
             validated_mechanisms.append(m)
         mechanisms = validated_mechanisms
 
@@ -553,15 +556,15 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         for t in theories:
             name = t.get("name", "")
             desc = t.get("description", t.get("mechanism", ""))
-            # Penalize correlation-only theories
+            # Track causal status for reporting — don't penalize
+            # Correlations are valid starting points (Darwin didn't know DNA)
             if "correlat" in desc.lower() and "caus" not in desc.lower():
-                t["causal_penalty"] = -0.15
                 t["causal_status"] = "correlation_only"
-            # Require at least one causal claim
+                t["causal_penalty"] = 0  # no penalty — correlations are valid
             has_causal = any(kw in desc.lower() for kw in ["causes", "leads to", "produces", "generates", "triggers", "mediates", "drives"])
             if not has_causal:
                 t["causal_status"] = "no_causal_claim"
-                t["causal_penalty"] = -0.1
+                t["causal_penalty"] = 0  # no penalty — track for reporting only
             validated_theories.append(t)
         theories = validated_theories
 
@@ -930,6 +933,12 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 L.append(f"     Evidence: {str(evidence)[:150]}")
             if testability:
                 L.append(f"     Testability: {str(testability)[:120]}")
+            # Show derivation if available
+            derivation = hv.get("derivation", "")
+            if derivation and derivation.lower() not in ("not derivable", "n/a", ""):
+                L.append(f"     Derivation:")
+                for dline in str(derivation).split("\n")[:4]:
+                    L.append(f"       {dline.strip()[:120]}")
             if key_params:
                 for kp in key_params[:3]:
                     if isinstance(kp, dict):
@@ -973,6 +982,22 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 s_str = str(step)[:150] if step else ""
                 if s_str:
                     L.append(f"     Step {j+1}: {s_str}")
+            # Show derivation if available
+            derivation = m.get("derivation", "")
+            if derivation and derivation.lower() not in ("not derivable", "n/a", ""):
+                L.append(f"     Derivation:")
+                for dline in str(derivation).split("\n")[:5]:
+                    L.append(f"       {dline.strip()[:120]}")
+            # Show classification (known synthesis vs new physics)
+            classification = m.get("classification", "")
+            if classification:
+                class_labels = {
+                    "new_synthesis": "NEW SYNTHESIS of existing data",
+                    "new_physics": "NEW PHYSICS — novel mechanism",
+                    "new_context_for_known": "KNOWN mechanism in NEW context",
+                    "replication": "REPLICATION of known results",
+                }
+                L.append(f"     Classification: {class_labels.get(classification, classification)}")
             # Show key parameters with epistemic labels
             mech_params = m.get("key_parameters", [])
             if mech_params:
@@ -1146,14 +1171,43 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
             L.append(f"  Summary: {str(summary)[:200]}")
         L.append("")
 
-    # ── Discovery Classification ──
+    # ── Discovery Classification — What's Known vs What's New ──
     dc = phases.get("discovery_classification", {})
     if dc:
-        L.append(f"  Classification: {dc.get('classification', 'N/A')}")
-        L.append(f"    New mechanism: {dc.get('has_new_mechanism', False)}")
-        L.append(f"    New prediction: {dc.get('has_new_prediction', False)}")
-        L.append(f"    New mathematics: {dc.get('has_new_math', False)}")
-        L.append(f"    Not in literature: {dc.get('not_in_literature', False)}")
+        L.append("─" * 70)
+        L.append("  DISCOVERY CLASSIFICATION — What's Known vs What's New")
+        L.append("─" * 70)
+        classification = dc.get('classification', 'N/A')
+        class_desc = {
+            "replication": "Confirms existing knowledge — validates what was already known",
+            "synthesis": "Combines existing ideas in a new way — new connections between known concepts",
+            "extension": "New application of known mechanisms — applies existing physics to new domain",
+            "novel_theory": "Requires new mechanism, new prediction, new mathematics — genuinely new",
+        }
+        L.append(f"  Classification: {classification}")
+        L.append(f"  Meaning: {class_desc.get(classification, 'Unknown classification')}")
+        L.append(f"  Details:")
+        L.append(f"    New mechanism proposed: {dc.get('has_new_mechanism', False)}")
+        L.append(f"    New prediction generated: {dc.get('has_new_prediction', False)}")
+        L.append(f"    New mathematics introduced: {dc.get('has_new_math', False)}")
+        L.append(f"    Not found in literature: {dc.get('not_in_literature', False)}")
+
+        # Summarize what's known vs what's new from mechanisms
+        mech_classifications = {}
+        for m in mechanisms:
+            mc = m.get("classification", "")
+            if mc:
+                mech_classifications[mc] = mech_classifications.get(mc, 0) + 1
+        if mech_classifications:
+            L.append(f"  Mechanism breakdown:")
+            for mc, count in mech_classifications.items():
+                mc_label = {
+                    "new_synthesis": "New synthesis of existing data",
+                    "new_physics": "New physics — novel mechanism",
+                    "new_context_for_known": "Known mechanism in new context",
+                    "replication": "Replication of known results",
+                }.get(mc, mc)
+                L.append(f"    {mc_label}: {count}")
         L.append("")
 
     # ── Errors ──

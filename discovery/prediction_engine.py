@@ -172,28 +172,31 @@ Generate 5-8 predictions total. Quality over quantity."""
         rejected = []
 
         VAGUE_PATTERNS = [
-            "might", "could potentially", "possibly", "it is conceivable",
-            "may or may not", "is unclear", "further research is needed",
+            "it is conceivable",
+            "may or may not",
+            "further research is needed",
         ]
+        # Removed: "might", "could potentially", "possibly"
+        # These are normal hedging in real science — don't reject for them
 
         for pred in predictions:
             statement = pred.get("statement", "").lower()
             falsification = pred.get("falsification", "").lower()
 
             # Check for extreme vagueness (only reject truly empty statements)
-            is_vague = len(statement) < 20 or (any(p in statement for p in VAGUE_PATTERNS) and len(statement) < 50)
+            is_vague = len(statement) < 15
 
             # Check for unfalsifiability (only reject if truly no falsification)
             is_unfalsifiable = (
-                len(falsification) < 5 or
-                falsification.strip() in ("nothing", "cannot be falsified", "not specified", "n/a")
+                len(falsification) < 3 or
+                falsification.strip() in ("nothing", "cannot be falsified")
             )
 
             # Check for specificity (has numbers, measurements, concrete entities, or is long enough)
             has_specificity = (
                 any(c.isdigit() for c in statement) or
-                len(statement) > 40 or
-                any(kw in statement for kw in ["if", "then", "should", "observe", "measure", "detect", "predict"])
+                len(statement) > 30 or
+                any(kw in statement for kw in ["if", "then", "should", "observe", "measure", "detect", "predict", "might", "could", "possibly"])
             )
 
             if is_vague and not has_specificity:
@@ -205,7 +208,10 @@ Generate 5-8 predictions total. Quality over quantity."""
                 pred["rejection_reason"] = "Unfalsifiable — must state what would disprove it"
                 rejected.append(pred)
             else:
-                # Boost score for specific predictions
+                # Label confidence level instead of rejecting
+                if not has_specificity:
+                    pred["confidence"] = 0.3
+                    pred["confidence_note"] = "Low specificity — needs refinement"
                 if has_specificity:
                     pred["discriminating_power"] = min(1.0,
                         pred.get("discriminating_power", 0.5) + 0.1)

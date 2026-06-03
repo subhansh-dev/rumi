@@ -240,8 +240,9 @@ class DiscoveryScorer:
         if anomalies:
             anomaly_bonus = min(25, len(anomalies) * 5)
 
-        # Penalty for failures to explain
-        fail_penalty = len(fails) * 10
+        # Penalty for failures to explain — halved
+        # Honest acknowledgment of limits is good science, not a flaw
+        fail_penalty = len(fails) * 5
 
         base = 30 + num_explains * 8 + gap_bonus + anomaly_bonus - fail_penalty
         return max(5.0, min(100.0, base))
@@ -293,23 +294,25 @@ class DiscoveryScorer:
 
     def _score_simplicity(self, hidden_vars: list, assumptions: list,
                           mechanism_steps: list) -> float:
-        """Score simplicity (Occam's razor)."""
-        # Penalty for hidden variables
-        hv_penalty = len(hidden_vars) * 8
+        """Score simplicity (Occam's razor) — balanced, not punitive.
 
-        # Penalty for assumptions
-        assumption_penalty = len(assumptions) * 6
+        Complex theories can be correct (Standard Model has 17+ particles).
+        We penalize unnecessary complexity, not ambition.
+        """
+        # Soft penalties — half the old values
+        hv_penalty = len(hidden_vars) * 4
+        assumption_penalty = len(assumptions) * 3
+        step_penalty = max(0, len(mechanism_steps) - 3) * 3
 
-        # Penalty for complex mechanisms (more steps = more complex)
-        step_penalty = max(0, len(mechanism_steps) - 3) * 5
-
-        # But bonus for concise mechanisms (fewer steps that still explain a lot)
+        # Bonus for elegance (concise but powerful)
+        elegance_bonus = 0
         if len(mechanism_steps) >= 2 and len(hidden_vars) <= 2:
             elegance_bonus = 10
-        else:
-            elegance_bonus = 0
 
-        base = 80 - hv_penalty - assumption_penalty - step_penalty + elegance_bonus
+        # Bonus for ambitious theories that explain more
+        ambition_bonus = min(15, len(hidden_vars) * 3) if len(hidden_vars) > 2 else 0
+
+        base = 80 - hv_penalty - assumption_penalty - step_penalty + elegance_bonus + ambition_bonus
         return max(10.0, min(100.0, base))
 
     def _score_evidence(self, theory: dict, papers: list, graph,

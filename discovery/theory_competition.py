@@ -225,8 +225,9 @@ The null hypothesis often has high evidence_support but low novelty."""
         # Simplicity: fewer assumptions = better (penalize complexity)
         simplicity = max(0.1, 1.0 - len(assumptions) * 0.15)
 
-        # Contradiction penalty: theories that contradict evidence are worse
-        contradiction_penalty = len(fails) * 0.1
+        # Contradiction penalty — halved
+        # Honesty about limits is good science
+        contradiction_penalty = len(fails) * 0.05
 
         scores = {
             "explanatory_power": round(explanatory, 3),

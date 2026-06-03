@@ -72,14 +72,17 @@ class HypothesisEngine:
         return enriched
 
     def _cap_novelty(self, h):
-        """Prevent LLM from overclaiming novelty — downrank by one level."""
+        """Track novelty assessment — no forced downrank.
+
+        Previously this forced high→medium. Removed: the LLM's novelty
+        assessment stands. We track the source for transparency.
+        """
         n = h.get("novelty", "medium")
-        order = ["high", "medium", "low"]
+        h["novelty_source"] = "llm_assessed"
         if n == "high":
-            h["novelty"] = "medium"
-            h["novelty_override"] = "downranked_from_high"
+            h["novelty_override"] = "accepted_high"
         elif n == "medium":
-            h["novelty_override"] = "kept_medium"
+            h["novelty_override"] = "accepted_medium"
 
     def _build_prompt(self, graph, topic, domain, contradictions, latent_candidates):
         from discovery.domains import get_domain

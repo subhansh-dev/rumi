@@ -466,10 +466,10 @@ def compare_theories_algorithmic(theories, graph, papers):
             domain_relevance = 0.0
         score += domain_relevance * 20  # Up to 20 bonus points for domain grounding
 
-        # Factor 7: Domain match penalty (NEW — penalizes theories from wrong domain)
+        # Factor 7: Cross-domain bonus (connections between fields are valuable)
         theory_domain = theory.get("domain", "")
         if theory_domain and theory_domain != graph.domain:
-            score *= 0.6  # 40% penalty for cross-domain theories
+            score *= 1.15  # 15% bonus for cross-domain connections
 
         theory["scores"] = {
             "explanatory_power": min(1.0, len(explains) * 0.2),
