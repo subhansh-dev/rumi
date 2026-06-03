@@ -586,6 +586,47 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         winner = None
 
     # ══════════════════════════════════════════════════════════════
+    # PHASE 8.5: ADVERSARIAL TEST — Attack every discovery
+    # ══════════════════════════════════════════════════════════════
+    print("\n[Phase 8.5/12] ADVERSARIAL TEST — Attacking every discovery...", flush=True)
+    try:
+        from discovery.test_stage import AdversarialTest
+        tester = AdversarialTest(llm_call=_truncated_llm)
+        test_results = tester.test_discoveries(
+            hidden_variables, mechanisms, theories, papers, topic, domain, gaps, anomalies
+        )
+        report["phases"]["adversarial_test"] = test_results
+
+        # Print results
+        summary = test_results.get("survival_summary", {})
+        for category in ["hidden_variables", "mechanisms", "theories"]:
+            s = summary.get(category, {})
+            survived = s.get("survived", 0)
+            weakened = s.get("weakened", 0)
+            killed = s.get("killed", 0)
+            total = s.get("started", 0)
+            print(f"  {category}: {total} tested → {survived} survived, {weakened} weakened, {killed} killed")
+
+        # Print individual verdicts
+        for test_list_name in ["hidden_variable_tests", "mechanism_tests", "theory_tests"]:
+            for t in test_results.get(test_list_name, [])[:3]:
+                name = t.get("name", "?")
+                verdict = t.get("verdict", "?")
+                score = t.get("attack_score", 0)
+                existing = t.get("existing_theory", "")
+                falsification = t.get("falsification", "")
+                icon = {"survived": "✓", "weakened": "⚠", "killed": "✗"}.get(verdict, "?")
+                print(f"    {icon} {name[:40]} ({verdict}, score: {score:.2f})")
+                if existing and existing != "None known":
+                    print(f"      Existing theory: {str(existing)[:80]}")
+                if falsification:
+                    print(f"      Falsification: {str(falsification)[:80]}")
+
+    except Exception as e:
+        print(f"  [ERROR] Adversarial test failed: {e}")
+        report["errors"].append(f"Phase 8.5: {e}")
+
+    # ══════════════════════════════════════════════════════════════
     # PHASE 9: COMPUTATIONAL VERIFICATION
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 9/12] COMPUTATIONAL VERIFICATION — Running computations...", flush=True)
@@ -1090,6 +1131,54 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 if dims:
                     L.append(f"     Scores: {', '.join(dims)}")
             L.append("")
+        L.append("")
+
+    # ── Adversarial Test Results ──
+    adv_test = phases.get("adversarial_test", {})
+    if adv_test:
+        L.append("─" * 70)
+        L.append("  ADVERSARIAL TEST — What Survived the Attack")
+        L.append("─" * 70)
+        summary = adv_test.get("survival_summary", {})
+        for category in ["hidden_variables", "mechanisms", "theories"]:
+            s = summary.get(category, {})
+            started = s.get("started", 0)
+            survived = s.get("survived", 0)
+            weakened = s.get("weakened", 0)
+            killed = s.get("killed", 0)
+            if started > 0:
+                L.append(f"  {category}: {started} tested → {survived} survived, {weakened} weakened, {killed} killed")
+
+        # Show individual test results
+        for test_list_name, label in [
+            ("hidden_variable_tests", "Hidden Variables"),
+            ("mechanism_tests", "Mechanisms"),
+            ("theory_tests", "Theories"),
+        ]:
+            test_list = adv_test.get(test_list_name, [])
+            if test_list:
+                L.append(f"
+  {label}:")
+                for t in test_list:
+                    name = t.get("name", "?")
+                    verdict = t.get("verdict", "?")
+                    score = t.get("attack_score", 0)
+                    existing = t.get("existing_theory", "")
+                    can_remove = t.get("can_remove_variables", False)
+                    falsification = t.get("falsification", "")
+                    reasoning = t.get("reasoning", "")
+                    icon = {"survived": "✓", "weakened": "⚠", "killed": "✗"}.get(verdict, "?")
+
+                    L.append(f"    {icon} {name[:50]} [{verdict}, attack score: {score:.2f}]")
+                    if existing and existing.lower() not in ("none known", "no known theory explains this", ""):
+                        L.append(f"      Existing theory: {str(existing)[:100]}")
+                    if can_remove:
+                        removable = t.get("removable_variables", [])
+                        L.append(f"      Can remove: {', '.join(str(v) for v in removable[:3])}")
+                    if falsification and falsification.lower() not in ("none", "test failed", ""):
+                        L.append(f"      Falsification: {str(falsification)[:100]}")
+                    if reasoning:
+                        L.append(f"      Verdict: {str(reasoning)[:120]}")
         L.append("")
 
     # ── Contradictions ──
