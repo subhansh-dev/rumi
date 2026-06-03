@@ -127,7 +127,7 @@ Generate 5-8 predictions total. Quality over quantity."""
             if not raw:
                 try:
                     from discovery.llm_client import call_json
-                    raw = call_json(prompt, max_tokens=8192, provider="gemini")
+                    raw = call_json(prompt, max_tokens=8192, provider="auto")
                 except Exception:
                     pass
             if raw:
@@ -253,11 +253,11 @@ Generate 5-8 predictions total. Quality over quantity."""
             return "No mechanisms proposed."
         text = ""
         for i, m in enumerate(mechanisms, 1):
-            text += f"\n{i}. {m.get('name', '?')} ({m.get('type', '?')})\n"
-            text += f"   {m.get('description', '')[:200]}\n"
+            text += f"\n{i}. {str(m.get('name', '?'))} ({str(m.get('type', '?'))})\n"
+            text += f"   {str(m.get('description', ''))[:200]}\n"
             steps = m.get("steps", [])
             for s in steps[:4]:
-                text += f"   → {s}\n"
+                text += f"   → {str(s)}\n"
         return text
 
     def _format_hidden_variables(self, hvs: list) -> str:
@@ -265,8 +265,8 @@ Generate 5-8 predictions total. Quality over quantity."""
             return "No hidden variables."
         text = ""
         for i, hv in enumerate(hvs, 1):
-            text += f"\n{i}. {hv.get('name', '?')} ({hv.get('type', '?')})\n"
-            text += f"   {hv.get('description', '')[:200]}\n"
+            text += f"\n{i}. {str(hv.get('name', '?'))} ({str(hv.get('type', '?'))})\n"
+            text += f"   {str(hv.get('description', ''))[:200]}\n"
         return text
 
     def _format_anomalies(self, anomalies: list) -> str:
@@ -274,5 +274,5 @@ Generate 5-8 predictions total. Quality over quantity."""
             return "No anomalies."
         text = ""
         for i, a in enumerate(anomalies, 1):
-            text += f"\n{i}. {a.get('reason', a.get('observation', ''))[:200]}\n"
+            text += f"\n{i}. {str(a.get('reason', a.get('observation', '')))[:200]}\n"
         return text

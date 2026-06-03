@@ -269,7 +269,7 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
             raw = self.llm_call(prompt, max_tokens=8192)
             if not raw:
                 from discovery.llm_client import call_json
-                raw = call_json(prompt, max_tokens=8192, provider="gemini")
+                raw = call_json(prompt, max_tokens=8192, provider="auto")
 
             if raw:
                 if isinstance(raw, str):

@@ -146,7 +146,7 @@ Output JSON:
             raw = self.llm_call(prompt, max_tokens=4096)
             if not raw:
                 from discovery.llm_client import call_json
-                raw = call_json(prompt, max_tokens=4096, provider="gemini")
+                raw = call_json(prompt, max_tokens=4096, provider="auto")
 
             if raw:
                 if isinstance(raw, str):

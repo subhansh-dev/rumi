@@ -274,6 +274,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
 
     status = get_status()
     t_start = time.time()
+    provider_name = status.get("primary", "auto") if isinstance(status, dict) else "auto"
 
     # Load discovery archive — what RUMI already knows from past runs
     from discovery.discovery_archive import get_archive_context, save_to_archive
@@ -345,7 +346,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     print(f"  Topic:     {topic}")
     print(f"  Domain:    {domain}")
     print(f"  Mode:      {mode}")
-    print(f"  Provider:  {status['primary'].upper()}")
+    print(f"  Provider:  {provider_name.upper()}")
     print("=" * 70)
 
     # ══════════════════════════════════════════════════════════════
@@ -465,7 +466,12 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             # Also generate queries from graph entities that have few connections
             if hasattr(graph, 'entities') and graph.entities:
                 entity_degrees = {}
-                for src, tgt, _ in graph.relationships:
+                for r in graph.relationships:
+                    if isinstance(r, dict):
+                        src = r.get("source", "")
+                        tgt = r.get("target", "")
+                    else:
+                        src, tgt = r[0], r[1]
                     entity_degrees[src] = entity_degrees.get(src, 0) + 1
                     entity_degrees[tgt] = entity_degrees.get(tgt, 0) + 1
                 # Find under-connected entities
@@ -559,12 +565,12 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         provider = PHASE_PROVIDERS.get(phase, "auto")
         try:
             r = call_json(prompt, max_tokens=max_tokens, provider=provider)
+            if r is None and provider != "auto":
+                # Phase-specific provider failed — try all providers via auto
+                print(f"    [DEBUG] LLM returned None ({provider}), trying auto...", flush=True)
+                r = call_json(prompt, max_tokens=max_tokens, provider="auto")
             if r is None:
-                # Primary provider failed — retry with Gemini
-                print(f"    [DEBUG] LLM returned None ({provider}), retrying Gemini...", flush=True)
-                r = call_json(prompt, max_tokens=max_tokens, provider="gemini")
-            if r is None:
-                print("    [DEBUG] LLM returned None (all providers)", flush=True)
+                print(f"    [DEBUG] LLM returned None (all providers exhausted)", flush=True)
             elif isinstance(r, str) and len(r) < 10:
                 print(f"    [DEBUG] LLM returned short string: '{r}'", flush=True)
             return r
@@ -681,9 +687,25 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     print("\n[Phase 7/12] PREDICTION ENGINE — Generating testable predictions...", flush=True)
     _current_phase["name"] = "prediction_engine"
     try:
+        # Defensive: convert all mechanism/HV values to strings to prevent float+str errors
+        safe_mechanisms = []
+        for m in (mechanisms or []):
+            if isinstance(m, dict):
+                sm = {k: str(v) if not isinstance(v, (list, dict)) else v for k, v in m.items()}
+                safe_mechanisms.append(sm)
+            else:
+                safe_mechanisms.append(m)
+        safe_hvs = []
+        for h in (hidden_variables or []):
+            if isinstance(h, dict):
+                sh = {k: str(v) if not isinstance(v, (list, dict)) else v for k, v in h.items()}
+                safe_hvs.append(sh)
+            else:
+                safe_hvs.append(h)
+
         pred_engine = PredictionEngine(graph=graph, llm_call=_truncated_llm)
         pred_results = pred_engine.generate_predictions(
-            mechanisms, hidden_variables, topic, domain, anomalies
+            safe_mechanisms, safe_hvs, topic, domain, anomalies
         )
         predictions = pred_results.get("predictions", [])
 

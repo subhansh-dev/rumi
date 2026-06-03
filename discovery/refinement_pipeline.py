@@ -291,7 +291,14 @@ Return JSON:
 
 def multi_model_competition(topic, hypotheses, audit, domain):
     """Generate 5 competing hypotheses and score them with weighted metrics."""
-    existing = "\n".join(f"  H{i}: {h.get('title', '')}" for i, h in enumerate(hypotheses[:5], 1))
+    # Defensive: handle hypotheses that are strings instead of dicts
+    safe_hyps = []
+    for h in (hypotheses or []):
+        if isinstance(h, dict):
+            safe_hyps.append(h)
+        elif isinstance(h, str) and len(h) > 5:
+            safe_hyps.append({"title": h, "description": h})
+    existing = "\n".join(f"  H{i}: {h.get('title', str(h)[:80])}" for i, h in enumerate(safe_hyps[:5], 1))
 
     prompt = f"""You are a scientific competition judge. Given existing hypotheses and the knowledge audit, generate exactly 5 competing hypotheses for: {topic}
 
@@ -807,100 +814,116 @@ def run_refinement_pipeline(topic, domain, papers, graph, hypotheses, contradict
     results = {}
     t_total = time.time()
 
+    # Defensive: ensure hypotheses are dicts, not strings
+    safe_hypotheses = []
+    for h in (hypotheses or []):
+        if isinstance(h, dict):
+            safe_hypotheses.append(h)
+        elif isinstance(h, str) and len(h) > 5:
+            safe_hypotheses.append({"title": h, "description": h, "name": h})
+    hypotheses = safe_hypotheses
+
     def log(msg):
         print(msg, flush=True)
+
+    # Defensive helper — ensure stage results are dicts
+    def _safe(result, default=None):
+        if isinstance(result, dict):
+            return result
+        return default or {}
 
     # Stage 1
     log("[Refine 1/13] KNOWLEDGE FOUNDATION AUDIT")
     t0 = time.time()
-    results["audit"] = knowledge_foundation_audit(topic, domain, papers, graph, hypotheses)
+    results["audit"] = _safe(knowledge_foundation_audit(topic, domain, papers, graph, hypotheses))
     log(f"  {len(results['audit'].get('known_facts', []))} facts, {len(results['audit'].get('open_problems', []))} open problems ({time.time()-t0:.1f}s)")
 
     # Stage 2
     log("[Refine 2/13] FIRST PRINCIPLES RECONSTRUCTION")
     t0 = time.time()
-    results["first_principles"] = first_principles_reconstruction(topic, hypotheses, results["audit"])
+    results["first_principles"] = _safe(first_principles_reconstruction(topic, hypotheses, results["audit"]))
     log(f"  {len(results['first_principles'].get('hypotheses', []))} dependency trees ({time.time()-t0:.1f}s)")
 
     # Stage 3
     log("[Refine 3/13] MATHEMATICAL FORMALIZATION")
     t0 = time.time()
-    results["math"] = mathematical_formalization(topic, hypotheses, domain)
+    results["math"] = _safe(mathematical_formalization(topic, hypotheses, domain))
     capped = sum(1 for h in results["math"].get("hypotheses", []) if h.get("confidence_cap_applied"))
     log(f"  {len(results['math'].get('hypotheses', []))} formalized, {capped} confidence-capped ({time.time()-t0:.1f}s)")
 
     # Stage 4
     log("[Refine 4/13] DERIVATION ENGINE")
     t0 = time.time()
-    results["derivation"] = derivation_engine(hypotheses, results["math"])
+    results["derivation"] = _safe(derivation_engine(hypotheses, results["math"]))
     log(f"  {len(results['derivation'].get('hypotheses', []))} audited ({time.time()-t0:.1f}s)")
 
     # Stage 5
     log("[Refine 5/13] MULTI-MODEL COMPETITION")
     t0 = time.time()
-    results["competition"] = multi_model_competition(topic, hypotheses, results["audit"], domain)
-    winner_title = results["competition"].get("winner", "?")
-    winner_title = results['competition'].get('winner', {}).get('title', 'N/A') if results.get('competition', {}).get('winner') else 'N/A'
+    results["competition"] = _safe(multi_model_competition(topic, hypotheses, results["audit"], domain))
+    winner_title = results['competition'].get('winner', {}).get('title', 'N/A') if isinstance(results.get('competition', {}).get('winner'), dict) else 'N/A'
     log(f"  {len(results.get('competition', {}).get('hypotheses', []))} hypotheses, winner: {winner_title[:50]} ({time.time()-t0:.1f}s)")
 
     # Find the winning hypothesis
     winner = None
     for h in results["competition"].get("hypotheses", []):
-        if h.get("title") == winner_title:
+        if isinstance(h, dict) and h.get("title") == winner_title:
             winner = h
             break
     if not winner and results["competition"].get("hypotheses"):
         winner = results["competition"]["hypotheses"][0]
+        if not isinstance(winner, dict):
+            winner = None
 
     # Stage 6
     log("[Refine 6/13] ADVERSARIAL SCIENTISTS")
     t0 = time.time()
-    results["reviews"] = adversarial_scientists(topic, hypotheses, winner)
+    results["reviews"] = _safe(adversarial_scientists(topic, hypotheses, winner))
     survived = results["reviews"].get("survived", False)
     log(f"  {len(results['reviews'].get('reviews', []))} reviews, fatal: {results['reviews'].get('fatal_count', 0)}, survived: {survived} ({time.time()-t0:.1f}s)")
 
     # Stage 7
     log("[Refine 7/13] CAUSAL REASONING")
     t0 = time.time()
-    results["causal"] = causal_reasoning(topic, hypotheses, winner)
+    results["causal"] = _safe(causal_reasoning(topic, hypotheses, winner))
     log(f"  Causal graph built ({time.time()-t0:.1f}s)")
 
     # Stage 8
     log("[Refine 8/13] UNCERTAINTY DECOMPOSITION")
     t0 = time.time()
-    results["uncertainty"] = uncertainty_decomposition(hypotheses, winner)
+    results["uncertainty"] = _safe(uncertainty_decomposition(hypotheses, winner))
     limiting = results["uncertainty"].get("limiting_factor", "?")
     log(f"  Limiting factor: {limiting} ({time.time()-t0:.1f}s)")
 
     # Stage 9
     log("[Refine 9/13] PREDICTION GENERATOR")
     t0 = time.time()
-    results["predictions"] = prediction_generator(topic, winner, domain)
+    results["predictions"] = _safe(prediction_generator(topic, winner, domain))
     pred_count = len(results["predictions"].get("predictions", []))
     log(f"  {pred_count} predictions at 3 timescales ({time.time()-t0:.1f}s)")
 
     # Stage 10
     log("[Refine 10/13] SIMULATION LAYER")
     t0 = time.time()
-    results["simulation"] = simulation_layer(topic, winner, domain)
+    results["simulation"] = _safe(simulation_layer(topic, winner, domain))
     log(f"  Simulation designed ({time.time()-t0:.1f}s)")
 
     # Stage 11
     log("[Refine 11/13] DISCOVERY CLASSIFIER")
     t0 = time.time()
-    results["classification"] = discovery_classifier(topic, winner, papers)
+    results["classification"] = _safe(discovery_classifier(topic, winner, papers))
     log(f"  Classification: {results['classification'].get('classification', '?')} ({time.time()-t0:.1f}s)")
 
     # Stage 12
     log("[Refine 12/13] RESEARCHER-GRADE SCORING")
     t0 = time.time()
-    results["scoring"] = researcher_grade_scoring(winner, results["reviews"], results["classification"], results["uncertainty"], results["predictions"])
+    results["scoring"] = _safe(researcher_grade_scoring(winner, results["reviews"], results["classification"], results["uncertainty"], results["predictions"]))
     log(f"  Grade: {results['scoring'].get('grade', '?')} ({results['scoring'].get('overall_score', 0)}/100) ({time.time()-t0:.1f}s)")
 
     # Stage 13
     log("[Refine 13/13] SCIENTIFIC COURTROOM")
     t0 = time.time()
-    results["courtroom"] = scientific_courtroom(topic, winner, results["reviews"], results["scoring"])
+    results["courtroom"] = _safe(scientific_courtroom(topic, winner, results["reviews"], results["scoring"]))
     verdict = results["courtroom"].get("verdict", "?")
     survived = results["courtroom"].get("survived", False)
     log(f"  Verdict: {verdict} | Survived: {survived} ({time.time()-t0:.1f}s)")

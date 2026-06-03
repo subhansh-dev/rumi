@@ -23,15 +23,22 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_THINKING_MODEL = "gemini-2.5-flash"  # for complex reasoning
 
-# ── Minimal rate limiting (only for free-tier Groq/Gemini) ──
+# ── Rate limiting with backoff ──
 _last_groq_call = 0.0
 _last_gemini_call = 0.0
+_last_cerebras_call = 0.0
+_groq_backoff_until = 0.0
+_gemini_backoff_until = 0.0
+_cerebras_backoff_until = 0.0
 
 # ── Groq limits (free tier: 30 req/min) ──
-GROQ_MIN_INTERVAL = 0.5
+GROQ_MIN_INTERVAL = 2.0  # 2s between calls to stay under limits
 
-# ── Gemini limits (free tier) ──
-GEMINI_MIN_INTERVAL = 0.5
+# ── Gemini limits (free tier: 15 req/min) ──
+GEMINI_MIN_INTERVAL = 4.0  # 4s between calls for free tier
+
+# ── Cerebras limits (free tier) ──
+CEREBRAS_MIN_INTERVAL = 2.0
 
 
 def _load_config() -> dict:
@@ -68,9 +75,12 @@ _groq_key_idx = 0
 
 
 def _rate_limit_groq(max_tokens: int = 4096):
-    global _last_groq_call
+    global _last_groq_call, _groq_backoff_until
     now = time.time()
-    elapsed = now - _last_groq_call
+    # Check if we're in backoff period
+    if now < _groq_backoff_until:
+        time.sleep(_groq_backoff_until - now)
+    elapsed = time.time() - _last_groq_call
     if elapsed < GROQ_MIN_INTERVAL:
         time.sleep(GROQ_MIN_INTERVAL - elapsed)
     _last_groq_call = time.time()
@@ -125,7 +135,8 @@ def _call_groq(prompt: str, json_mode: bool = False,
                         _groq_key_idx = (_groq_key_idx + key_attempt) % len(keys)
                         return content.strip()
                 elif resp.status_code == 429:
-                    # This key is rate-limited — try next key
+                    # This key is rate-limited — wait then try next key
+                    time.sleep(5)
                     break
                 elif resp.status_code in (401, 403):
                     break  # try next key
@@ -137,6 +148,8 @@ def _call_groq(prompt: str, json_mode: bool = False,
                         payload.pop("response_format", None)
                         continue
                     return None
+                else:
+                    print(f"    [LLM] Groq {resp.status_code}: {resp.text[:100]}", flush=True)
             except requests.exceptions.Timeout:
                 continue
             except Exception:
@@ -200,8 +213,13 @@ def _call_gemini(prompt: str, json_mode: bool = False,
             except Exception as e:
                 err = str(e)
                 if "429" in err or "rate" in err.lower() or "quota" in err.lower():
-                    # This key exhausted — try next key
+                    # This key exhausted — wait then try next key
+                    time.sleep(5)
                     break
+                elif "401" in err or "403" in err or "invalid" in err.lower():
+                    break  # bad key, try next
+                else:
+                    print(f"    [LLM] Gemini error: {err[:100]}", flush=True)
                 return None
 
     _gemini_key_idx = (_gemini_key_idx + 1) % max(1, len(keys))
@@ -272,24 +290,27 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
                     _cerebras_key_idx = (_cerebras_key_idx + key_attempt) % len(keys)
                     return content.strip()
             elif resp.status_code == 429:
+                time.sleep(5)  # wait before rotating to next key
                 continue  # rotate to next key
             elif resp.status_code in (401, 403):
                 continue
-            elif resp.status_code == 400:
-                if json_mode:
-                    payload.pop("response_format", None)
-                    resp2 = requests.post(
-                        "https://api.cerebras.ai/v1/chat/completions",
-                        headers=headers, json=payload, timeout=60,
-                    )
-                    if resp2.status_code == 200:
-                        data = resp2.json()
-                        choice = data.get("choices", [{}])[0].get("message", {})
-                        content = choice.get("content", "")
-                        if not content or len(content) < 3:
-                            content = choice.get("reasoning", "")
-                        if content and len(content) > 2:
-                            return content.strip()
+            elif resp.status_code == 400 and json_mode:
+                # json_mode not supported — retry without it
+                payload.pop("response_format", None)
+                resp2 = requests.post(
+                    "https://api.cerebras.ai/v1/chat/completions",
+                    headers=headers, json=payload, timeout=60,
+                )
+                if resp2.status_code == 200:
+                    data = resp2.json()
+                    choice = data.get("choices", [{}])[0].get("message", {})
+                    content = choice.get("content", "")
+                    if not content or len(content) < 3:
+                        content = choice.get("reasoning", "")
+                    if content and len(content) > 2:
+                        return content.strip()
+            else:
+                print(f"    [LLM] Cerebras {resp.status_code}: {resp.text[:100]}", flush=True)
                 return None
         except Exception:
             continue
@@ -300,31 +321,63 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
 
 # ── Public API ────────────────────────────────────────────────────────
 
+# Provider cooldown — skip providers that recently failed
+_cerebras_cooldown_until = 0.0
+_groq_cooldown_until = 0.0
+_gemini_cooldown_until = 0.0
+COOLDOWN_SECONDS = 30  # skip a provider for 30s after it fails
+
 def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
          temperature: float = 0.3, provider: str = "auto") -> str | None:
     """Call with auto-routing. Cerebras (fastest) → Groq → Gemini fallback."""
+    global _cerebras_cooldown_until, _groq_cooldown_until, _gemini_cooldown_until
+    now = time.time()
+
     if provider == "auto":
         # Cerebras first (fastest free provider), then Groq, then Gemini
-        result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
-        if result:
-            return result
-        result = _call_groq(prompt, json_mode, max_tokens, temperature)
-        if result:
-            return result
-        return _call_gemini(prompt, json_mode, max_tokens, temperature)
+        if now >= _cerebras_cooldown_until:
+            result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
+            if result:
+                return result
+            _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
+        if now >= _groq_cooldown_until:
+            result = _call_groq(prompt, json_mode, max_tokens, temperature)
+            if result:
+                return result
+            _groq_cooldown_until = time.time() + COOLDOWN_SECONDS
+        if now >= _gemini_cooldown_until:
+            result = _call_gemini(prompt, json_mode, max_tokens, temperature)
+            if result:
+                return result
+            _gemini_cooldown_until = time.time() + COOLDOWN_SECONDS
+        return None
     if provider == "cerebras":
-        return _call_cerebras(prompt, json_mode, max_tokens, temperature)
+        result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
+        if not result:
+            _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
+        return result
     if provider == "groq":
         result = _call_groq(prompt, json_mode, max_tokens, temperature)
         if result:
             return result
+        _groq_cooldown_until = time.time() + COOLDOWN_SECONDS
         # Groq failed — try Cerebras then Gemini
-        result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
-        if result:
-            return result
-        return _call_gemini(prompt, json_mode, max_tokens, temperature)
+        if now < _cerebras_cooldown_until:
+            pass  # skip cerebras
+        else:
+            result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
+            if result:
+                return result
+        if now < _gemini_cooldown_until:
+            pass  # skip gemini
+        else:
+            return _call_gemini(prompt, json_mode, max_tokens, temperature)
+        return None
     if provider == "gemini":
-        return _call_gemini(prompt, json_mode, max_tokens, temperature)
+        result = _call_gemini(prompt, json_mode, max_tokens, temperature)
+        if not result:
+            _gemini_cooldown_until = time.time() + COOLDOWN_SECONDS
+        return result
     return None
 
 

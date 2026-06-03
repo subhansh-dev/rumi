@@ -27,8 +27,6 @@ def main():
     parser.add_argument("topic", help="Research topic")
     parser.add_argument("--domain", default="", help="Domain override (e.g. space_astronomy, physics)")
     parser.add_argument("--mode", default="full", choices=["quick", "standard", "full"], help="Pipeline depth")
-    parser.add_argument("--skip-refinement", action="store_true", help="Skip refinement pipeline")
-    parser.add_argument("--skip-reflexion", action="store_true", help="Skip reflexion cycle")
     parser.add_argument("--iterate", action="store_true", help="Run twice: first pass, analyze weaknesses, second pass with refined context")
     args = parser.parse_args()
 
@@ -158,69 +156,9 @@ def main():
         _save_report(report, topic)
         return
 
-    # ── Stage 2: Refinement Pipeline (13 stages) ──
-    if not args.skip_refinement:
-        print(f"\n{'='*70}")
-        print("STAGE 2: REFINEMENT PIPELINE (13 stages)")
-        print("="*70)
-        t0 = time.time()
-        try:
-            from discovery.refinement_pipeline import run_refinement_pipeline
-            from discovery.graph import KnowledgeGraph
-            graph = KnowledgeGraph(persist=True)
-            hypotheses = report.get("phases", {}).get("theory_competition", {}).get("theories", [])
-            contradictions = report.get("phases", {}).get("contradictions", {}).get("contradictions", [])
-            refinement = run_refinement_pipeline(
-                topic, report.get("domain", ""), [], graph,
-                hypotheses, contradictions
-            )
-            if refinement:
-                report["refinement"] = refinement
-                print(f"\n  Refinement complete in {time.time()-t0:.0f}s")
-            else:
-                print(f"\n  Refinement returned empty ({time.time()-t0:.0f}s)")
-        except Exception as e:
-            print(f"  Refinement FAILED: {e}")
-            import traceback; traceback.print_exc()
-    else:
-        print("\n  [Skipped refinement]")
-
-    # ── Stage 3: Reflexion (self-improvement) ──
-    if not args.skip_reflexion:
-        print(f"\n{'='*70}")
-        print("STAGE 3: REFLEXION (self-improvement)")
-        print("="*70)
-        t0 = time.time()
-        try:
-            from brain.reflexion import get_recursive_improver
-            from discovery.llm_client import call as llm_call
-
-            improver = get_recursive_improver(llm_fn=llm_call)
-            run_result = {
-                "query": topic,
-                "domain": report.get("domain", ""),
-                "hypotheses": report.get("phases", {}).get("theory_competition", {}).get("theories", []),
-                "contradictions": report.get("phases", {}).get("contradictions", {}).get("contradictions", []),
-                "metrics": {},
-                "errors": report.get("errors", []),
-            }
-            # Use sync version for standalone script
-            reflexion_result = improver.reflect_and_improve_sync(
-                run_result, llm_fn=llm_call, post_output_fn=lambda msg: print(f"  {msg}")
-            )
-            if reflexion_result:
-                report["reflexion"] = reflexion_result
-                patches_applied = reflexion_result.get("patches_applied", 0)
-                patches_rejected = reflexion_result.get("patches_rejected", 0)
-                improvement = reflexion_result.get("improvement_score", 0)
-                print(f"\n  Reflexion complete in {time.time()-t0:.0f}s")
-                print(f"  Patches applied: {patches_applied}, rejected: {patches_rejected}")
-                print(f"  Improvement score: {improvement:.0%}")
-        except Exception as e:
-            print(f"  Reflexion FAILED: {e}")
-            import traceback; traceback.print_exc()
-    else:
-        print("\n  [Skipped reflexion]")
+    # ── Stage 2: Refinement + Reflexion already run inside pipeline (Phase 13-14) ──
+    # Skip duplicate refinement/reflexion — pipeline handles it internally
+    print(f"\n  [Refinement + Reflexion already completed inside pipeline (Phase 13-14)]")
 
     # ── Save Report ──
     total_time = time.time() - total_start

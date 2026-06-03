@@ -186,7 +186,7 @@ Prefer mechanisms that make counterfactual predictions (most powerful causal lev
             if not raw:
                 try:
                     from discovery.llm_client import call_json
-                    raw = call_json(prompt, max_tokens=8192, provider="gemini")
+                    raw = call_json(prompt, max_tokens=8192, provider="auto")
                 except Exception:
                     pass
             if raw:
@@ -263,7 +263,7 @@ Output JSON:
             if not raw:
                 try:
                     from discovery.llm_client import call_json
-                    raw = call_json(prompt, max_tokens=4096, provider="gemini")
+                    raw = call_json(prompt, max_tokens=4096, provider="auto")
                 except Exception:
                     pass
             if raw:
@@ -348,7 +348,11 @@ Output JSON:
                 tgt = entities.get(rel["target"], {}).get("name", rel["target"])
                 rel_name = rel.get("relation", "?")
                 conf = rel.get("confidence", 0.5)
-                chains.append(f"  {src} --{rel_name}--> {tgt} (conf: {conf:.2f})")
+                try:
+                    conf_str = f"{float(conf):.2f}"
+                except (ValueError, TypeError):
+                    conf_str = str(conf)
+                chains.append(f"  {src} --{rel_name}--> {tgt} (conf: {conf_str})")
 
         if not chains:
             return "No causal relationships found in graph."
