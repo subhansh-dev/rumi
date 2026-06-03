@@ -80,7 +80,10 @@ def _call_groq(prompt: str, json_mode: bool = False,
                max_tokens: int = 4096, temperature: float = 0.3,
                model: str = GROQ_MODEL) -> str | None:
     """Call Groq API using raw requests. Rotates keys on 429."""
-    import requests
+    try:
+        import requests
+    except ImportError:
+        return None
     global _groq_key_idx
     keys = _get_groq_keys()
     if not keys:
@@ -225,7 +228,10 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
                    max_tokens: int = 4096, temperature: float = 0.3,
                    model: str = CEREBRAS_MODEL) -> str | None:
     """Call Cerebras API. No rate limiting, key rotation on 429."""
-    import requests
+    try:
+        import requests
+    except ImportError:
+        return None
     global _cerebras_key_idx
     keys = _get_cerebras_keys()
     if not keys:
