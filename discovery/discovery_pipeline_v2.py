@@ -300,6 +300,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         report["phases"]["literature"] = {
             "papers_found": len(papers),
             "sources": list(set(p["source"] for p in papers)),
+            "papers": papers,
         }
     except Exception as e:
         print(f"  [ERROR] Literature fetch failed: {e}")
@@ -423,6 +424,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         report["phases"]["missing_variables"] = {
             "proposed": len(hidden_variables),
             "variables": [hv.get("name", "?") for hv in hidden_variables],
+            "variable_details": hidden_variables,
         }
     except Exception as e:
         print(f"  [ERROR] Missing variable generation failed: {e}")
@@ -478,6 +480,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         report["phases"]["mechanism_generation"] = {
             "mechanisms_generated": len(mechanisms),
             "types": list(set(m.get("type", "?") for m in mechanisms)),
+            "mechanism_details": mechanisms,
         }
     except Exception as e:
         print(f"  [ERROR] Mechanism generation failed: {e}")
@@ -513,6 +516,8 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             "total_predictions": len(predictions),
             "accepted": len(accepted_preds),
             "acceptance_rate": validation.get("acceptance_rate", 0),
+            "accepted_details": accepted_preds,
+            "all_predictions": predictions,
         }
     except Exception as e:
         print(f"  [ERROR] Prediction generation failed: {e}")
@@ -563,6 +568,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             print(f"  Winner: {winner.get('name', '?')} (score: {w_score:.2f})")
         report["phases"]["theory_competition"] = {
             "theories_compared": len(theories),
+            "theories": theories,
             "winner": winner,
             "winner_name": winner.get("name") if winner else None,
             "winner_score": winner.get("scores", {}).get("overall", 0) if winner else 0,
@@ -606,7 +612,10 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             for c in graph_contradictions
         ]
         print(f"  Found {len(all_contradictions)} contradictions")
-        report["phases"]["contradictions"] = {"total": len(all_contradictions)}
+        report["phases"]["contradictions"] = {
+            "total": len(all_contradictions),
+            "contradictions": all_contradictions,
+        }
     except Exception as e:
         print(f"  [ERROR] Contradiction mining failed: {e}")
         all_contradictions = []
@@ -810,90 +819,334 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
 def _finalize_report(report, papers, graph, gaps, anomalies,
                      hidden_variables, mechanisms, predictions,
                      theories, accepted_preds, t_start) -> dict:
-    """Assemble the final discovery report."""
+    """Assemble the final discovery report with full scientific detail."""
     total_time = time.time() - t_start
     report["duration_seconds"] = round(total_time, 1)
     report["completed_at"] = datetime.now().isoformat()
+    phases = report.get("phases", {})
 
-    # Build human-readable summary
-    summary_lines = []
-    summary_lines.append("=" * 70)
-    summary_lines.append("  DISCOVERY REPORT")
-    summary_lines.append("=" * 70)
-    summary_lines.append(f"  Topic: {report['topic']}")
-    summary_lines.append(f"  Domain: {report['domain']}")
-    summary_lines.append(f"  Duration: {total_time:.1f}s")
-    summary_lines.append("")
+    L = []  # summary lines
 
-    # Papers
-    summary_lines.append(f"  PAPERS: {len(papers)}")
-    for p in papers[:5]:
-        summary_lines.append(f"    [{p['source']}] {p['title'][:60]}")
+    L.append("=" * 70)
+    L.append("  DISCOVERY REPORT")
+    L.append("=" * 70)
+    L.append(f"  Topic: {report.get('topic', 'N/A')}")
+    L.append(f"  Domain: {report.get('domain', 'N/A')}")
+    L.append(f"  Mode: {report.get('mode', 'N/A')}")
+    L.append(f"  Duration: {total_time:.1f}s")
+    L.append("")
 
-    # Graph
-    summary_lines.append(f"\n  KNOWLEDGE GRAPH: {len(graph.entities)} entities, {len(graph.relationships)} relationships")
-
-    # Gaps
-    summary_lines.append(f"\n  KNOWLEDGE GAPS: {len(gaps)}")
-    for g in gaps[:3]:
-        summary_lines.append(f"    [{g.get('type', '?')}] {g.get('reason', '')[:80]}")
-
-    # Anomalies
-    summary_lines.append(f"\n  ANOMALIES: {len(anomalies)}")
-    for a in anomalies[:3]:
-        summary_lines.append(f"    [{a.get('type', '?')}] {a.get('reason', '')[:80]}")
-
-    # Hidden Variables
-    summary_lines.append(f"\n  HIDDEN VARIABLES PROPOSED: {len(hidden_variables)}")
-    for hv in hidden_variables[:3]:
-        summary_lines.append(f"    [{hv.get('type', '?')}] {hv.get('name', '?')}")
-        summary_lines.append(f"      {hv.get('description', '')[:100]}")
-
-    # Mechanisms
-    summary_lines.append(f"\n  MECHANISMS: {len(mechanisms)}")
-    for m in mechanisms[:3]:
-        summary_lines.append(f"    [{m.get('type', '?')}] {m.get('name', '?')}")
-        for s in m.get("steps", [])[:2]:
-            s_str = str(s)[:80] if s else ""
-            summary_lines.append(f"      → {s_str}")
-
-    # Predictions
-    summary_lines.append(f"\n  PREDICTIONS: {len(predictions)} generated, {len(accepted_preds)} accepted")
-    for p in (accepted_preds or [])[:3]:
+    # ── Papers ──
+    L.append("─" * 70)
+    L.append(f"  PAPERS ({len(papers)})")
+    L.append("─" * 70)
+    for p in papers[:10]:
         if isinstance(p, dict):
-            summary_lines.append(f"    [{p.get('type', '?')}] {p.get('statement', '')[:80]}")
+            src = p.get("source", "?")
+            title = p.get("title", "N/A")[:80]
+            authors = p.get("authors", "")
+            if isinstance(authors, list):
+                authors = ", ".join(authors[:3])
+            year = p.get("year", "")
+            L.append(f"  [{src}] {title}")
+            if authors:
+                L.append(f"    Authors: {str(authors)[:80]}")
+            if year:
+                L.append(f"    Year: {year}")
+    if len(papers) > 10:
+        L.append(f"  ... and {len(papers) - 10} more papers")
+    L.append("")
 
-    # Theory Competition
+    # ── Knowledge Graph ──
+    L.append("─" * 70)
+    L.append("  KNOWLEDGE GRAPH")
+    L.append("─" * 70)
+    L.append(f"  Entities: {len(graph.entities)}")
+    L.append(f"  Relationships: {len(graph.relationships)}")
+    # Top entities by degree
+    if hasattr(graph, 'entities') and graph.entities:
+        try:
+            degrees = {}
+            for src, tgt, _ in graph.relationships:
+                degrees[src] = degrees.get(src, 0) + 1
+                degrees[tgt] = degrees.get(tgt, 0) + 1
+            top_entities = sorted(degrees.items(), key=lambda x: -x[1])[:8]
+            if top_entities:
+                L.append(f"  Top entities by connections:")
+                for name, deg in top_entities:
+                    L.append(f"    {name} (degree: {deg})")
+        except Exception:
+            pass
+    L.append("")
+
+    # ── Knowledge Gaps ──
+    if gaps:
+        L.append("─" * 70)
+        L.append(f"  KNOWLEDGE GAPS ({len(gaps)})")
+        L.append("─" * 70)
+        # Categorize gaps
+        gap_types = {}
+        for g in gaps:
+            gtype = g.get("type", "unknown")
+            gap_types.setdefault(gtype, []).append(g)
+        for gtype, glist in gap_types.items():
+            L.append(f"  [{gtype}] ({len(glist)} gaps)")
+            for g in glist[:3]:
+                reason = g.get("reason", g.get("description", ""))
+                if reason:
+                    L.append(f"    - {str(reason)[:120]}")
+        L.append("")
+
+    # ── Anomalies ──
+    if anomalies:
+        L.append("─" * 70)
+        L.append(f"  ANOMALIES ({len(anomalies)})")
+        L.append("─" * 70)
+        for a in anomalies[:8]:
+            atype = a.get("type", "?")
+            areason = a.get("reason", a.get("description", ""))
+            L.append(f"  [{atype}] {str(areason)[:120]}")
+        L.append("")
+
+    # ── Hidden Variables ──
+    if hidden_variables:
+        L.append("─" * 70)
+        L.append(f"  HIDDEN VARIABLES ({len(hidden_variables)})")
+        L.append("─" * 70)
+        for i, hv in enumerate(hidden_variables):
+            name = hv.get("name", "?")
+            vtype = hv.get("type", "entity")
+            desc = hv.get("description", "")
+            evidence = hv.get("evidence", "")
+            testability = hv.get("testability", "")
+            key_params = hv.get("key_parameters", [])
+            L.append(f"  {i+1}. [{vtype}] {name}")
+            if desc:
+                L.append(f"     Description: {desc[:200]}")
+            if evidence:
+                L.append(f"     Evidence: {str(evidence)[:150]}")
+            if testability:
+                L.append(f"     Testability: {str(testability)[:120]}")
+            if key_params:
+                for kp in key_params[:3]:
+                    if isinstance(kp, dict):
+                        pname = kp.get("name", "")
+                        pval = kp.get("value", kp.get("range", ""))
+                        punits = kp.get("units", "")
+                        porigin = kp.get("origin", "")
+                        L.append(f"     Parameter: {pname} = {pval} {punits}")
+                        if porigin:
+                            L.append(f"       Origin: {porigin}")
+            L.append("")
+        L.append("")
+
+    # ── Mechanisms ──
+    if mechanisms:
+        L.append("─" * 70)
+        L.append(f"  MECHANISMS ({len(mechanisms)})")
+        L.append("─" * 70)
+        for i, m in enumerate(mechanisms):
+            mtype = m.get("type", "mechanism")
+            mname = m.get("name", "?")
+            mdesc = m.get("description", "")
+            inputs = m.get("inputs", [])
+            outputs = m.get("outputs", [])
+            observables = m.get("observables", [])
+            steps = m.get("steps", [])
+            L.append(f"  {i+1}. [{mtype}] {mname}")
+            if mdesc:
+                L.append(f"     {mdesc[:200]}")
+            if inputs:
+                L.append(f"     Inputs: {', '.join(str(x) for x in inputs[:5])}")
+            if outputs:
+                L.append(f"     Outputs: {', '.join(str(x) for x in outputs[:5])}")
+            if observables:
+                L.append(f"     Observables: {', '.join(str(x) for x in observables[:5])}")
+            for j, step in enumerate(steps):
+                s_str = str(step)[:150] if step else ""
+                if s_str:
+                    L.append(f"     Step {j+1}: {s_str}")
+            L.append("")
+        L.append("")
+
+    # ── Predictions ──
+    if predictions or accepted_preds:
+        preds_to_show = accepted_preds if accepted_preds else predictions
+        L.append("─" * 70)
+        L.append(f"  PREDICTIONS ({len(predictions)} generated, {len(accepted_preds)} accepted)")
+        L.append("─" * 70)
+        for i, p in enumerate(preds_to_show):
+            if isinstance(p, dict):
+                ptype = p.get("type", "prediction")
+                stmt = p.get("statement", p.get("description", ""))
+                conf = p.get("confidence", "")
+                test = p.get("test", p.get("test_method", ""))
+                fals = p.get("falsification", p.get("falsification_criterion", ""))
+                L.append(f"  {i+1}. [{ptype}] {stmt[:180]}")
+                if conf:
+                    L.append(f"     Confidence: {conf}")
+                if test:
+                    L.append(f"     Test: {str(test)[:120]}")
+                if fals:
+                    L.append(f"     Falsification: {str(fals)[:120]}")
+                L.append("")
+        L.append("")
+
+    # ── Theory Competition ──
     if theories:
-        summary_lines.append(f"\n  THEORY COMPETITION: {len(theories)} theories compared")
-        for t in theories[:3]:
-            score = t.get("scores", {}).get("overall", 0)
-            summary_lines.append(f"    {t.get('name', '?')} (score: {score:.2f})")
+        L.append("─" * 70)
+        L.append(f"  THEORY COMPETITION ({len(theories)} theories)")
+        L.append("─" * 70)
+        # Sort by overall score
+        scored = []
+        for t in theories:
+            if isinstance(t, dict):
+                score = t.get("scores", {}).get("overall", 0)
+                scored.append((score, t))
+        scored.sort(key=lambda x: -x[0])
 
-    # Computational Verification
-    comp_phase = report.get("phases", {}).get("computational_verification", {})
-    summary_lines.append(f"\n  COMPUTATIONS RUN: {comp_phase.get('total_computations', 0)}")
-    summary_lines.append(f"  SUPPORT LEVEL: {comp_phase.get('support_level', 'unknown')}")
+        for rank, (score, t) in enumerate(scored[:5], 1):
+            tname = t.get("name", "?")
+            tdesc = t.get("description", "")
+            ttype = t.get("type", "hypothesis")
+            scores = t.get("scores", {})
+            mechanism = t.get("mechanism", "")
+            explains = t.get("explains", [])
+            fails = t.get("fails_to_explain", [])
+            assumptions = t.get("key_assumptions", [])
+            causal = t.get("causal_status", "")
 
-    # Discovery Score
-    score_phase = report.get("phases", {}).get("discovery_scoring", {})
-    summary_lines.append(f"\n  DISCOVERY SCORE: {score_phase.get('discovery_score', 0):.0f}/100")
-    summary_lines.append(f"  GRADE: {score_phase.get('grade', 'F')}")
+            L.append(f"  {rank}. {tname} (score: {score:.2f}) [{ttype}]")
+            if tdesc:
+                L.append(f"     {tdesc[:200]}")
+            if mechanism:
+                L.append(f"     Mechanism: {str(mechanism)[:150]}")
+            if explains:
+                L.append(f"     Explains: {'; '.join(str(e)[:60] for e in explains[:3])}")
+            if fails:
+                L.append(f"     Fails to explain: {'; '.join(str(f)[:60] for f in fails[:3])}")
+            if assumptions:
+                L.append(f"     Key assumptions: {'; '.join(str(a)[:60] for a in assumptions[:3])}")
+            if causal:
+                L.append(f"     Causal status: {causal}")
+            # Per-dimension scores
+            if scores and isinstance(scores, dict):
+                dims = []
+                for dim in ["explanatory_power", "predictive_power", "falsifiability",
+                            "evidence_strength", "novelty", "simplicity", "mathematical_rigor"]:
+                    if dim in scores:
+                        dims.append(f"{dim}={scores[dim]:.0%}" if isinstance(scores[dim], float) and scores[dim] <= 1 else f"{dim}={scores[dim]}")
+                if dims:
+                    L.append(f"     Scores: {', '.join(dims)}")
+            L.append("")
+        L.append("")
 
-    # Errors
-    if report["errors"]:
-        summary_lines.append(f"\n  ERRORS: {len(report['errors'])}")
+    # ── Contradictions ──
+    contradictions = phases.get("contradictions", {})
+    contradiction_list = contradictions.get("contradictions", [])
+    if contradiction_list:
+        L.append("─" * 70)
+        L.append(f"  CONTRADICTIONS ({len(contradiction_list)})")
+        L.append("─" * 70)
+        for i, c in enumerate(contradiction_list[:5]):
+            if isinstance(c, dict):
+                cdesc = c.get("description", c.get("detail", ""))
+                csev = c.get("severity", "")
+                L.append(f"  {i+1}. {str(cdesc)[:150]}")
+                if csev:
+                    L.append(f"     Severity: {csev}")
+            elif isinstance(c, str):
+                L.append(f"  {i+1}. {c[:150]}")
+        L.append("")
+
+    # ── Computational Verification ──
+    comp = phases.get("computational_verification", {})
+    if comp:
+        L.append("─" * 70)
+        L.append("  COMPUTATIONAL VERIFICATION")
+        L.append("─" * 70)
+        L.append(f"  Computations run: {comp.get('total_computations', 0)}")
+        L.append(f"  Support level: {comp.get('support_level', 'unknown')}")
+        for finding in comp.get("key_findings", [])[:5]:
+            L.append(f"    → {str(finding)[:120]}")
+        L.append("")
+
+    # ── Skeptic Review ──
+    sr = phases.get("skeptic_review", {})
+    if sr:
+        L.append("─" * 70)
+        L.append("  SKEPTIC REVIEW")
+        L.append("─" * 70)
+        L.append(f"  Recommendation: {sr.get('recommendation', 'N/A')}")
+        L.append(f"  Revised confidence: {sr.get('revised_confidence', 0):.0%}")
+        strengths = sr.get("strengths", [])
+        weaknesses = sr.get("weaknesses", [])
+        if strengths:
+            L.append(f"  Strengths ({len(strengths)}):")
+            for s in strengths:
+                L.append(f"    + {str(s)[:150]}")
+        if weaknesses:
+            L.append(f"  Weaknesses ({len(weaknesses)}):")
+            for w in weaknesses:
+                L.append(f"    - {str(w)[:150]}")
+        failure_conditions = sr.get("failure_conditions", [])
+        if failure_conditions:
+            L.append(f"  Failure conditions:")
+            for fc in failure_conditions:
+                L.append(f"    ! {str(fc)[:120]}")
+        L.append("")
+
+    # ── Discovery Scoring ──
+    ds = phases.get("discovery_scoring", {})
+    if ds:
+        L.append("─" * 70)
+        L.append("  DISCOVERY SCORING")
+        L.append("─" * 70)
+        L.append(f"  Overall Score: {ds.get('discovery_score', 0):.0f}/100")
+        L.append(f"  Grade: {ds.get('grade', 'F')}")
+        scores = ds.get("scores", {})
+        if scores:
+            L.append(f"  Dimension scores:")
+            for dim, val in scores.items():
+                L.append(f"    {dim}: {val}")
+        strengths = ds.get("strengths", [])
+        weaknesses = ds.get("weaknesses", [])
+        if strengths:
+            L.append(f"  Strengths: {'; '.join(str(s)[:80] for s in strengths[:3])}")
+        if weaknesses:
+            L.append(f"  Weaknesses: {'; '.join(str(w)[:80] for w in weaknesses[:3])}")
+        summary = ds.get("summary", "")
+        if summary:
+            L.append(f"  Summary: {str(summary)[:200]}")
+        L.append("")
+
+    # ── Discovery Classification ──
+    dc = phases.get("discovery_classification", {})
+    if dc:
+        L.append(f"  Classification: {dc.get('classification', 'N/A')}")
+        L.append(f"    New mechanism: {dc.get('has_new_mechanism', False)}")
+        L.append(f"    New prediction: {dc.get('has_new_prediction', False)}")
+        L.append(f"    New mathematics: {dc.get('has_new_math', False)}")
+        L.append(f"    Not in literature: {dc.get('not_in_literature', False)}")
+        L.append("")
+
+    # ── Errors ──
+    if report.get("errors"):
+        L.append("─" * 70)
+        L.append(f"  ERRORS ({len(report['errors'])})")
+        L.append("─" * 70)
         for e in report["errors"]:
-            summary_lines.append(f"    WARNING: {e}")
+            L.append(f"  ! {e}")
+        L.append("")
 
-    summary_lines.append("=" * 70)
+    L.append("=" * 70)
 
-    report_text = "\n".join(summary_lines)
+    report_text = "\n".join(L)
     report["summary_text"] = report_text
 
     print(report_text)
 
-    # Save report + update dashboard index
+    # Save report + text + update dashboard index
     data_dir = Path(__file__).parent.parent / "data"
     data_dir.mkdir(exist_ok=True)
     report_path = data_dir / f"discovery_v2_{int(time.time())}.json"
