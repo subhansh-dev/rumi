@@ -88,3 +88,51 @@ def enrich_entities(graph) -> int:
             paper["influential_citations"] = info.get("influential_citations", 0)
             enriched += 1
     return enriched
+
+
+def get_references(paper_id: str, limit: int = 20) -> list[dict]:
+    """Get papers that this paper cites (outgoing references)."""
+    url = f"{S2_BASE}/paper/{paper_id}/references?limit={limit}&fields=title,year,citationCount,influentialCitationCount,authors,abstract,externalIds"
+    data = _fetch(url)
+    if not data:
+        return []
+    results = []
+    for ref in (data.get("data", []) if isinstance(data, dict) else []):
+        p = ref.get("citedPaper", {}) if isinstance(ref, dict) else {}
+        if not p or not p.get("title"):
+            continue
+        results.append({
+            "title": p.get("title", ""),
+            "year": p.get("year"),
+            "abstract": p.get("abstract", "") or "",
+            "citation_count": p.get("citationCount", 0) or 0,
+            "influential_citations": p.get("influentialCitationCount", 0) or 0,
+            "authors": [a.get("name", "") for a in (p.get("authors") or [])[:5]],
+            "paperId": p.get("paperId", ""),
+            "arxivId": ((p.get("externalIds") or {}).get("ArXiv", "")),
+        })
+    return results
+
+
+def get_citations(paper_id: str, limit: int = 20) -> list[dict]:
+    """Get papers that cite this paper (incoming citations)."""
+    url = f"{S2_BASE}/paper/{paper_id}/citations?limit={limit}&fields=title,year,citationCount,influentialCitationCount,authors,abstract,externalIds"
+    data = _fetch(url)
+    if not data:
+        return []
+    results = []
+    for cit in (data.get("data", []) if isinstance(data, dict) else []):
+        p = cit.get("citingPaper", {}) if isinstance(cit, dict) else {}
+        if not p or not p.get("title"):
+            continue
+        results.append({
+            "title": p.get("title", ""),
+            "year": p.get("year"),
+            "abstract": p.get("abstract", "") or "",
+            "citation_count": p.get("citationCount", 0) or 0,
+            "influential_citations": p.get("influentialCitationCount", 0) or 0,
+            "authors": [a.get("name", "") for a in (p.get("authors") or [])[:5]],
+            "paperId": p.get("paperId", ""),
+            "arxivId": ((p.get("externalIds") or {}).get("ArXiv", "")),
+        })
+    return results

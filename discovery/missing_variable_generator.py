@@ -35,7 +35,7 @@ class MissingVariableGenerator:
         self.llm_call = llm_call
 
     def generate(self, gaps: list, anomalies: list, topic: str,
-                 domain: str, papers: list = None) -> dict:
+                 domain: str, papers: list = None, archive_context: str = "") -> dict:
         """
         Generate missing variable candidates from gaps and anomalies.
 
@@ -44,6 +44,8 @@ class MissingVariableGenerator:
             anomalies: output from AnomalyDetector.detect_anomalies()["top_anomalies"]
             topic: research topic
             domain: research domain
+            papers: optional list of papers for context
+            archive_context: optional context from past discovery runs
             papers: list of paper dicts for context
 
         Returns:
@@ -93,6 +95,8 @@ KNOWLEDGE GAPS IDENTIFIED:
 
 ANOMALIES IDENTIFIED:
 {anomaly_text}
+
+{archive_context}
 
 GRAPH CONTEXT:
 {graph_context}

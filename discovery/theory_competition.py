@@ -35,7 +35,7 @@ class TheoryCompetition:
 
     def compete(self, mechanisms: list, hidden_variables: list,
                 anomalies: list, gaps: list, topic: str, domain: str,
-                papers: list = None) -> dict:
+                papers: list = None, archive_context: str = "") -> dict:
         """
         Run multi-round tournament competition.
 
@@ -74,7 +74,8 @@ class TheoryCompetition:
         # LLM batch 1: 10 theories
         batch1 = self._generate_theories(
             mech_text, hv_text, anomaly_text, gap_text, paper_text,
-            topic, domain, count=10, batch_label="LLM batch"
+            topic, domain, count=10, batch_label="LLM batch",
+            archive_context=archive_context
         )
         all_theories.extend(batch1)
 
@@ -82,7 +83,7 @@ class TheoryCompetition:
         batch2 = self._generate_theories(
             mech_text, hv_text, anomaly_text, gap_text, paper_text,
             topic, domain, count=10, batch_label="creative batch",
-            creative=True
+            creative=True, archive_context=archive_context
         )
         all_theories.extend(batch2)
 
@@ -202,7 +203,8 @@ class TheoryCompetition:
 
     def _generate_theories(self, mech_text, hv_text, anomaly_text, gap_text,
                            paper_text, topic, domain, count=10,
-                           batch_label="batch", creative=False) -> list:
+                           batch_label="batch", creative=False,
+                           archive_context="") -> list:
         """Generate a batch of theories via LLM."""
         creative_instruction = ""
         if creative:
@@ -235,6 +237,8 @@ PROPOSED HIDDEN VARIABLES:
 
 RELEVANT PAPERS:
 {paper_text}
+
+{archive_context}
 
 Generate EXACTLY {count} COMPETING THEORIES. Each must explain the same observations
 but through DIFFERENT mechanisms. Include:

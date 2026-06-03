@@ -1,69 +1,117 @@
-"""Experiment planner — designs experimental proposals for hypotheses."""
+"""Experiment planner — designs experimental proposals for top theories.
+
+Generates concrete validation plans: what experiments to run,
+what data to collect, what would confirm/disconfirm the theory.
+"""
 
 import json
-from discovery.pipeline import LLMStage
 
 
 class ExperimentPlanner:
-    def __init__(self):
-        self.stage = LLMStage("experiment_planner", max_retries=2, backoff=[3, 10])
+    def __init__(self, llm_call=None):
+        self.llm_call = llm_call
 
-    async def plan(self, hypothesis):
-        mech = hypothesis.get("mechanistic_rationale", hypothesis.get("description", ""))
-        supporting = hypothesis.get("supporting_evidence", hypothesis.get("evidence", []))
-        contradictory = hypothesis.get("contradictory_evidence", [])
-        alt_explanations = hypothesis.get("alternative_explanations", [])
-        env_constraints = hypothesis.get("environmental_constraints", "")
-        failure_conditions = hypothesis.get("failure_conditions", [])
-        testability = hypothesis.get("experimental_validation", hypothesis.get("testability", "Not specified"))
-        obs_requirements = hypothesis.get("observational_requirements", "")
+    def plan(self, theory: dict, mechanisms: list = None,
+             predictions: list = None, papers: list = None,
+             topic: str = "", domain: str = "") -> dict:
+        """Generate a detailed experimental validation plan for a theory.
 
-        prompt = f"""You are an experimental scientist designing a rigorous study to test a hypothesis.
+        Args:
+            theory: The top theory to validate
+            mechanisms: Supporting mechanisms
+            predictions: Theory's predictions
+            papers: Available literature
+            topic: Research topic
+            domain: Research domain
 
-HYPOTHESIS:
-Title: {hypothesis.get('title')}
-Mechanistic Rationale: {mech}
+        Returns:
+            Experimental plan with design, variables, controls, etc.
+        """
+        if not self.llm_call:
+            return self._default()
 
-Supporting Evidence: {json.dumps(supporting, indent=2)}
-Contradictory Evidence: {json.dumps(contradictory, indent=2)}
-Alternative Explanations: {json.dumps(alt_explanations, indent=2)}
-Environmental Constraints: {env_constraints}
-Failure Conditions: {json.dumps(failure_conditions, indent=2)}
-Current Validation Idea: {testability}
-Observational Requirements: {obs_requirements}
+        mech_text = ""
+        for m in (mechanisms or [])[:3]:
+            steps = m.get("steps", [])
+            mech_text += f"\n- {m.get('name', '?')}: {' → '.join(str(s) for s in steps[:3])}"
 
-Nodes: {json.dumps(hypothesis.get('nodes', []), indent=2)}
-Edges: {json.dumps(hypothesis.get('edges', []), indent=2)}
+        pred_text = ""
+        for p in (predictions or [])[:5]:
+            pred_text += f"\n- [{p.get('type', '?')}] {p.get('statement', '')[:150]}"
 
-Design a detailed experiment. Include:
-1. Experimental design — in vitro, in vivo, computational, or observational approach
-2. Key variables — independent, dependent, controlled (be specific)
-3. Control groups — positive and negative controls including sham/placebo
-4. Expected outcomes — what would confirm vs. disconfirm, including null result handling
-5. Key measurements — what to measure, with what instrument, detection limits
-6. Biomarkers or readouts — specific measurable endpoints
-7. Sample size / statistical power considerations
-8. Failure points — what could go wrong and contingency plans
-9. How to distinguish from alternative explanations
-10. Domain-appropriate methodology
+        failure_conditions = theory.get("failure_conditions", [])
+        if isinstance(failure_conditions, str):
+            failure_conditions = [failure_conditions]
+
+        prompt = f"""You are an experimental scientist designing a rigorous study to validate a theory.
+
+TOPIC: {topic}
+DOMAIN: {domain}
+
+THEORY: {theory.get('name', '?')}
+DESCRIPTION: {theory.get('description', theory.get('mechanism', ''))[:400]}
+
+CAUSAL MECHANISMS:
+{mech_text or 'None specified'}
+
+TESTABLE PREDICTIONS:
+{pred_text or 'None specified'}
+
+FAILURE CONDITIONS: {json.dumps(failure_conditions[:3])}
+KEY ASSUMPTIONS: {json.dumps(theory.get('key_assumptions', [])[:3])}
+
+Design a concrete experimental validation plan. Include:
+
+1. EXPERIMENT TYPE: in_vitro | in_vivo | computational | observational | clinical | simulation
+2. DESIGN: Step-by-step experimental procedure
+3. VARIABLES: independent (manipulated), dependent (measured), controlled, confounders
+4. CONTROLS: positive control, negative control, sham/placebo if applicable
+5. EXPECTED OUTCOMES:
+   - Confirm: What observation would support the theory?
+   - Disconfirm: What observation would disprove it?
+   - Null: What if no effect is observed?
+6. KEY MEASUREMENTS: What to measure, with what method, detection limits
+7. SAMPLE SIZE: Statistical power considerations
+8. FAILURE POINTS: What could go wrong + contingency plans
+9. TIMELINE: Estimated duration
+10. COST: low | medium | high
+11. DISCRIMINATING POWER: How well does this experiment distinguish this theory from alternatives?
 
 Output JSON:
-{{"experiment_type": "in_vitro|in_vivo|computational|observational|clinical", "design": "detailed step-by-step description", "variables": {{"independent": ["var1 with units"], "dependent": ["var2 with units"], "controlled": ["var3 with units"], "confounders": ["confounder1"]}}, "control_groups": ["positive control", "negative control"], "expected_outcomes": {{"confirm": "what would confirm", "disconfirm": "what would disprove", "null_result": "what if no effect"}}, "key_measurements": [{{"what": "measurement", "how": "method/instrument", "detection_limit": "value"}}], "biomarkers": ["specific biomarker"], "sample_size_rationale": "statistical power estimate", "failure_points": [{{"risk": "specific risk", "contingency": "backup plan"}}], "timeline_estimate": "weeks/months", "estimated_cost": "low|medium|high"}}"""
+{{"experiment_type": "...", "design": "detailed procedure", "variables": {{"independent": [...], "dependent": [...], "controlled": [...], "confounders": [...]}}, "control_groups": [...], "expected_outcomes": {{"confirm": "...", "disconfirm": "...", "null_result": "..."}}, "key_measurements": [{{"what": "...", "how": "...", "detection_limit": "..."}}], "sample_size_rationale": "...", "failure_points": [{{"risk": "...", "contingency": "..."}}], "timeline_estimate": "...", "estimated_cost": "low|medium|high", "discriminating_power": "high|medium|low"}}"""
 
-        raw, provider = await self.stage.call_with_retry(prompt, json_mode=True, max_tokens=4096)
+        raw = self.llm_call(prompt, max_tokens=4096, phase="critical_evaluation")
         if not raw:
             return self._default()
 
         try:
-            if not raw.strip():
-                return self._default()
-            text = raw.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-                text = text.rsplit("```", 1)[0].strip()
-            return json.loads(text)
+            if isinstance(raw, str):
+                text = raw.strip()
+                if text.startswith("```"):
+                    text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                    text = text.rsplit("```", 1)[0].strip()
+                return json.loads(text)
+            return raw if isinstance(raw, dict) else self._default()
         except json.JSONDecodeError:
             return self._default()
+
+    def plan_for_top_theories(self, theories: list, mechanisms: list = None,
+                               predictions: list = None, papers: list = None,
+                               topic: str = "", domain: str = "",
+                               max_plans: int = 3) -> list:
+        """Generate validation plans for top N theories."""
+        plans = []
+        for t in (theories or [])[:max_plans]:
+            if not isinstance(t, dict) or not t.get("name"):
+                continue
+            try:
+                plan = self.plan(t, mechanisms, predictions, papers, topic, domain)
+                plan["theory_name"] = t.get("name", "?")
+                plan["theory_score"] = t.get("scores", {}).get("overall", 0)
+                plans.append(plan)
+            except Exception:
+                continue
+        return plans
 
     def _default(self):
         return {
@@ -73,9 +121,9 @@ Output JSON:
             "control_groups": [],
             "expected_outcomes": {"confirm": "", "disconfirm": "", "null_result": ""},
             "key_measurements": [],
-            "biomarkers": [],
             "sample_size_rationale": "",
             "failure_points": [],
             "timeline_estimate": "N/A",
             "estimated_cost": "medium",
+            "discriminating_power": "low",
         }

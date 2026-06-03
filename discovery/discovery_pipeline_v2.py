@@ -66,6 +66,7 @@ from discovery.scientific_simulator import ScientificSimulator
 from discovery.bayesian_scorer import BayesianScorer
 from discovery.literature_contradiction_scorer import LiteratureContradictionScorer
 from discovery.resilient_llm import ResilientLLM
+from discovery.hypothesis_memory import HypothesisMemory
 
 
 # Domain detection (reused from run_full_pipeline.py)
@@ -213,8 +214,11 @@ def build_knowledge_graph(papers: list, domain: str) -> KnowledgeGraph:
     except Exception as e:
         print(f"    LLM enhancement skipped: {e}")
 
-    graph = KnowledgeGraph(persist=False)
+    graph = KnowledgeGraph(persist=True)  # Load previous graph — knowledge accumulates across runs
     graph.domain = domain
+    # Track run count for staleness management
+    graph._run_count = getattr(graph, '_run_count', 0) + 1
+    print(f"  [Graph] Loaded {len(graph.entities)} entities, {len(graph.relationships)} relationships from previous runs")
 
     for p in papers:
         pmid = p.get("id", p.get("citation_key", "unknown"))
@@ -227,6 +231,26 @@ def build_knowledge_graph(papers: list, domain: str) -> KnowledgeGraph:
     for rel in extracted.get("relationships", []):
         pmid = papers[0].get("id", "unknown") if papers else "unknown"
         graph.add_relationships([rel], pmid)
+
+    # Prune stale entities — keep only those referenced by papers
+    if len(graph.entities) > 500:
+        current_paper_ids = set(p.get("id", p.get("citation_key", "")) for p in papers)
+        stale = []
+        for eid, ent in graph.entities.items():
+            ent_papers = set(ent.get("papers", []))
+            # Keep if referenced by any current paper
+            if ent_papers & current_paper_ids:
+                continue
+            # Keep if referenced by 3+ papers (well-established entity)
+            if len(ent_papers) >= 3:
+                continue
+            # Prune entities with only old paper references
+            if len(ent_papers) <= 1:
+                stale.append(eid)
+        for eid in stale[:200]:  # max 200 pruned per run
+            del graph.entities[eid]
+        if stale:
+            print(f"    Pruned {len(stale)} stale entities (kept {len(graph.entities)})")
 
     graph.save(session_id=f"discovery_v2_{int(time.time())}")
     print(f"    Graph: {len(graph.entities)} entities, {len(graph.relationships)} relationships")
@@ -250,6 +274,60 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
 
     status = get_status()
     t_start = time.time()
+
+    # Load discovery archive — what RUMI already knows from past runs
+    from discovery.discovery_archive import get_archive_context, save_to_archive
+    archive_context = get_archive_context(topic, domain)
+    if "No previous" not in archive_context:
+        print(f"  [Archive] Loaded past discovery context", flush=True)
+
+    # Load hypothesis memory — prior hypotheses from all runs
+    hyp_mem = HypothesisMemory()
+    prior_hypotheses = hyp_mem.get_all(domain=domain, limit=20)
+    # Also fetch by topic similarity
+    topic_similar = hyp_mem.find_similar(topic, threshold=0.3)
+    prior_hyp_ids = {h.get("id") for h in prior_hypotheses}
+    for ts in topic_similar:
+        if ts["id"] not in prior_hyp_ids:
+            full = hyp_mem.get_hypothesis(ts["id"])
+            if full:
+                prior_hypotheses.append(full)
+                prior_hyp_ids.add(ts["id"])
+
+    # Build prior hypothesis context and merge into archive_context
+    if prior_hypotheses:
+        prior_lines = []
+        prior_lines.append(f"\nPRIOR HYPOTHESIS MEMORY ({len(prior_hypotheses)} hypotheses from past runs):")
+        prior_lines.append("These were proposed before. Build on them, refine them, or explore angles they missed.")
+        for h in prior_hypotheses[:10]:
+            status = h.get("status", "draft")
+            title = h.get("title", "?")
+            desc = (h.get("description") or "")[:150]
+            score = h.get("confidence", 0)
+            prior_lines.append(f"  [{status}] {title} (confidence: {score:.2f})")
+            if desc:
+                prior_lines.append(f"    {desc}")
+            weaknesses = h.get("critique_weaknesses", "")
+            if weaknesses:
+                prior_lines.append(f"    Weaknesses: {weaknesses[:100]}")
+        archive_context += "\n" + "\n".join(prior_lines)
+        print(f"  [Hypothesis Memory] Loaded {len(prior_hypotheses)} prior hypotheses", flush=True)
+
+    # Add domain-specific research template context
+    try:
+        from discovery.domain_templates import get_research_question_prompt, get_validation_prompt
+        domain_q = get_research_question_prompt(domain, topic)
+        domain_v = get_validation_prompt(domain)
+        if domain_q:
+            archive_context += "\n\n" + domain_q
+        if domain_v:
+            archive_context += "\n" + domain_v
+        print(f"  [Domain Template] Loaded {domain} research context", flush=True)
+    except Exception:
+        pass
+
+    # Generate run ID for this pipeline execution
+    run_id = f"run_{int(time.time())}"
 
     report = {
         "topic": topic,
@@ -307,6 +385,23 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         report["errors"].append(f"Phase 1: {e}")
         papers = []
         citation_context = ""
+
+    # ══════════════════════════════════════════════════════════════
+    # PHASE 1.5: CITATION NETWORK TRAVERSAL — 2-hop walk
+    # ══════════════════════════════════════════════════════════════
+    if papers:
+        print("\n[Phase 1.5/12] CITATION NETWORK — 2-hop citation walk...", flush=True)
+        try:
+            from discovery.citation_grounding import traverse_citation_network
+            papers = traverse_citation_network(papers, hop_depth=2, top_n=5, refs_per_paper=10)
+            citation_context = build_citation_context(papers)
+            report["phases"]["citation_network"] = {
+                "total_papers": len(papers),
+                "citation_hop1": len([p for p in papers if p.get("source") == "citation_hop1"]),
+                "citation_hop2": len([p for p in papers if p.get("source") == "citation_hop2"]),
+            }
+        except Exception as e:
+            print(f"  [WARN] Citation traversal failed: {e}")
 
     # ══════════════════════════════════════════════════════════════
     # PHASE 2: KNOWLEDGE GRAPH
@@ -434,16 +529,39 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 5/12] MISSING VARIABLES — Proposing hidden factors...", flush=True)
 
+    # Phase-specific LLM routing — fast models for extraction, best for reasoning
+    # cerebras: fastest (entity extraction, scoring, pattern matching)
+    # gemini: best reasoning (mechanisms, theories, adversarial critique)
+    # auto: balanced (Cerebras→Groq→Gemini fallback)
+    PHASE_PROVIDERS = {
+        "literature": "cerebras",       # Phase 1: simple extraction
+        "knowledge_graph": "cerebras",  # Phase 2: entity extraction
+        "gap_detection": "cerebras",    # Phase 3: pattern matching
+        "anomaly_detection": "cerebras",# Phase 4: pattern matching
+        "missing_variables": "auto",    # Phase 5: needs some creativity
+        "mechanism_generation": "gemini",# Phase 6: deep causal reasoning
+        "prediction_engine": "auto",    # Phase 7: balanced
+        "theory_competition": "gemini", # Phase 8: tournament needs best reasoning
+        "adversarial_test": "cerebras", # Phase 8.5: fast adversarial perspective
+        "critical_evaluation": "auto",  # Phase 8.6: balanced
+        "skeptic_review": "gemini",     # Phase 11: critical analysis
+        "scoring": "cerebras",          # Phase 12: mostly algorithmic
+    }
+    _current_phase = {"name": "missing_variables"}  # mutable for closure
+
     # Direct LLM wrapper — no thread, no silent failures
     def _truncated_llm(prompt, max_tokens=4096, **kwargs):
-        """LLM call with prompt truncation. Direct call, debug logging, retry on None."""
+        """LLM call with prompt truncation + phase-aware routing."""
         if len(prompt) > 8000:
             prompt = prompt[:7500] + "\n\n[Context truncated — respond with available information]"
+        # Allow phase override via kwargs
+        phase = kwargs.get("phase", _current_phase["name"])
+        provider = PHASE_PROVIDERS.get(phase, "auto")
         try:
-            r = call_json(prompt, max_tokens=max_tokens, provider="auto")
+            r = call_json(prompt, max_tokens=max_tokens, provider=provider)
             if r is None:
-                # Auto-route failed (likely rate limited) — retry with Gemini explicitly
-                print("    [DEBUG] LLM returned None (auto), retrying Gemini...", flush=True)
+                # Primary provider failed — retry with Gemini
+                print(f"    [DEBUG] LLM returned None ({provider}), retrying Gemini...", flush=True)
                 r = call_json(prompt, max_tokens=max_tokens, provider="gemini")
             if r is None:
                 print("    [DEBUG] LLM returned None (all providers)", flush=True)
@@ -456,7 +574,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
 
     try:
         mv_generator = MissingVariableGenerator(graph=graph, llm_call=_truncated_llm)
-        mv_results = mv_generator.generate(gaps, anomalies, topic, domain, papers)
+        mv_results = mv_generator.generate(gaps, anomalies, topic, domain, papers, archive_context)
         hidden_variables = mv_results.get("hidden_variables", [])
 
         # Algorithmic fallback if LLM returns nothing
@@ -505,10 +623,11 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # PHASE 6: MECHANISM GENERATION
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 6/12] MECHANISM GENERATION — Building causal pathways...", flush=True)
+    _current_phase["name"] = "mechanism_generation"
     try:
         mech_generator = MechanismGenerator(graph=graph, llm_call=_truncated_llm)
         mech_results = mech_generator.generate_mechanisms(
-            hidden_variables, gaps, anomalies, topic, domain, papers
+            hidden_variables, gaps, anomalies, topic, domain, papers, archive_context
         )
         mechanisms = mech_results.get("mechanisms", [])
 
@@ -560,6 +679,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # PHASE 7: PREDICTION ENGINE
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 7/12] PREDICTION ENGINE — Generating testable predictions...", flush=True)
+    _current_phase["name"] = "prediction_engine"
     try:
         pred_engine = PredictionEngine(graph=graph, llm_call=_truncated_llm)
         pred_results = pred_engine.generate_predictions(
@@ -599,10 +719,12 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # PHASE 8: THEORY COMPETITION
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 8/12] THEORY COMPETITION — Comparing explanations...", flush=True)
+    _current_phase["name"] = "theory_competition"
     try:
         competition = TheoryCompetition(graph=graph, llm_call=_truncated_llm)
         comp_results = competition.compete(
-            mechanisms, hidden_variables, anomalies, gaps, topic, domain, papers
+            mechanisms, hidden_variables, anomalies, gaps, topic, domain, papers,
+            archive_context=archive_context
         )
         theories = comp_results.get("theories", [])
         winner = comp_results.get("winner")
@@ -660,6 +782,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # PHASE 8.5: ADVERSARIAL TEST — Attack every discovery
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 8.5/12] ADVERSARIAL TEST — Attacking every discovery...", flush=True)
+    _current_phase["name"] = "adversarial_test"
     try:
         from discovery.test_stage import AdversarialTest
         tester = AdversarialTest(llm_call=_truncated_llm)
@@ -703,6 +826,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # Evaluates the top discovery across 6 dimensions:
     # novelty, methodology, significance, clarity, limitations, reproducibility.
     print("\n[Phase 8.6/12] CRITICAL EVALUATION — Formal assessment...", flush=True)
+    _current_phase["name"] = "critical_evaluation"
     try:
         from discovery.peer_review import CriticalEvaluator
         reviewer = CriticalEvaluator(llm_call=_truncated_llm)
@@ -744,6 +868,69 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         verify_results = {"computations_run": 0}
 
     # ══════════════════════════════════════════════════════════════
+    # PHASE 9.5: EXPERIMENTAL VALIDATION PLANNING
+    # ══════════════════════════════════════════════════════════════
+    print("\n[Phase 9.5/12] EXPERIMENTAL VALIDATION — Designing experiments...", flush=True)
+    _current_phase["name"] = "critical_evaluation"  # use gemini for experiment design
+    try:
+        from discovery.experiment_planner import ExperimentPlanner
+        planner = ExperimentPlanner(llm_call=_truncated_llm)
+        top_theory = winner or (theories[0] if theories else {})
+        if top_theory:
+            exp_plans = planner.plan_for_top_theories(
+                theories[:3], mechanisms, accepted_preds, papers, topic, domain, max_plans=2
+            )
+            if exp_plans:
+                print(f"  Generated {len(exp_plans)} experimental validation plans")
+                for ep in exp_plans:
+                    etype = ep.get("experiment_type", "?")
+                    tname = ep.get("theory_name", "?")
+                    cost = ep.get("estimated_cost", "?")
+                    timeline = ep.get("timeline_estimate", "?")
+                    print(f"    [{etype}] {tname[:40]} — {timeline}, {cost} cost")
+                report["phases"]["experimental_validation"] = {
+                    "plans_generated": len(exp_plans),
+                    "plans": exp_plans,
+                }
+            else:
+                print("  No experimental plans generated")
+    except Exception as e:
+        print(f"  [WARN] Experimental validation planning failed: {e}")
+
+    # ══════════════════════════════════════════════════════════════
+    # PHASE 9.7: DATA ANALYSIS — Fetch & analyze real datasets
+    # ══════════════════════════════════════════════════════════════
+    print("\n[Phase 9.7/12] DATA ANALYSIS — Fetching public datasets...", flush=True)
+    try:
+        from discovery.data_analysis import DataAnalyzer
+        analyzer = DataAnalyzer()
+        dataset_results = {}
+
+        # Auto-select data source based on domain
+        if "space" in domain.lower() or "astro" in domain.lower() or "exoplanet" in topic.lower():
+            result = analyzer.fetch_nasa_exoplanets(limit=50)
+            if result.get("status") == "ok":
+                dataset_results["nasa_exoplanets"] = result
+                analysis = analyzer.analyze_dataset("nasa_exoplanets")
+                dataset_results["analysis"] = analysis
+                print(f"  NASA Exoplanets: {result['records']} records, {len(analysis.get('statistics', {}))} numeric fields")
+                if analysis.get("correlations"):
+                    top_corr = analysis["correlations"][0]
+                    print(f"    Top correlation: {top_corr['field1']} ↔ {top_corr['field2']} (r={top_corr['correlation']})")
+
+        if dataset_results:
+            report["phases"]["data_analysis"] = {
+                "datasets_fetched": len(dataset_results),
+                "results": {k: {"status": v.get("status"), "records": v.get("records", 0)} for k, v in dataset_results.items() if isinstance(v, dict)},
+                "statistics": dataset_results.get("analysis", {}).get("statistics", {}),
+                "correlations": dataset_results.get("analysis", {}).get("correlations", []),
+            }
+        else:
+            print("  No domain-specific datasets available")
+    except Exception as e:
+        print(f"  [WARN] Data analysis failed: {e}")
+
+    # ══════════════════════════════════════════════════════════════
     # PHASE 10: CONTRADICTION MINING
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 10/12] CONTRADICTION MINING...", flush=True)
@@ -769,6 +956,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # PHASE 11: SKEPTIC REVIEW
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 11/12] SKEPTIC REVIEW — Adversarial critique...", flush=True)
+    _current_phase["name"] = "skeptic_review"
     skeptic_result = {}
     try:
         top_theory = winner or (theories[0] if theories else {})
@@ -849,7 +1037,14 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
             score_result = scorer.score(
                 top_theory, gaps, anomalies, accepted_preds, papers, graph
             )
-            print(f"  Discovery Score: {score_result['discovery_score']:.0f}/100")
+            # Apply domain-specific scoring weights
+            try:
+                from discovery.domain_templates import adjust_discovery_score
+                score_result = adjust_discovery_score(score_result, domain)
+                domain_score = score_result.get("domain_weighted_score", score_result["discovery_score"])
+                print(f"  Discovery Score: {score_result['discovery_score']:.0f}/100 (domain-weighted: {domain_score:.0f}/100)")
+            except Exception:
+                print(f"  Discovery Score: {score_result['discovery_score']:.0f}/100")
             print(f"  Grade: {score_result['grade']}")
             print(f"  Summary: {score_result['summary'][:100]}")
             report["phases"]["discovery_scoring"] = score_result
@@ -956,6 +1151,42 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
     # ══════════════════════════════════════════════════════════════
     # FINALIZE
     # ══════════════════════════════════════════════════════════════
+    # Save to discovery archive — remember what we found
+    try:
+        run_summary = save_to_archive(report, topic, domain)
+        print(f"  [Archive] Saved: {run_summary.get('theories_count', 0)} theories, "
+              f"{run_summary.get('variables_count', 0)} variables, "
+              f"{run_summary.get('mechanisms_count', 0)} mechanisms", flush=True)
+    except Exception as e:
+        print(f"  [Archive] Save failed: {e}", flush=True)
+
+    # Save theories to hypothesis memory — cross-run persistence
+    try:
+        saved_count = 0
+        for t in theories:
+            if isinstance(t, dict) and t.get("name"):
+                hyp_data = {
+                    "title": t.get("name", ""),
+                    "description": t.get("description", t.get("mechanism", "")),
+                    "pattern_type": t.get("type", "proposed"),
+                    "confidence": t.get("scores", {}).get("overall", 0),
+                    "novelty": t.get("is_novel_vs_known", ""),
+                    "status": "accepted" if winner and t.get("name") == winner.get("name") else "survived",
+                    "topic": topic,
+                    "domain": domain,
+                    "testability": json.dumps(t.get("predictions", [])[:3]),
+                    "nodes": t.get("hidden_variables", []),
+                    "edges": [],
+                }
+                hyp_mem.save_hypothesis(hyp_data, run_id=run_id)
+                saved_count += 1
+        if saved_count:
+            print(f"  [Hypothesis Memory] Saved {saved_count} theories", flush=True)
+        report["hypothesis_memory"] = {"saved": saved_count, "run_id": run_id}
+    except Exception as e:
+        print(f"  [Hypothesis Memory] Save failed: {e}", flush=True)
+
+    # FINALIZE
     return _finalize_report(report, papers, graph, gaps, anomalies,
                             hidden_variables, mechanisms, predictions,
                             theories, accepted_preds, t_start)

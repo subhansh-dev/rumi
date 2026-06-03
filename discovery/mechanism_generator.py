@@ -27,7 +27,7 @@ class MechanismGenerator:
 
     def generate_mechanisms(self, hidden_variables: list, gaps: list,
                             anomalies: list, topic: str, domain: str,
-                            papers: list = None) -> dict:
+                            papers: list = None, archive_context: str = "") -> dict:
         """
         Generate causal mechanisms for the proposed hidden variables and observed gaps.
 
@@ -85,6 +85,8 @@ ANOMALIES:
 
 EXISTING CAUSAL CHAINS IN KNOWLEDGE GRAPH:
 {causal_context}
+
+{archive_context}
 
 PAPERS:
 {paper_context}

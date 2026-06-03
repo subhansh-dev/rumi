@@ -317,16 +317,18 @@ class DiscoveryScorer:
 
     def _score_evidence(self, theory: dict, papers: list, graph,
                         theory_scores: dict) -> float:
-        """Score evidence strength."""
+        """Score evidence strength — quality-weighted."""
         # Use competition scores if available
         if "evidence_support" in theory_scores:
             return theory_scores["evidence_support"] * 100
 
         base = 30
 
-        # Papers supporting the theory
+        # Quality-weighted paper scoring (not just count)
         if papers:
-            base += min(30, len(papers) * 5)
+            paper_quality = self._score_literature_quality(papers)
+            # Quality score contributes up to 40 points (up from 30)
+            base += min(40, paper_quality * 40)
 
         # Graph evidence
         if graph:
@@ -339,9 +341,71 @@ class DiscoveryScorer:
 
         # Mechanism steps (more steps with evidence = stronger)
         steps = theory.get("steps", [])
-        base += min(20, len(steps) * 4)
+        base += min(10, len(steps) * 2)
 
         return min(100.0, base)
+
+    @staticmethod
+    def _score_literature_quality(papers: list) -> float:
+        """Score literature quality on 0-1 scale.
+
+        Factors:
+        - Citation count (log-scaled, capped)
+        - Influential citations (weighted 3x)
+        - Recency (newer papers get bonus)
+        - Abstract availability (quality signal)
+        - Citation network score (from 2-hop walk)
+        """
+        if not papers:
+            return 0.0
+
+        import math
+        scores = []
+        for p in papers:
+            if not isinstance(p, dict):
+                continue
+            q = 0.0
+
+            # Citation count (log-scaled: 10 citations = 0.3, 100 = 0.5, 1000 = 0.7)
+            cites = p.get("citation_count", 0) or 0
+            if cites > 0:
+                q += min(0.4, math.log10(cites + 1) / 10)
+
+            # Influential citations (weighted 3x)
+            inf_cites = p.get("influential_citations", 0) or 0
+            if inf_cites > 0:
+                q += min(0.2, math.log10(inf_cites + 1) / 15)
+
+            # Recency bonus (papers from last 5 years get bonus)
+            try:
+                year = int(p.get("year", 0) or 0)
+                if year >= 2021:
+                    q += 0.15  # Recent
+                elif year >= 2015:
+                    q += 0.05  # Moderately recent
+            except (ValueError, TypeError):
+                pass
+
+            # Abstract availability (quality signal)
+            abstract = p.get("abstract", "")
+            if abstract and len(abstract) > 100:
+                q += 0.1
+
+            # Citation network centrality (from 2-hop walk)
+            network_score = p.get("citation_network_score", 0)
+            if network_score > 0:
+                q += min(0.15, network_score * 0.05)
+
+            scores.append(min(1.0, q))
+
+        if not scores:
+            return 0.0
+
+        # Return weighted average — top papers contribute more
+        scores.sort(reverse=True)
+        # Top 10 papers matter most
+        top_scores = scores[:10]
+        return sum(top_scores) / max(len(top_scores), 1)
 
     def _score_mathematical_rigor(self, theory: dict, mechanism_steps: list) -> float:
         """Score mathematical rigor — penalize theories without equations."""

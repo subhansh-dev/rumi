@@ -2,7 +2,7 @@
 run_discovery.py — Full RUMI Discovery Runner
 
 Matches the interactive RUMI terminal flow:
-  1. Discovery Pipeline v2 (12 phases)
+  1. Discovery Pipeline v2 (16 phases)
   2. Refinement Pipeline (13 stages)  
   3. Reflexion (self-improvement)
 
@@ -135,9 +135,9 @@ def main():
 
     else:
         # ── Standard single-pass mode ──
-        # ── Stage 1: Discovery Pipeline v2 (12 phases) ──
+        # ── Stage 1: Discovery Pipeline v2 (16 phases) ──
         print("="*70)
-        print("STAGE 1: DISCOVERY PIPELINE v2 (12 phases)")
+        print("STAGE 1: DISCOVERY PIPELINE v2 (16 phases)")
         print("="*70)
     t0 = time.time()
     try:
@@ -246,9 +246,27 @@ def main():
     print(f"  Mechanisms: {phases.get('mechanism_generation', {}).get('mechanisms_generated', 0)}")
     print(f"  Predictions: {phases.get('prediction_engine', {}).get('total_predictions', 0)}")
     print(f"  Theories: {phases.get('theory_competition', {}).get('theories_compared', 0)}")
+    # New phases
+    citation_hop1 = phases.get('citation_network', {}).get('citation_hop1', 0)
+    citation_hop2 = phases.get('citation_network', {}).get('citation_hop2', 0)
+    if citation_hop1 or citation_hop2:
+        print(f"  Citation Walk: +{citation_hop1} hop1, +{citation_hop2} hop2 papers")
+    exp_plans = phases.get('experimental_validation', {}).get('plans_generated', 0)
+    if exp_plans:
+        print(f"  Experiment Plans: {exp_plans}")
+    data_results = phases.get('data_analysis', {}).get('datasets_fetched', 0)
+    if data_results:
+        print(f"  Datasets Analyzed: {data_results}")
+    hyp_saved = report.get('hypothesis_memory', {}).get('saved', 0)
+    if hyp_saved:
+        print(f"  Hypotheses Saved: {hyp_saved} to memory")
     score = phases.get('discovery_scoring', {}).get('discovery_score', 0)
     grade = phases.get('discovery_scoring', {}).get('grade', 'F')
-    print(f"  Score: {score:.0f}/100 ({grade})")
+    domain_score = phases.get('discovery_scoring', {}).get('domain_weighted_score', 0)
+    if domain_score:
+        print(f"  Score: {score:.0f}/100 (domain-weighted: {domain_score:.0f}/100) ({grade})")
+    else:
+        print(f"  Score: {score:.0f}/100 ({grade})")
     if report.get("refinement"):
         print(f"  Refinement: complete")
     if report.get("reflexion"):

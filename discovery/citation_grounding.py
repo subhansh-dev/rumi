@@ -314,3 +314,103 @@ def ground_claims(text: str, papers: list[dict]) -> dict:
         "total_papers_available": len(papers),
         "grounding_score": len(citation_nums) / max(1, len(papers)),
     }
+
+
+def traverse_citation_network(papers: list, hop_depth: int = 2,
+                               top_n: int = 5, refs_per_paper: int = 10) -> list[dict]:
+    """
+    2-hop citation network walk. Takes initial papers, follows their
+    references to find foundational and highly-connected papers.
+
+    Args:
+        papers: Initial papers from fetch_papers
+        hop_depth: How many hops to follow (1 or 2)
+        top_n: How many top papers to follow per hop
+        refs_per_paper: How many references to fetch per paper
+
+    Returns:
+        Enriched paper list with citation_network metadata
+    """
+    from discovery.semantic_scholar import get_references
+
+    seen_titles = {p.get("title", "").lower().strip()[:60] for p in papers}
+    all_papers = list(papers)
+    citation_frequency = {}  # title -> how many times referenced
+
+    # Sort initial papers by citation count (prefer well-cited papers)
+    scored_papers = sorted(
+        [p for p in papers if p.get("paperId")],
+        key=lambda p: p.get("citation_count", 0) or p.get("influential_citations", 0),
+        reverse=True
+    )
+
+    # ── Hop 1: References of top papers ──
+    hop1_papers = []
+    for p in scored_papers[:top_n]:
+        pid = p.get("paperId", "")
+        if not pid:
+            continue
+        try:
+            refs = get_references(pid, limit=refs_per_paper)
+            for ref in refs:
+                title_key = ref.get("title", "").lower().strip()[:60]
+                if title_key and title_key not in seen_titles:
+                    seen_titles.add(title_key)
+                    ref["source"] = "citation_hop1"
+                    ref["cited_by"] = p.get("title", "")
+                    hop1_papers.append(ref)
+                    citation_frequency[title_key] = citation_frequency.get(title_key, 0) + 1
+        except Exception:
+            continue
+
+    all_papers.extend(hop1_papers)
+    print(f"  [Citation Walk] Hop 1: +{len(hop1_papers)} papers from {min(top_n, len(scored_papers))} seeds")
+
+    # ── Hop 2: References of top hop-1 papers ──
+    if hop_depth >= 2 and hop1_papers:
+        # Sort hop1 by citation count
+        hop1_scored = sorted(
+            [p for p in hop1_papers if p.get("paperId")],
+            key=lambda p: p.get("citation_count", 0) or 0,
+            reverse=True
+        )
+        hop2_papers = []
+        for p in hop1_scored[:max(2, top_n - 2)]:  # fewer seeds for hop 2
+            pid = p.get("paperId", "")
+            if not pid:
+                continue
+            try:
+                refs = get_references(pid, limit=refs_per_paper)
+                for ref in refs:
+                    title_key = ref.get("title", "").lower().strip()[:60]
+                    if title_key and title_key not in seen_titles:
+                        seen_titles.add(title_key)
+                        ref["source"] = "citation_hop2"
+                        ref["cited_by"] = p.get("title", "")
+                        hop2_papers.append(ref)
+                        citation_frequency[title_key] = citation_frequency.get(title_key, 0) + 1
+            except Exception:
+                continue
+
+        all_papers.extend(hop2_papers)
+        print(f"  [Citation Walk] Hop 2: +{len(hop2_papers)} papers")
+
+    # ── Boost papers that appear multiple times in citation chains ──
+    for p in all_papers:
+        title_key = p.get("title", "").lower().strip()[:60]
+        freq = citation_frequency.get(title_key, 0)
+        if freq > 0:
+            p["citation_network_score"] = freq
+            p["citation_boost"] = freq * 0.1  # 10% boost per citation appearance
+
+    # Sort by combined score: citations + network centrality
+    all_papers.sort(
+        key=lambda p: (p.get("citation_count", 0) or 0) + (p.get("citation_network_score", 0) * 100),
+        reverse=True
+    )
+
+    # Filter out papers with no abstract (low quality)
+    quality_papers = [p for p in all_papers if p.get("abstract") or p.get("source") in ("arxiv", "pubmed")]
+
+    print(f"  [Citation Walk] Total: {len(quality_papers)} papers ({len(all_papers) - len(quality_papers)} filtered for quality)")
+    return quality_papers

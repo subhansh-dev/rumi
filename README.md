@@ -24,7 +24,7 @@
 
 <p align="center">
   <b>Autonomous Scientific Discovery Engine</b><br>
-  15-Phase Pipeline · Theory Tournament · Adversarial Testing · Critical Evaluation · 17 Domains
+  16-Phase Pipeline · Theory Tournament · Adversarial Testing · Critical Evaluation · 17 Domains · Cross-Run Memory
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 
 ## What is RUMI?
 
-**RUMI** (Research & Unified Machine Intelligence) is an autonomous scientific discovery engine. Give it a topic and it reads papers, builds knowledge graphs, finds gaps and anomalies, generates hypotheses with mechanisms and equations, runs a tournament of 20 competing theories, attacks every discovery with adversarial testing, evaluates through critical assessment, and then improves itself afterward. Unlike conventional AI assistants that search and summarize, RUMI implements a 12-phase discovery engine backed by a 44-module cognitive architecture inspired by dual-process theory, the Free Energy Principle, and causal inference frameworks.
+**RUMI** (Research & Unified Machine Intelligence) is an autonomous scientific discovery engine. Give it a topic and it reads papers, builds knowledge graphs, finds gaps and anomalies, generates hypotheses with mechanisms and equations, runs a tournament of 20 competing theories, attacks every discovery with adversarial testing, evaluates through critical assessment, designs concrete experiments, fetches real datasets, and then improves itself afterward. Unlike conventional AI assistants that search and summarize, RUMI implements a 16-phase discovery engine backed by a 44-module cognitive architecture inspired by dual-process theory, the Free Energy Principle, and causal inference frameworks.
 
 RUMI addresses three fundamental limitations of current AI-assisted research:
 
@@ -57,6 +57,7 @@ RUMI addresses three fundamental limitations of current AI-assisted research:
 - [Results](#results)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Run RUMI with AI Assistants](#run-rumi-with-ai-assistants)
 - [Configuration](#configuration)
 - [Limitations](#limitations)
 - [Project Structure](#project-structure)
@@ -78,7 +79,7 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 | **Reasoning** | Single-pass generation | Multi-pass: cognitive gating, causal (Pearl), analogical (Gentner), neurosymbolic, first-principles |
 | **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring |
 | **Learning** | No feedback loop | Error-driven updates, experience replay, dreaming-based consolidation, meta-learning |
-| **Discovery** | Search-and-summarize | 12-phase pipeline: literature → graph → gaps → anomalies → hidden variables → mechanisms → predictions → competition → scoring |
+| **Discovery** | Search-and-summarize | 16-phase pipeline: literature → citation walk → graph → gaps → anomalies → hidden variables → mechanisms → predictions → competition → experimental design → data analysis → scoring |
 | **Theory Selection** | Generate 1, accept it | Tournament: 20 candidates, elimination rounds, head-to-head ranking |
 | **Quality Control** | None | Adversarial testing (attack every discovery), critical evaluation (6-dimension assessment), skeptic review, mathematical consistency checking |
 | **Literature** | Single search | Adaptive multi-round: analyze gaps, refine queries, targeted re-search |
@@ -88,13 +89,14 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 
 ## Discovery Pipeline v2
 
-RUMI's discovery engine is not a research assistant. It's a discovery engine. The v2 pipeline runs 12 phases, each with algorithmic fallbacks and LLM-powered analysis:
+RUMI's discovery engine is not a research assistant. It's a discovery engine. The v2 pipeline runs 16 phases, each with algorithmic fallbacks and LLM-powered analysis:
 
 ```
 Phase 1:  Literature          arXiv + PubMed + Semantic Scholar (multi-query, snowball sampling)
-Phase 1.5 Adaptive Literature  Gap-targeted multi-round search (refines queries based on gaps)
-Phase 2:  Knowledge Graph     Algorithmic + LLM entity extraction, relationship building
+Phase 1.5 Citation Network    2-hop citation walk — follows references of top papers
+Phase 2:  Knowledge Graph     Algorithmic + LLM entity extraction, persistent across runs
 Phase 3:  Gap Detection       Structural holes, orphan observations, missing mechanisms
+Phase 3.5 Adaptive Literature Gap-targeted multi-round search (refines queries based on gaps)
 Phase 4:  Anomaly Detection   Conflicting evidence, outliers, prediction violations
 Phase 5:  Hidden Variables    Propose unseen entities/processes (dark matter style reasoning)
 Phase 6:  Mechanisms          Causal pathways with equations, not just correlations
@@ -103,10 +105,25 @@ Phase 8:  Theory Tournament   20 candidates, elimination rounds, head-to-head ra
 Phase 8.5 Adversarial Test    Attacks every discovery: existing theory? removable vars? falsification?
 Phase 8.6 Critical Evaluation 6-dimension assessment: novelty, methodology, significance, clarity, limits, reproducibility
 Phase 9:  Computational       Real graph analysis, Monte Carlo, statistical testing
+Phase 9.5 Experimental Design Concrete validation plans: variables, controls, timeline, cost
+Phase 9.7 Data Analysis       Fetch & analyze real public datasets (NASA Exoplanet Archive, etc.)
 Phase 10: Contradictions      Scientific tension analysis, competing theory detection
 Phase 11: Skeptic Review      Adversarial critique with strengths/weaknesses/failure conditions
-Phase 12: Discovery Scoring   7-dimension quality gate (0-100) with grade assignment
+Phase 12: Discovery Scoring   Domain-weighted quality gate (0-100) with grade assignment
 ```
+
+### Intelligence Features
+
+| Feature | Description |
+|---------|-------------|
+| **Hypothesis Memory** | SQLite-backed cross-run persistence — remembers past hypotheses, builds on them |
+| **Phase-Specific LLM Routing** | Cerebras (fast) for extraction, Gemini (best reasoning) for mechanisms/theories |
+| **Citation Network Traversal** | 2-hop citation walk via Semantic Scholar — finds foundational papers |
+| **Experimental Validation** | Concrete experiment plans with variables, controls, timeline, cost |
+| **Knowledge Graph Persistence** | Graph accumulates across runs with staleness pruning |
+| **Data Analysis Integration** | Fetches real public datasets and runs statistical analysis |
+| **Quality-Weighted Scoring** | Papers scored by citations, recency, network centrality — not just count |
+| **Domain Templates** | 6 domain-specific templates with methodology preferences and scoring weights |
 
 ### Post-Processing Pipeline
 
@@ -684,7 +701,8 @@ Only the configured `telegram_allowed_user` can communicate with RUMI via Telegr
 ```
 rumi/
 ├── main.py                      # Entry point (~9000 lines)
-├── ui.py                        # Terminal UI (Rich + prompt_toolkit)
+├── run_discovery.py             # Standalone discovery runner (CLI)
+├── ui.py
 ├── rumi_launcher.py             # Console entry point
 ├── rumi_llm.py                  # Unified LLM helper (Cerebras→Groq→Gemini)
 ├── thinking_loop.py             # Multi-pass reasoning engine
@@ -693,8 +711,8 @@ rumi/
 ├── SOUL.md                      # Core directives
 ├── USER.md                      # User profile
 │
-├── discovery/                   # Scientific Discovery Engine (48 modules)
-│   ├── discovery_pipeline_v2.py #   12-phase discovery pipeline (ACTIVE)
+├── discovery/                   # Scientific Discovery Engine (55 modules)
+│   ├── discovery_pipeline_v2.py #   16-phase discovery pipeline (ACTIVE)
 │   ├── domains.py               #   17 domain configurations
 │   ├── graph.py                 #   Knowledge graph + metrics
 │   ├── hypothesis_engine.py     #   Hypothesis generation
@@ -715,19 +733,24 @@ rumi/
 │   ├── domain_ontologies.py     #   Real physics for 17 domains
 │   ├── cross_domain_transfer.py #   Cross-field analogies
 │   ├── continuous_operation.py  #   Autonomous research loop
-│   ├── citation_grounding.py    #   Multi-source paper fetch
-│   ├── contradiction_miner.py   #   Scientific tension analysis
+│   ├── citation_grounding.py    #   Multi-source paper fetch + citation network traversal
+│   ├── contradiction_miner.py
 │   ├── novelty_detector.py      #   PubMed novelty estimation
 │   ├── skeptic_agent.py         #   Adversarial critique
 │   ├── claim_provenance.py      #   Claim source tracking
-│   ├── link_predictor.py        #   Missing connection prediction
+│   ├── hypothesis_memory.py     #   Cross-run hypothesis persistence (SQLite)
+│   ├── discovery_archive.py     #   Discovery memory across runs (JSON)
+│   ├── experiment_planner.py    #   Concrete experiment validation plans
+│   ├── data_analysis.py         #   Real dataset fetching & statistical analysis
+│   ├── domain_templates.py      #   Domain-specific research templates
+│   ├── link_predictor.py
 │   ├── llm_client.py            #   Cerebras→Groq→Gemini routing
 │   ├── pubchem.py               #   PubChem enrichment
 │   ├── openfda.py               #   OpenFDA enrichment
 │   ├── uniprot.py               #   UniProt enrichment
 │   ├── pdb.py                   #   Protein Data Bank
-│   ├── semantic_scholar.py      #   Paper citations
-│   ├── materials_project.py     #   Crystal structures
+│   ├── semantic_scholar.py      #   Paper citations + citation network traversal
+│   ├── materials_project.py
 │   ├── nasa_api.py              #   NASA data
 │   ├── arxiv_api.py             #   arXiv papers
 │   ├── gbif_api.py              #   Biodiversity data
@@ -780,34 +803,58 @@ rumi/
 
 ## Run RUMI with AI Assistants
 
-### With Hermes Agent
+RUMI can be driven by any AI agent (Hermes / Claude Code / Codex / Cursor / etc.) that can run shell commands. Same command for all of them.
 
-```
-Hey Hermes, I have RUMI at C:\Users\Admin\Desktop\rumi.
-Run RUMI's full scientist pipeline to do an edge discovery
-in the space astronomy domain. Topic: anomalous stellar
-dimming and technosignature detection.
-```
+### The Command
 
-### With Claude Code
-
-```
-Claude, I have a scientific discovery AI called RUMI at
-C:\Users\Admin\Desktop\rumi. Run the full pipeline to
-generate novel hypotheses about dark matter detection
-methods. Use the physics domain.
+```bash
+cd /path/to/rumi
+python run_discovery.py "YOUR TOPIC" --domain DOMAIN_KEY --mode full
 ```
 
-**Tips:**
-- Always specify the domain: `space_astronomy`, `drug_discovery`, `physics`, etc.
-- Use `mode="full"` for complete pipeline (all 12 phases)
-- Use `mode="quick"` for fast exploration
-- Reports save to `data/` as JSON
+### Example Prompt (works for any agent)
 
----
+```
+I have a scientific discovery engine at C:\Users\Admin\Desktop
+umi.
+Run a discovery on "anomalous stellar dimming and technosignature
+detection" in the space_astronomy domain.
 
+Command: cd C:\Users\Admin\Desktop
+umi && python run_discovery.py "anomalous stellar dimming and technosignature detection" --domain space_astronomy --mode full
 
----
+Read the JSON report from data/ and summarize the top theories,
+discovery score, and key gaps found.
+```
+
+### CLI Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--domain` | auto-detect | Domain key (see below) |
+| `--mode` | `full` | `quick` (phases 1-5), `standard` (1-8), `full` (all 16) |
+| `--iterate` | off | Run twice: first pass, analyze weaknesses, second pass, merge |
+| `--skip-refinement` | off | Skip the 13-stage refinement pipeline |
+| `--skip-reflexion` | off | Skip reflexion self-improvement |
+
+### Domain Keys
+
+`space_astronomy` · `drug_discovery` · `physics` · `neuroscience` · `molecular_biology` · `climate_energy` · `computer_science` · `earth_science` · `oceanography` · `economics` · `public_health` · `mathematics` · `social_science` · `chemistry` · `ecology` · `materials_science` · `general`
+
+### What the Agent Gets
+
+- Phase-by-phase progress in stdout
+- JSON report at `data/discovery_<topic>_<timestamp>.json`
+- Theories, gaps, anomalies, predictions, experiments, data analysis all in the report
+
+### Python API
+
+```python
+from discovery.discovery_pipeline_v2 import run_discovery_pipeline
+result = run_discovery_pipeline("topic", domain="physics", mode="full")
+theories = result["phases"]["theory_competition"]["theories"]
+experiments = result["phases"].get("experimental_validation", {}).get("plans", [])
+```
 
 ## Contributing
 
@@ -829,5 +876,5 @@ python main.py
 ---
 
 <p align="center">
-  <sub>Built by Subhansh · RUMI v2.1</sub>
+  <sub>Built by Subhansh · RUMI v2.2 — 16-Phase Discovery Engine with Cross-Run Memory</sub>
 </p>
