@@ -960,11 +960,11 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
             if mdesc:
                 L.append(f"     {mdesc[:200]}")
             if inputs:
-                L.append(f"     Inputs: {', '.join(str(x) for x in inputs[:5])}")
+                L.append(f"     Inputs: {', '.join(str(x) for x in (list(inputs) if isinstance(inputs, dict) else inputs)[:5])}")
             if outputs:
-                L.append(f"     Outputs: {', '.join(str(x) for x in outputs[:5])}")
+                L.append(f"     Outputs: {', '.join(str(x) for x in (list(outputs) if isinstance(outputs, dict) else outputs)[:5])}")
             if observables:
-                L.append(f"     Observables: {', '.join(str(x) for x in observables[:5])}")
+                L.append(f"     Observables: {', '.join(str(x) for x in (list(observables) if isinstance(observables, dict) else observables)[:5])}")
             for j, step in enumerate(steps):
                 s_str = str(step)[:150] if step else ""
                 if s_str:
