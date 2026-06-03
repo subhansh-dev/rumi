@@ -840,7 +840,8 @@ def run_refinement_pipeline(topic, domain, papers, graph, hypotheses, contradict
     t0 = time.time()
     results["competition"] = multi_model_competition(topic, hypotheses, results["audit"], domain)
     winner_title = results["competition"].get("winner", "?")
-    log(f"  {len(results['competition'].get('hypotheses', []))} hypotheses, winner: {winner_title[:50]} ({time.time()-t0:.1f}s)")
+    winner_title = results['competition'].get('winner', {}).get('title', 'N/A') if results.get('competition', {}).get('winner') else 'N/A'
+    log(f"  {len(results.get('competition', {}).get('hypotheses', []))} hypotheses, winner: {winner_title[:50]} ({time.time()-t0:.1f}s)")
 
     # Find the winning hypothesis
     winner = None
