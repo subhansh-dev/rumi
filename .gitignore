@@ -74,3 +74,4 @@ docs/*.svg
 # ---- Node (for demo tooling) -------------------------
 node_modules/
 npm-debug.log*
+data/discovery_*.txt
