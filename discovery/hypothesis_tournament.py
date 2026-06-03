@@ -1,7 +1,7 @@
 """Multi-generation hypothesis tournament with crossover, mutation, and fitness selection.
 
 Inspired by Google DeepMind's Co-Scientist (Generation -> Reflection -> Ranking -> Evolution)
-and 
+and evolutionary selection algorithms.
 """
 
 import json
