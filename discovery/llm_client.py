@@ -1,8 +1,8 @@
 """
 discovery/llm_client.py — Unified LLM Client for RUMI
 
-Groq-first, Gemini-fallback. Drop-in replacement for all LLM calls.
-Free tier: Groq (14,400 req/day, 30 req/min) + Gemini (1,500 req/day).
+Cerebras→Groq→Gemini auto-fallback with key rotation.
+Drop-in replacement for all LLM calls.
 
 Usage:
     from discovery.llm_client import call, call_json, is_available
@@ -23,21 +23,15 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_THINKING_MODEL = "gemini-2.5-flash"  # for complex reasoning
 
-# ── Rate limiting state ──
+# ── Minimal rate limiting (only for free-tier Groq/Gemini) ──
 _last_groq_call = 0.0
 _last_gemini_call = 0.0
-_groq_tokens_used = 0
-_gemini_tokens_used = 0
 
-# ── Groq limits (free tier: 30 req/min, 12000 TPM) ──
-GROQ_TPM = 12000
-GROQ_MIN_INTERVAL = 0.5  # 30 req/min = 1 per 2s, but 0.5s gives headroom
-GROQ_MAX_INTERVAL = 3.0  # cap at 3s — don't let TPM calc sleep 20+ seconds
+# ── Groq limits (free tier: 30 req/min) ──
+GROQ_MIN_INTERVAL = 0.5
 
 # ── Gemini limits (free tier) ──
-GEMINI_TPM = 32000
-GEMINI_MIN_INTERVAL = 1.0
-GEMINI_MAX_INTERVAL = 3.0
+GEMINI_MIN_INTERVAL = 0.5
 
 
 def _load_config() -> dict:
@@ -77,9 +71,8 @@ def _rate_limit_groq(max_tokens: int = 4096):
     global _last_groq_call
     now = time.time()
     elapsed = now - _last_groq_call
-    min_interval = min(GROQ_MAX_INTERVAL, max(GROQ_MIN_INTERVAL, (max_tokens / GROQ_TPM) * 60.0))
-    if elapsed < min_interval:
-        time.sleep(min_interval - elapsed)
+    if elapsed < GROQ_MIN_INTERVAL:
+        time.sleep(GROQ_MIN_INTERVAL - elapsed)
     _last_groq_call = time.time()
 
 
@@ -159,9 +152,8 @@ def _rate_limit_gemini(max_tokens: int = 4096):
     global _last_gemini_call
     now = time.time()
     elapsed = now - _last_gemini_call
-    min_interval = min(GEMINI_MAX_INTERVAL, max(GEMINI_MIN_INTERVAL, (max_tokens / GEMINI_TPM) * 60.0))
-    if elapsed < min_interval:
-        time.sleep(min_interval - elapsed)
+    if elapsed < GEMINI_MIN_INTERVAL:
+        time.sleep(GEMINI_MIN_INTERVAL - elapsed)
     _last_gemini_call = time.time()
 
 
@@ -215,41 +207,29 @@ def _call_gemini(prompt: str, json_mode: bool = False,
 
 # ── Cerebras ──────────────────────────────────────────────────────────
 
-_cerebras_last_call = 0.0
-
+_cerebras_key_idx = 0
 CEREBRAS_MODEL = "gpt-oss-120b"
-CEREBRAS_MIN_INTERVAL = 2.5  # 30 req/min free tier — 2.5s to be safe
 
 
 def _get_cerebras_keys() -> list[str]:
     cfg = _load_config()
-    key = cfg.get("cerebras_api_key", "")
-    return [key] if key else []
-
-
-def _rate_limit_cerebras():
-    global _cerebras_last_call
-    now = time.time()
-    elapsed = now - _cerebras_last_call
-    if elapsed < CEREBRAS_MIN_INTERVAL:
-        time.sleep(CEREBRAS_MIN_INTERVAL - elapsed)
-    _cerebras_last_call = time.time()
+    keys = []
+    for k in ["cerebras_api_key", "cerebras_api_key2"]:
+        v = cfg.get(k, "")
+        if v:
+            keys.append(v)
+    return keys
 
 
 def _call_cerebras(prompt: str, json_mode: bool = False,
                    max_tokens: int = 4096, temperature: float = 0.3,
                    model: str = CEREBRAS_MODEL) -> str | None:
-    """Call Cerebras API. OpenAI-compatible endpoint, very fast."""
+    """Call Cerebras API. No rate limiting, key rotation on 429."""
     import requests
+    global _cerebras_key_idx
     keys = _get_cerebras_keys()
     if not keys:
         return None
-
-    key = keys[0]
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-    }
 
     effective_prompt = prompt
     if json_mode and "json" not in prompt.lower():
@@ -264,63 +244,51 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
 
-    _rate_limit_cerebras()
-    try:
-        resp = requests.post(
-            "https://api.cerebras.ai/v1/chat/completions",
-            headers=headers, json=payload, timeout=60,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            choice = data.get("choices", [{}])[0].get("message", {})
-            content = choice.get("content", "")
-            # Cerebras reasoning model may put response in 'reasoning' field
-            if not content or len(content) < 3:
-                content = choice.get("reasoning", "")
-            if content and len(content) > 2:
-                return content.strip()
-        elif resp.status_code == 429:
-            # Rate limited — wait and retry once
-            time.sleep(5)
-            _rate_limit_cerebras()
-            try:
-                resp2 = requests.post(
-                    "https://api.cerebras.ai/v1/chat/completions",
-                    headers=headers, json=payload, timeout=60,
-                )
-                if resp2.status_code == 200:
-                    data = resp2.json()
-                    choice = data.get("choices", [{}])[0].get("message", {})
-                    content = choice.get("content", "")
-                    if not content or len(content) < 3:
-                        content = choice.get("reasoning", "")
-                    if content and len(content) > 2:
-                        return content.strip()
-            except Exception:
-                pass
-            return None
-        elif resp.status_code in (401, 403):
-            return None  # auth error
-        elif resp.status_code == 400:
-            # json_mode might not be supported — retry without
-            if json_mode:
-                payload.pop("response_format", None)
-                _rate_limit_cerebras()
-                resp2 = requests.post(
-                    "https://api.cerebras.ai/v1/chat/completions",
-                    headers=headers, json=payload, timeout=60,
-                )
-                if resp2.status_code == 200:
-                    data = resp2.json()
-                    choice = data.get("choices", [{}])[0].get("message", {})
-                    content = choice.get("content", "")
-                    if not content or len(content) < 3:
-                        content = choice.get("reasoning", "")
-                    if content and len(content) > 2:
-                        return content.strip()
-            return None
-    except Exception:
-        return None
+    # Try each key on 429 before giving up
+    for key_attempt in range(len(keys)):
+        key = keys[(_cerebras_key_idx + key_attempt) % len(keys)]
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        }
+        try:
+            resp = requests.post(
+                "https://api.cerebras.ai/v1/chat/completions",
+                headers=headers, json=payload, timeout=60,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                choice = data.get("choices", [{}])[0].get("message", {})
+                content = choice.get("content", "")
+                if not content or len(content) < 3:
+                    content = choice.get("reasoning", "")
+                if content and len(content) > 2:
+                    _cerebras_key_idx = (_cerebras_key_idx + key_attempt) % len(keys)
+                    return content.strip()
+            elif resp.status_code == 429:
+                continue  # rotate to next key
+            elif resp.status_code in (401, 403):
+                continue
+            elif resp.status_code == 400:
+                if json_mode:
+                    payload.pop("response_format", None)
+                    resp2 = requests.post(
+                        "https://api.cerebras.ai/v1/chat/completions",
+                        headers=headers, json=payload, timeout=60,
+                    )
+                    if resp2.status_code == 200:
+                        data = resp2.json()
+                        choice = data.get("choices", [{}])[0].get("message", {})
+                        content = choice.get("content", "")
+                        if not content or len(content) < 3:
+                            content = choice.get("reasoning", "")
+                        if content and len(content) > 2:
+                            return content.strip()
+                return None
+        except Exception:
+            continue
+
+    _cerebras_key_idx = (_cerebras_key_idx + 1) % max(1, len(keys))
     return None
 
 

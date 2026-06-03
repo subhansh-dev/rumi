@@ -23,8 +23,8 @@
 </p>
 
 <p align="center">
-  <b>Autonomous Scientific Cognition Framework</b><br>
-  Terminal-native · 44 Brain Modules · 48 Discovery Modules · 17 Domains · Recursive Self-Improvement
+  <b>Autonomous Scientific Discovery Engine</b><br>
+  Give it a topic. It discovers.
 </p>
 
 <p align="center">
@@ -33,27 +33,19 @@
 
 ---
 
-## Abstract
+## What is RUMI?
 
-**RUMI** (Research & Unified Machine Intelligence) is an autonomous scientific cognition framework that generates novel, testable, evidence-grounded hypotheses through a multi-phase discovery pipeline. Unlike conventional AI assistants that search and summarize, RUMI implements a 12-phase discovery engine backed by a 44-module cognitive architecture inspired by dual-process theory, the Free Energy Principle, and causal inference frameworks.
+RUMI is an autonomous scientific discovery engine. You give it a topic — it reads papers, builds knowledge graphs, finds gaps and anomalies, generates hypotheses with mechanisms and equations, stress-tests them through adversarial debate and skeptic review, scores everything on 7 dimensions, and then improves itself afterward.
 
-The system addresses three fundamental limitations of current AI-assisted research:
+It doesn't search and summarize. It discovers.
 
-1. **Statelessness** — Conventional assistants begin each session from zero. RUMI maintains 9 types of persistent memory with Hebbian learning, episodic recall, and semantic vector search.
-
-2. **Reactivity** — Most tools wait for commands. RUMI implements curiosity-driven exploration, autonomous research goal pursuit, and proactive hypothesis generation.
-
-3. **Shallow reasoning** — Single-pass generation produces correlations, not mechanisms. RUMI implements multi-pass causal reasoning (Pearl's hierarchy), analogical reasoning (Gentner's structure mapping), neurosymbolic verification, and first-principles derivation.
-
-<p align="center">
-  <img src="assets/dashboard.png" alt="RUMI Discovery Dashboard" width="900" />
-</p>
+44 brain modules. 48 discovery modules. 17 scientific domains. Recursive self-improvement. All running locally on free-tier LLM APIs.
 
 ---
 
 ## Table of Contents
 
-- [Motivation](#motivation)
+- [What Makes It Different](#what-makes-it-different)
 - [Discovery Pipeline v2](#discovery-pipeline-v2)
 - [Scientific Rigor Framework](#scientific-rigor-framework)
 - [Cognitive Architecture](#cognitive-architecture)
@@ -63,18 +55,17 @@ The system addresses three fundamental limitations of current AI-assisted resear
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Limitations](#limitations)
-- [Future Work](#future-work)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## Motivation
+## What Makes It Different
 
-Contemporary AI assistants share a fundamental limitation: they are stateless, reactive, and single-model systems. Each session begins from zero — no memory of prior interactions, no model of the user, no awareness of their own capabilities. They wait for commands rather than anticipating needs. They route everything through one inference call regardless of task complexity.
+ChatGPT, Gemini, Claude — they're all stateless, reactive, and single-pass. Every session starts from zero. They wait for you to ask, give you one answer, and forget everything.
 
-RUMI addresses these limitations by implementing a cognitive architecture that mirrors aspects of human cognition, purpose-built for the scientific research lifecycle:
+RUMI works differently:
 
 | Dimension | Conventional Assistants | RUMI |
 |-----------|------------------------|-------|
@@ -89,9 +80,9 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 
 ---
 
-## Discovery Pipeline v2
+## Discovery Pipeline
 
-RUMI's discovery engine is not a research assistant. It's a discovery engine. The v2 pipeline runs 12 phases, each with algorithmic fallbacks and LLM-powered analysis:
+RUMI runs 12 phases back-to-back, each with algorithmic fallbacks and LLM-powered analysis:
 
 ```
 Phase 1:  Literature          arXiv + PubMed + Semantic Scholar (multi-query, snowball sampling)
@@ -110,9 +101,9 @@ Phase 12: Discovery Scoring   7-dimension quality gate (0-100) with grade assign
 
 ### Post-Processing Pipeline
 
-After the 12-phase discovery engine, RUMI runs two additional processing layers:
+After the 12-phase discovery engine, two more layers kick in:
 
-**Refinement Pipeline (13 stages):**
+**Refinement (13 stages):**
 1. Knowledge Foundation Audit — structured map of current knowledge
 2. First Principles Reconstruction — dependency trees back to axioms
 3. Mathematical Formalization — cap confidence at 20% if no equations
@@ -127,7 +118,7 @@ After the 12-phase discovery engine, RUMI runs two additional processing layers:
 12. Researcher-Grade Scoring — 7 metrics (evidence, math rigor, testability, novelty, contradiction handling, reproducibility, confidence)
 13. Scientific Courtroom — Prosecutor/Defense/Judge/Jury with self-critique
 
-**Reflexion (Recursive Self-Improvement):**
+**Reflexion (self-improvement):**
 - PostDiscoveryAnalyzer: identifies weaknesses in discovery runs
 - CodePatchGenerator: LLM-powered code fix generation
 - SandboxTester: syntax/compile/import checks before applying
@@ -173,7 +164,7 @@ Score: 80/100 — Grade: B
 Classification: extension
 ```
 
-### 17 Supported Domains
+### Supported Domains (17)
 
 | Domain | Key | Enrichment APIs |
 |--------|-----|-----------------|
@@ -195,7 +186,7 @@ Classification: extension
 | Physics | `physics` | arXiv |
 | General Science | `general` | Semantic Scholar |
 
-### Key Discovery Modules
+### Discovery Modules
 
 | Module | Purpose |
 |--------|---------|
@@ -222,11 +213,11 @@ Classification: extension
 
 ---
 
-## Scientific Rigor Framework
+## Quality Control
 
-RUMI implements multiple layers of quality control to ensure discoveries are scientifically rigorous, not just plausible-sounding:
+RUMI doesn't generate plausible-sounding nonsense and call it a discovery. Multiple layers of validation run on every output:
 
-### 1. Mechanism Validation
+### Mechanism Validation
 Every mechanism must include:
 - Causal chain (minimum 3 steps)
 - Inputs and outputs with expected magnitudes
@@ -236,7 +227,7 @@ Every mechanism must include:
 
 Generic mechanisms like "Hidden mechanism connecting X and Y" are automatically rejected.
 
-### 2. Prediction Validation
+### Prediction Validation
 Every prediction must be:
 - Quantitative (include numbers, not just direction)
 - Testable (specify measurement method)
@@ -244,7 +235,7 @@ Every prediction must be:
 
 Predictions without meaningful statements are skipped. Predictions with "if...then" structure and concrete values are preferred.
 
-### 3. Theory Competition
+### Theory Competition
 Multiple competing explanations are generated and scored on:
 - Evidence strength
 - Mathematical rigor
@@ -256,7 +247,7 @@ Multiple competing explanations are generated and scored on:
 
 Theories that are only correlational (no causal claims) receive a penalty.
 
-### 4. Skeptic Review
+### Skeptic Review
 Every theory undergoes adversarial critique that requires:
 - Strengths (what it explains well)
 - Weaknesses (specific, not vague)
@@ -266,7 +257,7 @@ Every theory undergoes adversarial critique that requires:
 
 The skeptic only recommends "reject" for fundamental logical flaws.
 
-### 5. Scientific Courtroom
+### Scientific Courtroom
 Final evaluation uses a Prosecutor/Defense/Judge/Jury structure:
 - **Prosecutor**: Attempts to destroy the hypothesis (3 strongest objections)
 - **Defense**: Counters each objection with evidence
@@ -274,22 +265,22 @@ Final evaluation uses a Prosecutor/Defense/Judge/Jury structure:
 - **Jury**: 5 domain experts vote (theoretical physicist, experimentalist, mathematician, philosopher of science, interdisciplinary researcher)
 - **Self-Critique**: The hypothesis critiques itself (weakest assumption, destroying evidence, falsification experiment)
 
-### 6. Discovery Classification
+### Discovery Classification
 Every output is classified to prevent inflation:
 - **Replication**: Confirms existing knowledge
 - **Synthesis**: Combines existing ideas
 - **Extension**: New application of known mechanisms
 - **Novel Theory**: Requires new mechanism, new prediction, new mathematics, and not present in literature
 
-### 7. Mathematical Rigor Scoring
+### Mathematical Rigor
 Theories without equations receive a penalty. Scoring checks for:
 - Equations/formulas present
 - Quantitative content (numbers)
 - Derivation stated (derived from, follows from)
 - Assumptions stated
 
-### 8. Recursive Self-Improvement (Reflexion)
-After every discovery run, RUMI analyzes its own performance:
+### Recursive Self-Improvement
+After every discovery run, RUMI looks at what went wrong and patches itself:
 - Identifies which modules underperformed
 - Generates concrete code patches via LLM
 - Tests patches in sandbox (syntax, compile, import)
@@ -298,9 +289,9 @@ After every discovery run, RUMI analyzes its own performance:
 
 ---
 
-## Cognitive Architecture
+## Architecture
 
-RUMI routes inputs through a layered pipeline inspired by dual-process theory and cognitive neuroscience:
+RUMI routes inputs through a layered pipeline inspired by how brains actually work:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -353,7 +344,7 @@ RUMI routes inputs through a layered pipeline inspired by dual-process theory an
 
 ### Research Foundations
 
-RUMI's architecture is grounded in peer-reviewed research:
+The architecture isn't random — it's based on actual cognitive science:
 
 | Research Area | Researcher(s) | Core Idea | RUMI Implementation |
 |--------------|---------------|-----------|---------------------|
@@ -471,15 +462,13 @@ RUMI's architecture is grounded in peer-reviewed research:
 
 ### Current Limitations
 
-1. **LLM Rate Limiting**: Free-tier Cerebras (30 req/min) causes some phases to fall back to algorithmic heuristics. Paid tiers or multiple API keys resolve this.
+1. **Paper Quality**: arXiv and Semantic Scholar sometimes return unrelated papers for broad queries. Narrow, domain-specific queries produce better results.
 
-2. **Paper Quality**: arXiv and Semantic Scholar sometimes return unrelated papers for broad queries. Narrow, domain-specific queries produce better results.
+2. **Refinement Scoring**: The researcher-grade scoring (Stage 12) sometimes returns F/0 when JSON parsing fails. Text-based fallback extraction is implemented but less accurate.
 
-3. **Refinement Scoring**: The researcher-grade scoring (Stage 12) sometimes returns F/0 when JSON parsing fails. Text-based fallback extraction is implemented but less accurate.
+3. **Domain Specificity**: The pipeline works best for physics, chemistry, and biology. Social sciences and humanities have less domain-specific ontologies.
 
-4. **Domain Specificity**: The pipeline works best for physics, chemistry, and biology. Social sciences and humanities have less domain-specific ontologies.
-
-5. **No GPU**: All computation is CPU-bound. Monte Carlo simulations and graph analysis are slower than GPU-accelerated alternatives.
+4. **No GPU**: All computation is CPU-bound. Monte Carlo simulations and graph analysis are slower than GPU-accelerated alternatives.
 
 ---
 
@@ -514,7 +503,7 @@ On first launch, RUMI prompts for your Cerebras, Gemini, and Groq API keys and s
 | `ModuleNotFoundError` | Run `pip install -e .` from project root |
 | First launch doesn't appear | Delete `config/api_keys.json` and restart |
 | `playwright not found` | Run `playwright install chromium` |
-| Cerebras rate limit errors | Normal for free tier — pipeline auto-retries with 5s backoff |
+
 | `sounddevice` fails on Linux | `sudo apt install portaudio19-dev` |
 | `pip install -e .` fails on macOS | `pip3 install -e .` + `xcode-select --install` |
 
@@ -787,23 +776,6 @@ methods. Use the physics domain.
 
 ---
 
-## Future Work
-
-1. **GPU Acceleration**: Monte Carlo simulations and graph analysis would benefit from GPU acceleration (CuPy, PyTorch Geometric).
-
-2. **Multi-Key Cerebras**: Support multiple Cerebras API keys to bypass rate limiting on free tiers.
-
-3. **Persistent Knowledge Graph**: Move from JSON-based graph to a proper graph database (Neo4j, ArangoDB) for faster traversal and querying.
-
-4. **Domain-Specific Fine-Tuning**: Fine-tune the hypothesis generator on domain-specific corpora to improve output quality.
-
-5. **Automated Experiment Design**: Generate complete experiment protocols with materials, methods, and statistical analysis plans.
-
-6. **Paper Generation**: Generate publication-ready papers from discovery results with proper citations and formatting.
-
-7. **Collaborative Discovery**: Multi-user discovery sessions where multiple researchers can contribute hypotheses and evidence.
-
-8. **Real-Time Literature Monitoring**: Continuously monitor arXiv, PubMed, and Semantic Scholar for new papers relevant to active discoveries.
 
 ---
 
