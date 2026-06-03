@@ -934,12 +934,16 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 for kp in key_params[:3]:
                     if isinstance(kp, dict):
                         pname = kp.get("name", "")
-                        pval = kp.get("value", kp.get("range", ""))
+                        pval = kp.get("value", kp.get("expected_value", kp.get("range", "")))
                         punits = kp.get("units", "")
-                        porigin = kp.get("origin", "")
-                        L.append(f"     Parameter: {pname} = {pval} {punits}")
-                        if porigin:
-                            L.append(f"       Origin: {porigin}")
+                        psource = kp.get("source", kp.get("origin", ""))
+                        pdetail = kp.get("source_detail", "")
+                        # Epistemic status label
+                        label_map = {"cited": "📚 CITED", "derived": "🔧 DERIVED", "estimated": "⚠ ESTIMATED"}
+                        label = label_map.get(psource, f"? {psource}" if psource else "")
+                        L.append(f"     Parameter: {pname} = {pval} {punits}  {label}")
+                        if pdetail:
+                            L.append(f"       Source: {str(pdetail)[:120]}")
             L.append("")
         L.append("")
 
@@ -969,6 +973,25 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 s_str = str(step)[:150] if step else ""
                 if s_str:
                     L.append(f"     Step {j+1}: {s_str}")
+            # Show key parameters with epistemic labels
+            mech_params = m.get("key_parameters", [])
+            if mech_params:
+                L.append(f"     Key parameters:")
+                for kp in mech_params[:4]:
+                    if isinstance(kp, dict):
+                        kpname = kp.get("name", "")
+                        kpval = kp.get("expected_value", kp.get("value", kp.get("range", "")))
+                        kpunits = kp.get("units", "")
+                        kpsource = kp.get("source", "")
+                        kpdetail = kp.get("source_detail", "")
+                        label_map = {"cited": "CITED", "derived": "DERIVED", "estimated": "ESTIMATED"}
+                        label = label_map.get(kpsource, kpsource if kpsource else "")
+                        kpline = f"       {kpname} = {kpval} {kpunits}"
+                        if label:
+                            kpline += f"  [{label}]"
+                        L.append(kpline)
+                        if kpdetail:
+                            L.append(f"         {str(kpdetail)[:100]}")
             L.append("")
         L.append("")
 

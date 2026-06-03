@@ -101,6 +101,11 @@ CRITICAL REQUIREMENTS:
 3. Every prediction MUST include expected MAGNITUDE (not just direction)
 4. Identify the KEY PARAMETER that controls the mechanism and its expected range
 5. Distinguish: is this a KNOWN mechanism applied in new context, or genuinely NOVEL?
+6. EPISTEMIC LABELING: For every key_parameter, label its source:
+   - "cited": the value/range comes from a specific paper in the literature (cite it in source_detail)
+   - "derived": the value is calculated from other parameters via equations in the mechanism
+   - "estimated": the value is your best physical estimate, NOT from literature — state your reasoning
+   NEVER present an estimated value as if it were cited. Transparency is more important than confidence.
 
 For each mechanism, provide:
 1. A clear name (descriptive, not creative)
@@ -128,7 +133,7 @@ Output JSON:
       ],
       "mathematical_model": "Equations governing this mechanism (e.g. rate equations, thresholds)",
       "key_parameters": [
-        {{"name": "parameter_name", "expected_value": "order of magnitude or range", "units": "units"}}
+        {{"name": "parameter_name", "expected_value": "order of magnitude or range", "units": "units", "source": "cited|derived|estimated", "source_detail": "paper citation or derivation basis or estimation rationale"}}
       ],
       "literature_basis": ["cite 2-3 related known mechanisms or papers"],
       "is_novel_vs_known": "novel|extension_of_known|new_context_for_known",
@@ -181,6 +186,8 @@ Prefer mechanisms that make counterfactual predictions (most powerful causal lev
                         # Ensure minimum 2 steps
                         if len(m["steps"]) < 2:
                             m["steps"] = [m.get("description", "Unknown mechanism")]
+                        # Validate epistemic labels on key_parameters
+                        self._validate_parameter_sources(m, papers or [])
                     return result
 
         except Exception as e:
@@ -350,3 +357,72 @@ Output JSON:
         entities = self.graph.entities if hasattr(self.graph, 'entities') else {}
         relationships = self.graph.relationships if hasattr(self.graph, 'relationships') else {}
         return f"Graph: {len(entities)} entities, {len(relationships)} relationships"
+
+    def _validate_parameter_sources(self, mechanism: dict, papers: list):
+        """
+        Validate epistemic labels on key_parameters.
+        If LLM claims 'cited' but the value isn't traceable to provided papers,
+        downgrade to 'estimated'. This prevents hallucinated citations.
+        """
+        # Build searchable text from paper abstracts and titles
+        paper_text = ""
+        for p in papers:
+            if isinstance(p, dict):
+                paper_text += " " + p.get("title", "") + " " + p.get("abstract", "")
+        paper_text = paper_text.lower()
+
+        # Also check literature_basis from the mechanism itself
+        lit_basis = mechanism.get("literature_basis", [])
+        lit_text = " ".join(str(x) for x in lit_basis).lower()
+
+        combined_context = paper_text + " " + lit_text
+
+        key_params = mechanism.get("key_parameters", [])
+        if not key_params:
+            return
+
+        for kp in key_params:
+            if not isinstance(kp, dict):
+                continue
+
+            source = kp.get("source", "")
+            source_detail = kp.get("source_detail", "")
+            expected_value = str(kp.get("expected_value", ""))
+            param_name = kp.get("name", "")
+
+            # Ensure source field exists
+            if not source:
+                kp["source"] = "estimated"
+                kp["source_detail"] = "No source label provided — defaulting to estimated"
+                continue
+
+            # If claimed 'cited', verify the citation is traceable
+            if source == "cited":
+                # Check if source_detail references a real paper
+                if not source_detail:
+                    kp["source"] = "estimated"
+                    kp["source_detail"] = "Claimed cited but no citation provided — downgraded to estimated"
+                    continue
+
+                # Check if any keywords from the citation appear in our papers
+                citation_words = set(source_detail.lower().split())
+                # Remove common words
+                stop_words = {"the", "a", "an", "in", "of", "to", "for", "and", "or", "by", "et", "al", "from"}
+                citation_words -= stop_words
+                citation_words = {w for w in citation_words if len(w) > 3}
+
+                if citation_words:
+                    matches = sum(1 for w in citation_words if w in combined_context)
+                    # If less than 20% of citation words appear in our papers, it's suspicious
+                    if matches < max(1, len(citation_words) * 0.2):
+                        kp["source"] = "estimated"
+                        kp["source_detail"] = f"Claimed cited ('{source_detail[:80]}') but could not verify against provided literature — downgraded to estimated. Original claim preserved."
+                        kp["original_source_claim"] = source_detail
+
+            # If 'derived', verify there's a derivation basis
+            elif source == "derived":
+                if not source_detail:
+                    kp["source"] = "estimated"
+                    kp["source_detail"] = "Claimed derived but no derivation shown — downgraded to estimated"
+
+            # 'estimated' is always valid — no validation needed
