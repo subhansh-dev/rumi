@@ -218,7 +218,7 @@ def _call_gemini(prompt: str, json_mode: bool = False,
 _cerebras_last_call = 0.0
 
 CEREBRAS_MODEL = "gpt-oss-120b"
-CEREBRAS_MIN_INTERVAL = 2.0  # 30 req/min free tier
+CEREBRAS_MIN_INTERVAL = 2.5  # 30 req/min free tier — 2.5s to be safe
 
 
 def _get_cerebras_keys() -> list[str]:
@@ -280,7 +280,25 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
             if content and len(content) > 2:
                 return content.strip()
         elif resp.status_code == 429:
-            return None  # rate limited
+            # Rate limited — wait and retry once
+            time.sleep(5)
+            _rate_limit_cerebras()
+            try:
+                resp2 = requests.post(
+                    "https://api.cerebras.ai/v1/chat/completions",
+                    headers=headers, json=payload, timeout=60,
+                )
+                if resp2.status_code == 200:
+                    data = resp2.json()
+                    choice = data.get("choices", [{}])[0].get("message", {})
+                    content = choice.get("content", "")
+                    if not content or len(content) < 3:
+                        content = choice.get("reasoning", "")
+                    if content and len(content) > 2:
+                        return content.strip()
+            except Exception:
+                pass
+            return None
         elif resp.status_code in (401, 403):
             return None  # auth error
         elif resp.status_code == 400:

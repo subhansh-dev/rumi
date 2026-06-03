@@ -387,9 +387,12 @@ If any reviewer finds a fatal flaw, set survived to false."""
     result = _llm(prompt, max_tokens=4096, json_mode=True)
     if not result:
         return {"reviews": [], "fatal_count": 0, "survived": True}
-    if isinstance(result, str):
-        # LLM returned raw text, not JSON — extract what we can
-        return {"reviews": [], "fatal_count": 0, "survived": True, "raw": result[:500]}
+    if isinstance(result, str) or (isinstance(result, dict) and result.get("_parse_failed")):
+        # LLM returned raw text — extract what we can
+        raw = result if isinstance(result, str) else result.get("_raw", "")
+        fatal_count = raw.lower().count("fatal")
+        survived = "fatal" not in raw.lower() or "no fatal" in raw.lower()
+        return {"reviews": [], "fatal_count": fatal_count, "survived": survived, "raw": raw[:500]}
     return result
 
 
@@ -466,8 +469,8 @@ Return JSON:
 }}"""
 
     result = _llm(prompt, max_tokens=2048, json_mode=True)
-    if not result:
-        return {"decomposition": {"data_uncertainty": {"score": 50, "reason": "unknown"}, "model_uncertainty": {"score": 50, "reason": "unknown"}, "assumption_uncertainty": {"score": 50, "reason": "unknown"}, "measurement_uncertainty": {"score": 50, "reason": "unknown"}}, "overall_confidence": 0.5, "limiting_factor": "unknown"}
+    if not result or (isinstance(result, dict) and result.get("_parse_failed")):
+        return {"decomposition": {"data_uncertainty": {"score": 50, "reason": "unknown"}, "model_uncertainty": {"score": 50, "reason": "unknown"}, "assumption_uncertainty": {"score": 50, "reason": "unknown"}, "measurement_uncertainty": {"score": 50, "reason": "unknown"}}, "overall_confidence": 0.5, "limiting_factor": "assumption_uncertainty"}
     return result
 
 
@@ -658,9 +661,26 @@ Return JSON:
     result = _llm(prompt, max_tokens=4096, json_mode=True)
     if not result:
         return {"scores": {}, "grade": "F", "overall_score": 0}
-    if isinstance(result, str):
-        # LLM returned raw text — try to extract score from text
-        return {"scores": {}, "grade": "F", "overall_score": 0, "raw": result[:500]}
+    if isinstance(result, str) or (isinstance(result, dict) and result.get("_parse_failed")):
+        # LLM returned raw text — try to extract scores
+        raw = result if isinstance(result, str) else result.get("_raw", "")
+        scores = {}
+        # Try to find numbers in the text
+        import re
+        for metric in ["evidence", "mathematical_rigor", "experimental_testability",
+                       "novelty", "contradiction_handling", "reproducibility", "confidence"]:
+            # Look for patterns like "evidence: 65" or "Evidence Score: 65/100"
+            pattern = rf'{metric}[:\s]+(\d+)'
+            match = re.search(pattern, raw, re.IGNORECASE)
+            if match:
+                scores[metric] = int(match.group(1))
+        # Try to find grade
+        grade_match = re.search(r'grade[:\s]+([A-F])', raw, re.IGNORECASE)
+        grade = grade_match.group(1).upper() if grade_match else "F"
+        # Try to find overall score
+        score_match = re.search(r'overall[_\s]*score[:\s]+(\d+)', raw, re.IGNORECASE)
+        overall = int(score_match.group(1)) if score_match else (sum(scores.values()) // len(scores) if scores else 0)
+        return {"scores": scores, "grade": grade, "overall_score": overall}
     return result
 
 
