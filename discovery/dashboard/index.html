@@ -2,221 +2,1323 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>RUMI Discovery Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RUMI — Discovery Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/dist/vis-network.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg-void: #000000;
+    --bg-surface: rgba(255,255,255,0.03);
+    --bg-card: rgba(255,255,255,0.04);
+    --bg-card-hover: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.06);
+    --border-bright: rgba(255,255,255,0.12);
+    --text-primary: #e8e8e8;
+    --text-secondary: #777;
+    --text-dim: #444;
+    --accent: #00d4aa;
+    --accent-glow: rgba(0,212,170,0.15);
+    --accent-dim: rgba(0,212,170,0.4);
+    --danger: #ff4466;
+    --danger-glow: rgba(255,68,102,0.15);
+    --warn: #ffaa00;
+    --warn-glow: rgba(255,170,0,0.15);
+    --blue: #4488ff;
+    --blue-glow: rgba(68,136,255,0.15);
+    --purple: #aa66ff;
+    --purple-glow: rgba(170,102,255,0.15);
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', -apple-system, sans-serif;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', monospace; }
-  .tab-bar { display: flex; background: #16213e; padding: 8px; gap: 4px; }
-  .tab { padding: 10px 24px; cursor: pointer; color: #8899aa; border-radius: 4px 4px 0 0; }
-  .tab:hover { background: #0f3460; }
-  .tab.active { color: #00d4aa; background: #1a1a2e; border-bottom: 2px solid #00d4aa; }
-  #graph-container { width: 100%; height: 80vh; }
-  .hypothesis-card { background: #16213e; margin: 12px; padding: 16px; border-radius: 8px; border-left: 4px solid #00d4aa; }
-  .hypothesis-card h3 { color: #00d4aa; margin-bottom: 8px; }
-  .evidence { font-size: 0.9em; color: #aabbcc; margin-top: 8px; padding-left: 16px; }
-  .stat-grid { display: flex; flex-wrap: wrap; gap: 16px; padding: 20px; }
-  .stat-box { background: #16213e; padding: 24px; border-radius: 8px; min-width: 160px; text-align: center; }
-  .stat-value { font-size: 2.5em; color: #00d4aa; font-weight: bold; }
-  .stat-label { color: #8899aa; font-size: 0.9em; margin-top: 4px; }
-  .hidden { display: none; }
-  #papers-container { padding: 20px; }
-  .paper-item { background: #16213e; margin: 8px 0; padding: 12px; border-radius: 4px; }
-  #paper-search { width: 100%; padding: 10px; margin-bottom: 12px; background: #16213e; border: 1px solid #333; color: #e0e0e0; border-radius: 4px; }
-  .node-label { color: #e0e0e0; }
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Layout ─────────────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-rows: 48px 1fr;
+    grid-template-columns: 220px 1fr;
+    height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  .header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .logo-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+    50% { opacity: 0.5; box-shadow: 0 0 4px var(--accent); }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .run-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .run-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .run-dot.idle { background: var(--text-dim); }
+  .run-dot.running { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  .run-dot.error { background: var(--danger); }
+
+  /* ── Sidebar ────────────────────────────────────── */
+  .sidebar {
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    padding: 12px 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .sidebar-section {
+    padding: 0 12px;
+    margin-bottom: 20px;
+  }
+
+  .sidebar-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    padding: 0 8px;
+    margin-bottom: 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 400;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .nav-item:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+  }
+
+  .nav-item.active {
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .nav-icon {
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+    opacity: 0.7;
+  }
+
+  .nav-item.active .nav-icon { opacity: 1; }
+
+  .nav-badge {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--bg-card);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+
+  .nav-item.active .nav-badge {
+    color: var(--accent-dim);
+    background: var(--accent-glow);
+  }
+
+  /* ── Run History in sidebar ─────────────────────── */
+  .run-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .run-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+  }
+
+  .run-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .run-item.active { background: var(--accent-glow); color: var(--accent); }
+
+  .run-score {
+    margin-left: auto;
+    font-weight: 600;
+  }
+
+  .run-score.high { color: var(--accent); }
+  .run-score.mid { color: var(--warn); }
+  .run-score.low { color: var(--danger); }
+
+  /* ── Main Content ───────────────────────────────── */
+  .main {
+    overflow-y: auto;
+    padding: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Overview Grid ──────────────────────────────── */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .metric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .metric-card:hover {
+    border-color: var(--border-bright);
+    background: var(--bg-card-hover);
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .metric-card:hover::before { opacity: 1; }
+
+  .metric-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .metric-value.accent { color: var(--accent); }
+  .metric-value.warn { color: var(--warn); }
+  .metric-value.danger { color: var(--danger); }
+  .metric-value.blue { color: var(--blue); }
+
+  .metric-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  /* ── Phase Pipeline ─────────────────────────────── */
+  .pipeline-strip {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 20px;
+    padding: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+
+  .phase-block {
+    flex: 1;
+    min-width: 70px;
+    padding: 8px 6px;
+    text-align: center;
+    border-radius: 4px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .phase-block:hover {
+    border-color: var(--border-bright);
+    background: var(--bg-card-hover);
+  }
+
+  .phase-block.done {
+    border-color: var(--accent-dim);
+    background: var(--accent-glow);
+  }
+
+  .phase-block.error {
+    border-color: rgba(255,68,102,0.3);
+    background: var(--danger-glow);
+  }
+
+  .phase-block.skipped {
+    opacity: 0.3;
+  }
+
+  .phase-num {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+
+  .phase-block.done .phase-num { color: var(--accent-dim); }
+
+  .phase-name {
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    line-height: 1.3;
+  }
+
+  .phase-block.done .phase-name { color: var(--accent); }
+
+  .phase-time {
+    font-family: var(--mono);
+    font-size: 8px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* ── Discovery Score Gauge ──────────────────────── */
+  .score-section {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .score-gauge {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gauge-ring {
+    position: relative;
+    width: 120px;
+    height: 120px;
+  }
+
+  .gauge-ring svg {
+    transform: rotate(-90deg);
+  }
+
+  .gauge-ring .gauge-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 8;
+  }
+
+  .gauge-ring .gauge-fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease;
+  }
+
+  .gauge-score {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .gauge-grade {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  /* ── Theory Cards ───────────────────────────────── */
+  .theory-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .theory-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .theory-card:hover {
+    border-color: var(--border-bright);
+    background: var(--bg-card-hover);
+  }
+
+  .theory-card.winner {
+    border-color: var(--accent-dim);
+    border-left: 3px solid var(--accent);
+  }
+
+  .theory-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .theory-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .theory-score {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .theory-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .theory-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* ── Gap/Anomaly Cards ──────────────────────────── */
+  .finding-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+  }
+
+  .finding-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    transition: all 0.2s ease;
+  }
+
+  .finding-card:hover {
+    border-color: var(--border-bright);
+  }
+
+  .finding-type {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .finding-type.gap { color: var(--blue); }
+  .finding-type.anomaly { color: var(--warn); }
+  .finding-type.mechanism { color: var(--purple); }
+  .finding-type.prediction { color: var(--accent); }
+
+  .finding-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .finding-score {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  /* ── Graph Container ────────────────────────────── */
+  #graph-view {
+    height: calc(100vh - 120px);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Papers ─────────────────────────────────────── */
+  .paper-search {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 12px;
+    margin-bottom: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .paper-search:focus { border-color: var(--accent-dim); }
+
+  .paper-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 6px;
+    transition: all 0.15s ease;
+  }
+
+  .paper-item:hover {
+    border-color: var(--border-bright);
+    background: var(--bg-card-hover);
+  }
+
+  .paper-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .paper-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .paper-meta a {
+    color: var(--accent-dim);
+    text-decoration: none;
+  }
+
+  .paper-meta a:hover { color: var(--accent); }
+
+  /* ── Section Headers ────────────────────────────── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .section-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+  }
+
+  .section-count {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+
+  /* ── Empty State ────────────────────────────────── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .empty-state .empty-icon {
+    font-size: 32px;
+    opacity: 0.3;
+    margin-bottom: 8px;
+  }
+
+  /* ── Responsive ─────────────────────────────────── */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .overview-grid { grid-template-columns: repeat(2, 1fr); }
+    .score-section { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<div class="tab-bar">
-  <div class="tab active" onclick="switchTab('graph')">Graph</div>
-  <div class="tab" onclick="switchTab('hypotheses')">Hypotheses</div>
-  <div class="tab" onclick="switchTab('contradictions')">Contradictions</div>
-  <div class="tab" onclick="switchTab('molecules')">Molecules</div>
-  <div class="tab" onclick="switchTab('papers')">Papers</div>
-  <div class="tab" onclick="switchTab('stats')">Stats</div>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <span class="logo">RUMI</span>
+      <span class="logo-dot"></span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">Discovery Dashboard</span>
+    </div>
+    <div class="header-right">
+      <div class="run-indicator">
+        <span class="run-dot idle" id="status-dot"></span>
+        <span id="status-text">No runs yet</span>
+      </div>
+      <span id="last-run-time">—</span>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Pipeline</div>
+      <div class="nav-item active" data-view="overview">
+        <span class="nav-icon">◈</span> Overview
+      </div>
+      <div class="nav-item" data-view="pipeline">
+        <span class="nav-icon">▸</span> Phases
+      </div>
+      <div class="nav-item" data-view="theories">
+        <span class="nav-icon">◎</span> Theories
+        <span class="nav-badge" id="theories-count">—</span>
+      </div>
+      <div class="nav-item" data-view="gaps">
+        <span class="nav-icon">◇</span> Gaps
+        <span class="nav-badge" id="gaps-count">—</span>
+      </div>
+      <div class="nav-item" data-view="anomalies">
+        <span class="nav-icon">△</span> Anomalies
+        <span class="nav-badge" id="anomalies-count">—</span>
+      </div>
+      <div class="nav-item" data-view="predictions">
+        <span class="nav-icon">▷</span> Predictions
+        <span class="nav-badge" id="predictions-count">—</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Data</div>
+      <div class="nav-item" data-view="graph">
+        <span class="nav-icon">⊛</span> Knowledge Graph
+      </div>
+      <div class="nav-item" data-view="papers">
+        <span class="nav-icon">▤</span> Papers
+        <span class="nav-badge" id="papers-count">—</span>
+      </div>
+      <div class="nav-item" data-view="contradictions">
+        <span class="nav-icon">⚡</span> Contradictions
+        <span class="nav-badge" id="contradictions-count">—</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Run History</div>
+      <div class="run-list" id="run-history">
+        <div style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--text-dim);">No runs yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+
+    <!-- Overview -->
+    <div class="view active" id="view-overview">
+      <div class="overview-grid" id="metrics-grid">
+        <!-- Populated by JS -->
+      </div>
+      <div class="pipeline-strip" id="pipeline-strip">
+        <!-- Populated by JS -->
+      </div>
+      <div class="score-section">
+        <div class="score-gauge" id="score-gauge">
+          <!-- Populated by JS -->
+        </div>
+        <div>
+          <div class="section-header">
+            <span class="section-title">Top Theory</span>
+          </div>
+          <div id="top-theory-preview">
+            <div class="empty-state" style="height:200px;">
+              <span class="empty-icon">◎</span>
+              <span>Run a discovery to see results</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline Phases -->
+    <div class="view" id="view-pipeline">
+      <div class="section-header">
+        <span class="section-title">Pipeline Phases</span>
+      </div>
+      <div id="phases-detail"></div>
+    </div>
+
+    <!-- Theories -->
+    <div class="view" id="view-theories">
+      <div class="section-header">
+        <span class="section-title">Theory Competition</span>
+        <span class="section-count" id="theories-detail-count">—</span>
+      </div>
+      <div class="theory-list" id="theories-list"></div>
+    </div>
+
+    <!-- Gaps -->
+    <div class="view" id="view-gaps">
+      <div class="section-header">
+        <span class="section-title">Knowledge Gaps</span>
+        <span class="section-count" id="gaps-detail-count">—</span>
+      </div>
+      <div class="finding-grid" id="gaps-grid"></div>
+    </div>
+
+    <!-- Anomalies -->
+    <div class="view" id="view-anomalies">
+      <div class="section-header">
+        <span class="section-title">Anomalies</span>
+        <span class="section-count" id="anomalies-detail-count">—</span>
+      </div>
+      <div class="finding-grid" id="anomalies-grid"></div>
+    </div>
+
+    <!-- Predictions -->
+    <div class="view" id="view-predictions">
+      <div class="section-header">
+        <span class="section-title">Predictions</span>
+        <span class="section-count" id="predictions-detail-count">—</span>
+      </div>
+      <div class="finding-grid" id="predictions-grid"></div>
+    </div>
+
+    <!-- Knowledge Graph -->
+    <div class="view" id="view-graph">
+      <div id="graph-view"></div>
+    </div>
+
+    <!-- Papers -->
+    <div class="view" id="view-papers">
+      <div class="section-header">
+        <span class="section-title">Papers</span>
+        <span class="section-count" id="papers-detail-count">—</span>
+      </div>
+      <input type="text" class="paper-search" id="paper-search" placeholder="Search papers...">
+      <div id="papers-list"></div>
+    </div>
+
+    <!-- Contradictions -->
+    <div class="view" id="view-contradictions">
+      <div class="section-header">
+        <span class="section-title">Contradictions</span>
+        <span class="section-count" id="contradictions-detail-count">—</span>
+      </div>
+      <div class="finding-grid" id="contradictions-grid"></div>
+    </div>
+
+  </div>
 </div>
-<div id="graph-container"></div>
-<div id="hypotheses-container" class="hidden" style="padding:20px;max-height:80vh;overflow-y:auto;"></div>
-<div id="contradictions-container" class="hidden" style="padding:20px;max-height:80vh;overflow-y:auto;"></div>
-<div id="molecules-container" class="hidden" style="padding:20px;max-height:80vh;overflow-y:auto;"></div>
-<div id="papers-container" class="hidden"></div>
-<div id="stats-container" class="hidden"></div>
+
 <script>
-const COLORS = {drug:'#4ade80', disease:'#f87171', gene:'#60a5fa', protein:'#a78bfa', mechanism:'#fb923c', pathway:'#fbbf24', side_effect:'#e879f9', property:'#fcd34d', cell_type:'#34d399', material:'#ff6b6b', compound:'#4ecdc4', synthesis_method:'#45b7d1', application:'#96ceb4', element:'#ffeaa7', brain_region:'#dda0dd', neurotransmitter:'#98fb98', disorder:'#f08080', behavior:'#ffd700', neuron_type:'#20b2aa', organism:'#34d399', phenotype:'#f87171', emission_source:'#ff7675', technology:'#74b9ff', policy:'#a29bfe', impact:'#fd79a8', region:'#55efc4', resource:'#ffeaa7', concept:'#dfe6e9', method:'#74b9ff', finding:'#55efc4'};
-let network = null;
+// ══════════════════════════════════════════════════════
+//  Data Loading
+// ══════════════════════════════════════════════════════
 
-async function loadGraph() {
-  try {
-    const resp = await fetch('../../discovery/graph/knowledge_graph.json');
-    const data = await resp.json();
-    const nodes = [], edges = [];
-    const ents = data.entities || {};
-    for (const [id, e] of Object.entries(ents)) {
-      nodes.push({ id, label: e.name, title: e.type + ': ' + e.name + '\nPapers: ' + (e.papers||[]).length, color: COLORS[e.type]||'#94a3b8', shape: 'dot', size: 20 + Math.min((e.papers||[]).length * 3, 30) });
-    }
-    const rels = data.relationships || [];
-    for (const r of rels) {
-      edges.push({ from: r.source, to: r.target, label: r.relation, title: 'Confidence: ' + r.confidence, width: (r.confidence||0.5)*3, color: { color: '#64748b', highlight: '#00d4aa' }, font: { size: 10, color: '#94a3b8' } });
-    }
-    const container = document.getElementById('graph-container');
-    network = new vis.Network(container, { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) }, {
-      physics: { solver: 'forceAtlas2Based', stabilization: { iterations: 200 } },
-      interaction: { hover: true, tooltipDelay: 100 },
-      nodes: { borderWidth: 2, font: { color: '#e0e0e0', size: 12 } },
-    });
-  } catch(e) { document.getElementById('graph-container').innerHTML = '<p style="padding:40px;color:#8899aa;">No graph data yet. Run /discover first.</p>'; }
-}
-
-async function loadHypotheses() {
-  try {
-    const resp = await fetch('../../discovery/hypotheses/active.json');
-    const hyps = await resp.json();
-    const container = document.getElementById('hypotheses-container');
-    container.innerHTML = hyps.map(function(h,i) {
-      var mg = h.mathematical_grounding || {};
-      var mgHtml = '';
-      if (mg.primary_metric) {
-        mgHtml = '<div style="margin-top:8px;padding:8px;background:#0f3460;border-radius:4px;font-size:0.85em;">'
-          + '<strong>Mathematical Grounding:</strong><br>'
-          + '<span style="color:#fbbf24;">Primary: ' + mg.primary_metric + ' = ' + mg.metric_value + '</span>'
-          + '<br><em>' + (mg.metric_definition||'') + '</em>';
-        if (mg.supporting_metrics) {
-          for (var mk in mg.supporting_metrics) {
-            mgHtml += '<br>' + mk + ': ' + mg.supporting_metrics[mk];
-          }
-        }
-        mgHtml += '</div>';
-      }
-      var nodesHtml = '';
-      if ((h.nodes||[]).length) {
-        nodesHtml = '<div style="margin-top:8px;font-size:0.85em;"><strong>Nodes:</strong><ul style="padding-left:16px;margin:4px 0;">'
-          + h.nodes.map(function(n) {
-            var cond = n.conditions ? ' — ' + n.conditions : '';
-            var meta = (n.degree !== undefined ? ' deg=' + n.degree : '') + (n.betweenness !== undefined ? ' bw=' + n.betweenness : '') + (n.papers_count !== undefined ? ' papers=' + n.papers_count : '');
-            return '<li><span style="color:' + (COLORS[n.type]||'#94a3b8') + ';">' + n.name + '</span> (' + n.type + ')' + meta + (n.definition ? '<br><em>' + n.definition + '</em>' : '') + cond + '</li>';
-          }).join('') + '</ul></div>';
-      }
-      var edgesHtml = '';
-      if ((h.edges||[]).length) {
-        edgesHtml = '<div style="margin-top:8px;font-size:0.85em;"><strong>Edges:</strong><ul style="padding-left:16px;margin:4px 0;">'
-          + h.edges.map(function(e) {
-            var pstr = (e.papers||[]).length ? ' [' + e.papers.slice(0,3).join(' ') + ']' : '';
-            return '<li>' + e.source + ' → <span style="color:#00d4aa;">' + e.relation + '</span> → ' + e.target + pstr + (e.definition ? '<br><em>' + e.definition + '</em>' : '') + '</li>';
-          }).join('') + '</ul></div>';
-      }
-      return '<div class="hypothesis-card"><h3>Hypothesis ' + (i+1) + ': ' + (h.title||'Untitled') + '</h3>'
-        + '<div style="color:#8899aa;font-size:0.9em;margin-bottom:4px;">'
-        + 'Pattern: <span style="color:#fbbf24;">' + (h.pattern_type||'unknown').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}) + '</span>'
-        + ' | Confidence: ' + Math.round((h.confidence||0)*100) + '%'
-        + ' | Novelty: ' + (h.novelty||'medium').toUpperCase()
-        + '</div>'
-        + '<p>' + (h.description||'') + '</p>'
-        + mgHtml + nodesHtml + edgesHtml
-        + '<div class="evidence"><strong>Evidence:</strong><ul>' + ((h.evidence||[]).map(function(e) { return '<li>' + e + '</li>'; }).join('')) + '</ul></div>'
-        + '<div style="margin-top:8px;color:#8899aa;font-size:0.85em;">Papers: ' + (h.papers||[]).join(', ') + '<br>Testability: ' + (h.testability||'N/A') + '</div></div>';
-    }).join('');
-  } catch(e) { document.getElementById('hypotheses-container').innerHTML = '<p style="padding:20px;color:#8899aa;">No hypotheses yet.</p>'; }
-}
-
-async function loadPapers() {
-  try {
-    const resp = await fetch('../../discovery/graph/knowledge_graph.json');
-    const data = await resp.json();
-    const papers = Object.values(data.papers || {});
-    const container = document.getElementById('papers-container');
-    container.innerHTML = '<input type="text" id="paper-search" placeholder="Search papers..." oninput="filterPapers()">'
-      + '<div id="paper-list">' + papers.map(function(p) {
-        return '<div class="paper-item"><strong>' + (p.title||'') + '</strong><br><span style="color:#8899aa;font-size:0.85em;">PMID: ' + (p.pmid||'') + ' | <a href="' + (p.url||'') + '" target="_blank" style="color:#00d4aa;">View</a></span></div>';
-      }).join('') + '</div>';
-    window._papers = papers;
-  } catch(e) { document.getElementById('papers-container').innerHTML = '<p style="padding:20px;color:#8899aa;">No papers yet.</p>'; }
-}
-
-window.filterPapers = function() {
-  var q = (document.getElementById('paper-search').value||'').toLowerCase();
-  var filtered = (window._papers||[]).filter(function(p) { return (p.title||'').toLowerCase().includes(q); });
-  document.getElementById('paper-list').innerHTML = filtered.map(function(p) {
-    return '<div class="paper-item"><strong>' + (p.title||'') + '</strong><br><span style="color:#8899aa;font-size:0.85em;">PMID: ' + (p.pmid||'') + '</span></div>';
-  }).join('');
+const COLORS = {
+  drug:'#4ade80', disease:'#f87171', gene:'#60a5fa', protein:'#a78bfa',
+  mechanism:'#fb923c', pathway:'#fbbf24', side_effect:'#e879f9', property:'#fcd34d',
+  cell_type:'#34d399', material:'#ff6b6b', compound:'#4ecdc4', synthesis_method:'#45b7d1',
+  application:'#96ceb4', element:'#ffeaa7', brain_region:'#dda0dd', neurotransmitter:'#98fb98',
+  disorder:'#f08080', behavior:'#ffd700', neuron_type:'#20b2aa', organism:'#34d399',
+  phenotype:'#f87171', emission_source:'#ff7675', technology:'#74b9ff', policy:'#a29bfe',
+  impact:'#fd79a8', region:'#55efc4', resource:'#ffeaa7', concept:'#dfe6e9',
+  method:'#74b9ff', finding:'#55efc4', phenomenon:'#fb923c', unknown:'#94a3b8'
 };
 
-async function loadStats() {
-  try {
-    const resp = await fetch('../../discovery/graph/knowledge_graph.json');
-    const data = await resp.json();
-    var ents = Object.values(data.entities||{}), rels = data.relationships||[], papers = Object.values(data.papers||{});
-    var etypes = {};
-    ents.forEach(function(e) { etypes[e.type] = (etypes[e.type]||0) + 1; });
-    var html = '<div class="stat-grid">';
-    html += statBox(papers.length, 'Papers') + statBox(ents.length, 'Entities') + statBox(rels.length, 'Relationships');
-    for (var t in etypes) { html += statBoxColored(etypes[t], t, COLORS[t]||'#e0e0e0'); }
-    html += '</div>';
-    document.getElementById('stats-container').innerHTML = html;
-  } catch(e) { document.getElementById('stats-container').innerHTML = '<p style="padding:20px;color:#8899aa;">No stats yet.</p>'; }
+let currentData = null;
+let network = null;
+
+async function loadAllData() {
+  // Try v2 reports first, then v1
+  const reports = await loadV2Reports();
+  const kg = await loadJSON('../../discovery/graph/knowledge_graph.json');
+  const hyps = await loadJSON('../../discovery/hypotheses/active.json');
+  const contras = await loadJSON('../../discovery/contradictions/active.json');
+
+  currentData = {
+    reports,
+    latestReport: reports.length ? reports[reports.length - 1] : null,
+    kg: kg || { entities: {}, relationships: [], papers: {} },
+    hypotheses: hyps || [],
+    contradictions: contras || [],
+  };
+
+  renderAll();
 }
 
-function statBox(val, label) { return '<div class="stat-box"><div class="stat-value">' + val + '</div><div class="stat-label">' + label + '</div></div>'; }
-function statBoxColored(val, label, color) { return '<div class="stat-box"><div class="stat-value" style="color:' + color + '">' + val + '</div><div class="stat-label">' + label + '</div></div>'; }
-
-async function loadContradictions() {
+async function loadV2Reports() {
+  // Scan data/ for discovery_v2_*.json files
   try {
-    const resp = await fetch('../../discovery/contradictions/active.json');
-    const ccs = await resp.json();
-    const container = document.getElementById('contradictions-container');
-    container.innerHTML = ccs.map(function(c,i) {
-      var icon = c.severity === 'high' ? '🟥' : c.severity === 'medium' ? '🟧' : '🟩';
-      var detail = '';
-      if (c.type === 'direct') {
-        detail = '<br>Paper A: ' + (c.papers_a||[]).slice(0,3).join(', ') + '<br>Paper B: ' + (c.papers_b||[]).slice(0,3).join(', ');
-      } else if (c.type === 'confidence') {
-        detail = '<br>Range: ' + c.min_confidence + ' – ' + c.max_confidence;
-      } else if (c.type === 'path') {
-        detail = '<br>Chain: ' + c.source_name + ' → ' + (c.intermediate_name||'') + ' → ' + c.target_name;
-      } else if (c.type === 'side_effect') {
-        detail = '<br>Side effects: ' + (c.side_effects||[]).join(', ');
+    // We can't list a directory from the browser, so try sequential timestamps
+    const reports = [];
+    // Try to load the index of reports (generated by RUMI)
+    const idx = await loadJSON('../../data/reports_index.json');
+    if (idx && Array.isArray(idx)) {
+      for (const path of idx.slice(-20)) {
+        const r = await loadJSON('../../' + path);
+        if (r) reports.push(r);
       }
-      return '<div class="hypothesis-card" style="border-left-color:' + (c.severity==='high'?'#f87171':c.severity==='medium'?'#fbbf24':'#4ade80') + ';">'
-        + '<h3>' + icon + ' ' + c.type.replace(/_/g,' ').replace(/\b\w/g,function(s){return s.toUpperCase();}) + '</h3>'
-        + '<div style="color:#8899aa;font-size:0.9em;margin-bottom:4px;">Severity: <strong>' + c.severity.toUpperCase() + '</strong></div>'
-        + '<p>' + c.summary + '</p>'
-        + '<div style="margin-top:8px;color:#8899aa;font-size:0.85em;">' + detail + '</div></div>';
-    }).join('');
-  } catch(e) { document.getElementById('contradictions-container').innerHTML = '<p style="padding:20px;color:#8899aa;">Run /contradictions to populate.</p>'; }
+    }
+    // Also try the latest report directly
+    if (!reports.length) {
+      // Try common patterns
+      const now = Math.floor(Date.now() / 1000);
+      for (let i = 0; i < 50; i++) {
+        const t = now - i * 3600;
+        const r = await loadJSON(`../../data/discovery_v2_${t}.json`);
+        if (r) { reports.push(r); break; }
+      }
+    }
+    return reports;
+  } catch(e) {
+    return [];
+  }
 }
 
-async function loadMolecules() {
+async function loadJSON(url) {
   try {
-    const resp = await fetch('../../discovery/molecules/active.json');
-    const mols = await resp.json();
-    const container = document.getElementById('molecules-container');
-    container.innerHTML = mols.map(function(m,i) {
-      var pc = m.pubchem_cid ? ' | <a href="https://pubchem.ncbi.nlm.nih.gov/compound/' + m.pubchem_cid + '" target="_blank" style="color:#00d4aa;">PubChem CID ' + m.pubchem_cid + '</a>' : ' | <span style="color:#8899aa;">Novel</span>';
-      return '<div class="hypothesis-card" style="border-left-color:' + (m.score > 0.7 ? '#4ade80' : m.score > 0.5 ? '#fbbf24' : '#f87171') + ';">'
-        + '<h3>' + m.name + ' <span style="font-size:0.8em;color:#8899aa;">(Score: ' + m.score + ')</span></h3>'
-        + '<div style="color:#8899aa;font-size:0.85em;margin-bottom:8px;">'
-        + 'MW: ' + m.mw + ' | LogP: ' + m.logp + ' | HBD:' + m.hbd + ' HBA:' + m.hba + ' | QED: ' + m.qed
-        + ' | Novelty: ' + m.novelty + pc
-        + '</div>'
-        + '<div style="font-family:monospace;background:#0f3460;padding:8px;border-radius:4px;font-size:0.85em;word-break:break-all;">SMILES: ' + m.smiles + '</div>'
-        + '<div style="margin-top:6px;color:#8899aa;font-size:0.85em;">Formula: ' + m.molecular_formula + ' | TPSA: ' + m.tpsa + ' | Lipinski violations: ' + m.lipinski_violations + ' | RotB: ' + m.rotatable_bonds + '</div>'
-        + (m.rationale ? '<div style="margin-top:4px;font-size:0.85em;color:#aabbcc;">' + m.rationale + '</div>' : '')
-        + '</div>';
-    }).join('');
-  } catch(e) { document.getElementById('molecules-container').innerHTML = '<p style="padding:20px;color:#8899aa;">Run /generate to design molecules.</p>'; }
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch(e) { return null; }
 }
 
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-  document.querySelectorAll('.tab').forEach(function(t) {
-    if (t.textContent.toLowerCase().trim().startsWith(name)) t.classList.add('active');
-  });
-  ['graph-container','hypotheses-container','contradictions-container','molecules-container','papers-container','stats-container'].forEach(function(id) {
-    document.getElementById(id).classList.toggle('hidden', id !== name + '-container');
-  });
-  if (name === 'graph' && network) network.redraw();
+// ══════════════════════════════════════════════════════
+//  Rendering
+// ══════════════════════════════════════════════════════
+
+function renderAll() {
+  renderOverview();
+  renderPipeline();
+  renderTheories();
+  renderGaps();
+  renderAnomalies();
+  renderPredictions();
+  renderGraph();
+  renderPapers();
+  renderContradictions();
+  renderRunHistory();
+  updateNavBadges();
 }
 
-loadGraph(); loadHypotheses(); loadContradictions(); loadMolecules(); loadPapers(); loadStats();
+function renderOverview() {
+  const d = currentData;
+  const r = d.latestReport;
+  const phases = r ? r.phases || {} : {};
+  const kg = d.kg;
+
+  const papers = r ? (phases.literature || {}).papers_found || 0 : Object.keys(kg.papers || {}).length;
+  const entities = r ? (phases.knowledge_graph || {}).entities || 0 : Object.keys(kg.entities || {}).length;
+  const gaps = (phases.gap_detection || {}).top_gaps || [];
+  const anomalies = (phases.anomaly_detection || {}).top_anomalies || [];
+  const score = (phases.discovery_scoring || {}).discovery_score || 0;
+  const grade = (phases.discovery_scoring || {}).grade || '—';
+
+  const grid = document.getElementById('metrics-grid');
+  grid.innerHTML = `
+    ${metricCard('Papers', papers, 'accent', r ? (phases.literature || {}).sources || [] : [])}
+    ${metricCard('Entities', entities, 'blue', `${Object.keys(kg.entities || {}).length} total in graph`)}
+    ${metricCard('Gaps Found', gaps.length, 'warn', 'Knowledge gaps detected')}
+    ${metricCard('Anomalies', anomalies.length, 'danger', 'Anomalies detected')}
+    ${metricCard('Score', score > 0 ? Math.round(score) : '—', scoreColor(score), grade !== '—' ? 'Grade: ' + grade : '')}
+    ${metricCard('Hypotheses', d.hypotheses.length, 'accent', (phases.theory_competition || {}).theories_compared || 0 + ' theories')}
+    ${metricCard('Errors', (r ? r.errors || [] : []).length, (r && r.errors || []).length ? 'danger' : '', r ? 'Pipeline errors' : 'No run data')}
+    ${metricCard('Duration', r ? (r.duration_seconds || 0).toFixed(1) + 's' : '—', '', r ? 'Pipeline v2' : '')}
+  `;
+
+  // Score gauge
+  renderScoreGauge(score, grade);
+}
+
+function metricCard(label, value, colorClass, sub) {
+  const vc = colorClass ? ` ${colorClass}` : '';
+  const subText = Array.isArray(sub) ? sub.join(', ') : (sub || '');
+  return `<div class="metric-card">
+    <div class="metric-label">${label}</div>
+    <div class="metric-value${vc}">${value}</div>
+    ${subText ? `<div class="metric-sub">${subText}</div>` : ''}
+  </div>`;
+}
+
+function scoreColor(score) {
+  if (score >= 70) return 'accent';
+  if (score >= 40) return 'warn';
+  if (score > 0) return 'danger';
+  return '';
+}
+
+function renderScoreGauge(score, grade) {
+  const el = document.getElementById('score-gauge');
+  const circumference = 2 * Math.PI * 48;
+  const offset = circumference - (score / 100) * circumference;
+  const color = score >= 70 ? 'var(--accent)' : score >= 40 ? 'var(--warn)' : 'var(--danger)';
+
+  el.innerHTML = `
+    <div class="gauge-ring">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle class="gauge-bg" cx="60" cy="60" r="48"/>
+        <circle class="gauge-fill" cx="60" cy="60" r="48"
+          stroke="${color}"
+          stroke-dasharray="${circumference}"
+          stroke-dashoffset="${offset}"/>
+      </svg>
+      <div class="gauge-score" style="color:${color}">${score > 0 ? Math.round(score) : '—'}</div>
+    </div>
+    <div class="gauge-grade">${grade || 'No data'}</div>
+  `;
+}
+
+function renderPipeline() {
+  const r = currentData.latestReport;
+  if (!r) return;
+
+  const phases = r.phases || {};
+  const phaseNames = [
+    ['literature', 'Literature'],
+    ['knowledge_graph', 'KG Build'],
+    ['gap_detection', 'Gaps'],
+    ['anomaly_detection', 'Anomalies'],
+    ['missing_variables', 'Hidden Vars'],
+    ['mechanism_generation', 'Mechanisms'],
+    ['prediction_engine', 'Predictions'],
+    ['theory_competition', 'Competition'],
+    ['computational_verification', 'Compute'],
+    ['contradictions', 'Contradictions'],
+    ['skeptic_review', 'Skeptic'],
+    ['discovery_scoring', 'Scoring'],
+  ];
+
+  // Overview strip
+  const strip = document.getElementById('pipeline-strip');
+  strip.innerHTML = phaseNames.map(([key, name], i) => {
+    const data = phases[key];
+    const done = data && Object.keys(data).length > 0;
+    const err = (r.errors || []).some(e => e.includes(`Phase ${i + 1}`));
+    const cls = err ? 'error' : done ? 'done' : 'skipped';
+    return `<div class="phase-block ${cls}" data-phase="${key}">
+      <div class="phase-num">${i + 1}</div>
+      <div class="phase-name">${name}</div>
+    </div>`;
+  }).join('');
+
+  // Detail view
+  const detail = document.getElementById('phases-detail');
+  detail.innerHTML = phaseNames.map(([key, name], i) => {
+    const data = phases[key];
+    const done = data && Object.keys(data).length > 0;
+    const err = (r.errors || []).find(e => e.includes(`Phase ${i + 1}`));
+    const status = err ? '✗ ERROR' : done ? '✓ DONE' : '○ SKIPPED';
+    const statusColor = err ? 'var(--danger)' : done ? 'var(--accent)' : 'var(--text-dim)';
+
+    let content = '';
+    if (data) {
+      content = Object.entries(data).map(([k, v]) => {
+        const val = typeof v === 'object' ? JSON.stringify(v).slice(0, 200) : v;
+        return `<div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin:2px 0;">
+          <span style="color:var(--text-secondary)">${k}:</span> ${val}
+        </div>`;
+      }).join('');
+    }
+
+    return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-primary);">
+          Phase ${i + 1}: ${name}
+        </span>
+        <span style="font-family:var(--mono);font-size:10px;color:${statusColor};">${status}</span>
+      </div>
+      ${err ? `<div style="font-family:var(--mono);font-size:10px;color:var(--danger);margin-bottom:4px;">${err}</div>` : ''}
+      ${content || '<div style="font-size:11px;color:var(--text-dim);">No data</div>'}
+    </div>`;
+  }).join('');
+}
+
+function renderTheories() {
+  const r = currentData.latestReport;
+  const theories = r ? ((r.phases || {}).theory_competition || {}).theories || [] : [];
+  const winner = r ? ((r.phases || {}).theory_competition || {}).winner : null;
+
+  document.getElementById('theories-count').textContent = theories.length || '—';
+  document.getElementById('theories-detail-count').textContent = theories.length ? `${theories.length} theories` : '—';
+
+  const list = document.getElementById('theories-list');
+  if (!theories.length) {
+    list.innerHTML = '<div class="empty-state" style="height:200px;"><span class="empty-icon">◎</span><span>No theory competition data</span></div>';
+    return;
+  }
+
+  list.innerHTML = theories.map(t => {
+    const isWinner = winner && t.name === winner.name;
+    const scores = t.scores || {};
+    const overall = scores.overall || 0;
+    return `<div class="theory-card ${isWinner ? 'winner' : ''}">
+      <div class="theory-header">
+        <span class="theory-name">${isWinner ? '👑 ' : ''}${t.name || 'Untitled'}</span>
+        <span class="theory-score" style="color:${overall > 0.7 ? 'var(--accent)' : overall > 0.4 ? 'var(--warn)' : 'var(--danger)'}">
+          ${(overall * 100).toFixed(0)}%
+        </span>
+      </div>
+      <div class="theory-desc">${t.description || t.mechanism || ''}</div>
+      <div class="theory-meta">
+        <span>Novelty: ${((scores.novelty || 0) * 100).toFixed(0)}%</span>
+        <span>Explanatory: ${((scores.explanatory || 0) * 100).toFixed(0)}%</span>
+        <span>Predictive: ${((scores.predictive || 0) * 100).toFixed(0)}%</span>
+        <span>Falsifiability: ${((scores.falsifiability || 0) * 100).toFixed(0)}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderGaps() {
+  const r = currentData.latestReport;
+  const gaps = r ? ((r.phases || {}).gap_detection || {}).top_gaps || [] : [];
+  document.getElementById('gaps-count').textContent = gaps.length || '—';
+  document.getElementById('gaps-detail-count').textContent = gaps.length ? `${gaps.length} gaps` : '—';
+
+  const grid = document.getElementById('gaps-grid');
+  if (!gaps.length) {
+    grid.innerHTML = '<div class="empty-state" style="height:200px;"><span class="empty-icon">◇</span><span>No gap data</span></div>';
+    return;
+  }
+
+  grid.innerHTML = gaps.map(g => `
+    <div class="finding-card">
+      <div class="finding-type gap">${g.type || 'gap'}</div>
+      <div class="finding-text">${g.reason || g.description || ''}</div>
+      <div class="finding-score">Score: ${((g.score || 0) * 100).toFixed(0)}%</div>
+    </div>
+  `).join('');
+}
+
+function renderAnomalies() {
+  const r = currentData.latestReport;
+  const anomalies = r ? ((r.phases || {}).anomaly_detection || {}).top_anomalies || [] : [];
+  document.getElementById('anomalies-count').textContent = anomalies.length || '—';
+  document.getElementById('anomalies-detail-count').textContent = anomalies.length ? `${anomalies.length} anomalies` : '—';
+
+  const grid = document.getElementById('anomalies-grid');
+  if (!anomalies.length) {
+    grid.innerHTML = '<div class="empty-state" style="height:200px;"><span class="empty-icon">△</span><span>No anomaly data</span></div>';
+    return;
+  }
+
+  grid.innerHTML = anomalies.map(a => `
+    <div class="finding-card">
+      <div class="finding-type anomaly">${a.type || 'anomaly'}</div>
+      <div class="finding-text">${a.reason || a.description || ''}</div>
+      <div class="finding-score">Score: ${((a.score || 0) * 100).toFixed(0)}%</div>
+    </div>
+  `).join('');
+}
+
+function renderPredictions() {
+  const r = currentData.latestReport;
+  const preds = r ? ((r.phases || {}).prediction_engine || {}).predictions || [] : [];
+  const accepted = r ? ((r.phases || {}).prediction_engine || {}).accepted || 0 : 0;
+  document.getElementById('predictions-count').textContent = preds.length || '—';
+  document.getElementById('predictions-detail-count').textContent = preds.length ? `${preds.length} predictions (${accepted} accepted)` : '—';
+
+  const grid = document.getElementById('predictions-grid');
+  if (!preds.length) {
+    grid.innerHTML = '<div class="empty-state" style="height:200px;"><span class="empty-icon">▷</span><span>No prediction data</span></div>';
+    return;
+  }
+
+  grid.innerHTML = preds.map(p => `
+    <div class="finding-card">
+      <div class="finding-type prediction">${p.type || 'prediction'}</div>
+      <div class="finding-text">${p.statement || p.description || ''}</div>
+      <div class="finding-score">Confidence: ${((p.confidence || 0) * 100).toFixed(0)}% | Testable: ${p.testable ? 'Yes' : 'Unknown'}</div>
+    </div>
+  `).join('');
+}
+
+function renderGraph() {
+  const kg = currentData.kg;
+  const ents = kg.entities || {};
+  const rels = kg.relationships || [];
+
+  if (!Object.keys(ents).length) return;
+
+  const nodes = [];
+  const edges = [];
+
+  for (const [id, e] of Object.entries(ents)) {
+    nodes.push({
+      id,
+      label: e.name,
+      title: `${e.type}: ${e.name}\nPapers: ${(e.papers || []).length}`,
+      color: COLORS[e.type] || '#94a3b8',
+      shape: 'dot',
+      size: 16 + Math.min((e.papers || []).length * 2, 24),
+      font: { color: '#888', size: 10 },
+    });
+  }
+
+  for (const r of rels) {
+    edges.push({
+      from: r.source,
+      to: r.target,
+      label: r.relation,
+      title: `Confidence: ${r.confidence}`,
+      width: (r.confidence || 0.5) * 2,
+      color: { color: '#333', highlight: '#00d4aa' },
+      font: { size: 8, color: '#555' },
+    });
+  }
+
+  const container = document.getElementById('graph-view');
+  network = new vis.Network(container, {
+    nodes: new vis.DataSet(nodes),
+    edges: new vis.DataSet(edges)
+  }, {
+    physics: {
+      solver: 'forceAtlas2Based',
+      stabilization: { iterations: 200 },
+      forceAtlas2Based: { gravitationalConstant: -40, springLength: 120 }
+    },
+    interaction: { hover: true, tooltipDelay: 100, zoomView: true },
+    nodes: { borderWidth: 1, font: { color: '#888', size: 10 } },
+    edges: { smooth: { type: 'continuous' } },
+    background: '#000000',
+  });
+}
+
+function renderPapers() {
+  const kg = currentData.kg;
+  const papers = Object.values(kg.papers || {});
+  document.getElementById('papers-count').textContent = papers.length || '—';
+  document.getElementById('papers-detail-count').textContent = papers.length ? `${papers.length} papers` : '—';
+
+  const list = document.getElementById('papers-list');
+  if (!papers.length) {
+    list.innerHTML = '<div class="empty-state" style="height:200px;"><span class="empty-icon">▤</span><span>No papers loaded</span></div>';
+    return;
+  }
+
+  list.innerHTML = papers.map(p => `
+    <div class="paper-item">
+      <div class="paper-title">${p.title || 'Untitled'}</div>
+      <div class="paper-meta">
+        ${p.pmid ? 'PMID: ' + p.pmid : ''} ${p.year ? '| ' + p.year : ''}
+        ${p.url ? '| <a href="' + p.url + '" target="_blank">View</a>' : ''}
+      </div>
+    </div>
+  `).join('');
+
+  window._papers = papers;
+}
+
+function renderContradictions() {
+  const contras = currentData.contradictions;
+  document.getElementById('contradictions-count').textContent = contras.length || '—';
+  document.getElementById('contradictions-detail-count').textContent = contras.length ? `${contras.length} contradictions` : '—';
+
+  const grid = document.getElementById('contradictions-grid');
+  if (!contras.length) {
+    grid.innerHTML = '<div class="empty-state" style="height:200px;"><span class="empty-icon">⚡</span><span>No contradictions</span></div>';
+    return;
+  }
+
+  grid.innerHTML = contras.map(c => {
+    const sev = c.severity || 'medium';
+    const sevColor = sev === 'high' ? 'var(--danger)' : sev === 'medium' ? 'var(--warn)' : 'var(--accent)';
+    return `<div class="finding-card" style="border-left:3px solid ${sevColor};">
+      <div class="finding-type" style="color:${sevColor}">${(c.type || 'contradiction').toUpperCase()}</div>
+      <div class="finding-text">${c.summary || c.description || ''}</div>
+      <div class="finding-score">Severity: ${sev.toUpperCase()}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRunHistory() {
+  const reports = currentData.reports;
+  const el = document.getElementById('run-history');
+
+  if (!reports.length) {
+    el.innerHTML = '<div style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--text-dim);">No runs yet</div>';
+    document.getElementById('status-text').textContent = 'No runs yet';
+    document.getElementById('last-run-time').textContent = '—';
+    return;
+  }
+
+  document.getElementById('status-dot').className = 'run-dot idle';
+  document.getElementById('status-text').textContent = `${reports.length} runs`;
+  const last = reports[reports.length - 1];
+  document.getElementById('last-run-time').textContent = last.completed_at ? new Date(last.completed_at).toLocaleString() : '—';
+
+  el.innerHTML = reports.slice(-10).reverse().map((r, i) => {
+    const score = ((r.phases || {}).discovery_scoring || {}).discovery_score || 0;
+    const sc = score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
+    const time = r.completed_at ? new Date(r.completed_at).toLocaleTimeString() : '?';
+    const topic = (r.topic || '').slice(0, 25);
+    return `<div class="run-item ${i === 0 ? 'active' : ''}" data-idx="${reports.length - 1 - i}">
+      <span class="run-dot ${r.errors && r.errors.length ? 'error' : 'idle'}"></span>
+      <span>${time}</span>
+      <span style="color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${topic}</span>
+      <span class="run-score ${sc}">${score > 0 ? Math.round(score) : '—'}</span>
+    </div>`;
+  }).join('');
+}
+
+function updateNavBadges() {
+  // Already set during individual renders
+}
+
+// ══════════════════════════════════════════════════════
+//  Navigation
+// ══════════════════════════════════════════════════════
+
+document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    const view = item.dataset.view;
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + view).classList.add('active');
+    if (view === 'graph' && network) setTimeout(() => network.redraw(), 100);
+  });
+});
+
+// Paper search
+document.getElementById('paper-search').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase();
+  const filtered = (window._papers || []).filter(p => (p.title || '').toLowerCase().includes(q));
+  const list = document.getElementById('papers-list');
+  list.innerHTML = filtered.map(p => `
+    <div class="paper-item">
+      <div class="paper-title">${p.title || 'Untitled'}</div>
+      <div class="paper-meta">
+        ${p.pmid ? 'PMID: ' + p.pmid : ''} ${p.year ? '| ' + p.year : ''}
+        ${p.url ? '| <a href="' + p.url + '" target="_blank">View</a>' : ''}
+      </div>
+    </div>
+  `).join('');
+});
+
+// ══════════════════════════════════════════════════════
+//  Init
+// ══════════════════════════════════════════════════════
+
+loadAllData();
 </script>
 </body>
 </html>

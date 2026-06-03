@@ -58,10 +58,27 @@ class JsonRpcEvent:
         )
 
 
+_active_websocket = None
+
+
+def set_websocket(ws):
+    """Set the active WebSocket connection for event delivery."""
+    global _active_websocket
+    _active_websocket = ws
+
+
 def send_message(msg: JsonRpcResponse | JsonRpcEvent) -> None:
-    """Write a JSON-RPC message to stdout. Flush immediately."""
-    sys.stdout.write(msg.to_json() + "\n")
-    sys.stdout.flush()
+    """Write a JSON-RPC message to active WebSocket or stdout. Flush immediately."""
+    if _active_websocket is not None:
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_active_websocket.send(msg.to_json()))
+        except RuntimeError:
+            pass
+    else:
+        sys.stdout.write(msg.to_json() + "\n")
+        sys.stdout.flush()
 
 
 def log_error(message: str) -> None:

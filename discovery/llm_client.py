@@ -213,35 +213,126 @@ def _call_gemini(prompt: str, json_mode: bool = False,
     return None
 
 
+# ── Cerebras ──────────────────────────────────────────────────────────
+
+_cerebras_last_call = 0.0
+
+CEREBRAS_MODEL = "gpt-oss-120b"
+CEREBRAS_MIN_INTERVAL = 2.0  # 30 req/min free tier
+
+
+def _get_cerebras_keys() -> list[str]:
+    cfg = _load_config()
+    key = cfg.get("cerebras_api_key", "")
+    return [key] if key else []
+
+
+def _rate_limit_cerebras():
+    global _cerebras_last_call
+    now = time.time()
+    elapsed = now - _cerebras_last_call
+    if elapsed < CEREBRAS_MIN_INTERVAL:
+        time.sleep(CEREBRAS_MIN_INTERVAL - elapsed)
+    _cerebras_last_call = time.time()
+
+
+def _call_cerebras(prompt: str, json_mode: bool = False,
+                   max_tokens: int = 4096, temperature: float = 0.3,
+                   model: str = CEREBRAS_MODEL) -> str | None:
+    """Call Cerebras API. OpenAI-compatible endpoint, very fast."""
+    import requests
+    keys = _get_cerebras_keys()
+    if not keys:
+        return None
+
+    key = keys[0]
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+    effective_prompt = prompt
+    if json_mode and "json" not in prompt.lower():
+        effective_prompt = prompt + "\n\nRespond in JSON format."
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": effective_prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+
+    _rate_limit_cerebras()
+    try:
+        resp = requests.post(
+            "https://api.cerebras.ai/v1/chat/completions",
+            headers=headers, json=payload, timeout=30,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            choice = data.get("choices", [{}])[0].get("message", {})
+            content = choice.get("content", "")
+            # Cerebras reasoning model may put response in 'reasoning' field
+            if not content or len(content) < 3:
+                content = choice.get("reasoning", "")
+            if content and len(content) > 2:
+                return content.strip()
+        elif resp.status_code == 429:
+            return None  # rate limited
+        elif resp.status_code in (401, 403):
+            return None  # auth error
+        elif resp.status_code == 400:
+            # json_mode might not be supported — retry without
+            if json_mode:
+                payload.pop("response_format", None)
+                _rate_limit_cerebras()
+                resp2 = requests.post(
+                    "https://api.cerebras.ai/v1/chat/completions",
+                    headers=headers, json=payload, timeout=30,
+                )
+                if resp2.status_code == 200:
+                    data = resp2.json()
+                    choice = data.get("choices", [{}])[0].get("message", {})
+                    content = choice.get("content", "")
+                    if not content or len(content) < 3:
+                        content = choice.get("reasoning", "")
+                    if content and len(content) > 2:
+                        return content.strip()
+            return None
+    except Exception:
+        return None
+    return None
+
+
 # ── Public API ────────────────────────────────────────────────────────
 
 def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
          temperature: float = 0.3, provider: str = "auto") -> str | None:
-    """
-    Call an LLM. Provider order: Groq -> Gemini (auto mode).
-    Set provider='groq' or 'gemini' to force a specific backend.
-    """
-    import sys as _sys
+    """Call with auto-routing. Cerebras (fastest) → Groq → Gemini fallback."""
+    if provider == "auto":
+        # Cerebras first (fastest free provider), then Groq, then Gemini
+        result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
+        if result:
+            return result
+        result = _call_groq(prompt, json_mode, max_tokens, temperature)
+        if result:
+            return result
+        return _call_gemini(prompt, json_mode, max_tokens, temperature)
+    if provider == "cerebras":
+        return _call_cerebras(prompt, json_mode, max_tokens, temperature)
     if provider == "groq":
         result = _call_groq(prompt, json_mode, max_tokens, temperature)
-        if result is None:
-            print(f"    [LLM DEBUG] Groq returned None (json_mode={json_mode}, tokens={max_tokens})", file=_sys.stderr, flush=True)
-        return result
+        if result:
+            return result
+        # Groq failed — try Cerebras then Gemini
+        result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
+        if result:
+            return result
+        return _call_gemini(prompt, json_mode, max_tokens, temperature)
     if provider == "gemini":
-        result = _call_gemini(prompt, json_mode, max_tokens, temperature)
-        if result is None:
-            print(f"    [LLM DEBUG] Gemini returned None (json_mode={json_mode}, tokens={max_tokens})", file=_sys.stderr, flush=True)
-        return result
-
-    # Auto: try Groq first, fallback to Gemini
-    result = _call_groq(prompt, json_mode, max_tokens, temperature)
-    if result:
-        return result
-
-    result = _call_gemini(prompt, json_mode, max_tokens, temperature)
-    if result:
-        return result
-
+        return _call_gemini(prompt, json_mode, max_tokens, temperature)
     return None
 
 
@@ -271,17 +362,23 @@ def is_available(provider: str = "auto") -> bool:
         return bool(_get_groq_keys())
     if provider == "gemini":
         return bool(_get_gemini_keys())
-    return bool(_get_groq_keys()) or bool(_get_gemini_keys())
+    if provider == "cerebras":
+        return bool(_get_cerebras_keys())
+    return bool(_get_cerebras_keys()) or bool(_get_groq_keys()) or bool(_get_gemini_keys())
 
 
 def get_status() -> dict:
     """Return provider availability status."""
     groq_keys = _get_groq_keys()
     gemini_keys = _get_gemini_keys()
+    cerebras_keys = _get_cerebras_keys()
+    primary = "cerebras" if cerebras_keys else "groq" if groq_keys else "gemini" if gemini_keys else "none"
     return {
+        "cerebras": {"available": bool(cerebras_keys), "keys": len(cerebras_keys),
+                     "model": CEREBRAS_MODEL},
         "groq": {"available": bool(groq_keys), "keys": len(groq_keys),
                  "model": GROQ_MODEL},
         "gemini": {"available": bool(gemini_keys), "keys": len(gemini_keys),
                    "model": GEMINI_MODEL},
-        "primary": "groq" if groq_keys else "gemini" if gemini_keys else "none",
+        "primary": primary,
     }

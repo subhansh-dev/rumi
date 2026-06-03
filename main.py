@@ -1511,6 +1511,23 @@ TOOL_DECLARATIONS = [
         }
     },
     {
+        "name": "reflexion",
+        "description": "Check RUMI's recursive self-improvement stats and history. Shows how many patches were applied, rejected, and improvement scores across discovery runs.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {
+                    "type": "STRING",
+                    "description": "stats | history (default: stats)"
+                },
+                "limit": {
+                    "type": "INTEGER",
+                    "description": "Number of history entries to show (default: 5)"
+                }
+            }
+        }
+    },
+    {
         "name": "run_dream_cycle",
         "description": "Trigger an immediate dream/replay cycle.",
         "parameters": {"type": "OBJECT", "properties": {}}
@@ -2223,6 +2240,109 @@ def _detect_tool_error(result) -> bool:
     return False
 
 
+def _generate_search_queries(query, domain):
+    """Generate multiple short search queries from a topic for better paper coverage.
+
+    Handles vague topics by falling back to domain-specific queries.
+    """
+    import re as _re
+
+    # Domain-specific default queries (always included as fallback)
+    _DOMAIN_QUERIES = {
+        "space_astronomy": "interstellar object stellar observation",
+        "physics": "quantum mechanics particle physics",
+        "neuroscience": "neural brain cognitive",
+        "drug_discovery": "drug therapeutic inhibitor",
+        "materials_science": "materials synthesis characterization",
+        "climate_energy": "climate carbon emission",
+        "ecology": "species biodiversity ecosystem",
+        "biology": "gene protein cell molecular",
+        "chemistry": "chemical reaction synthesis",
+        "computer_science": "machine learning neural network",
+        "mathematics": "mathematical theorem proof",
+        "public_health": "public health epidemiology",
+        "general": "scientific research discovery",
+    }
+
+    # Filler words that make bad search terms
+    _FILLER = {
+        'about', 'with', 'from', 'that', 'this', 'have', 'been', 'were', 'what',
+        'when', 'where', 'which', 'their', 'there', 'would', 'could', 'should',
+        'into', 'between', 'through', 'during', 'before', 'after', 'above', 'below',
+        'some', 'cool', 'edgy', 'interesting', 'awesome', 'random', 'nice', 'good',
+        'best', 'worst', 'crazy', 'wild', 'insane', 'weird', 'strange', 'topic',
+        'thing', 'stuff', 'something', 'anything', 'everything', 'really', 'very',
+        'super', 'mega', 'ultra', 'pretty', 'kind', 'sort', 'type',
+        'run', 'discovery', 'research', 'investigate', 'analyze', 'study',
+        'find', 'tell', 'show', 'give', 'make', 'want', 'need', 'please',
+    }
+
+    queries = []
+
+    # Clean the original query
+    words = [w for w in _re.split(r'\W+', query) if len(w) > 2]
+    keywords = [w for w in words if w.lower() not in _FILLER]
+
+    # If we have meaningful keywords, use them
+    if len(keywords) >= 2:
+        queries.append(" ".join(keywords[:4]))
+    if len(keywords) >= 4:
+        queries.append(" ".join(keywords[2:5]))
+
+    # Always include the domain fallback query
+    domain_query = _DOMAIN_QUERIES.get(domain, _DOMAIN_QUERIES["general"])
+    if domain_query not in queries:
+        queries.append(domain_query)
+
+    # Add domain + topic combination if keywords are meaningful
+    if len(keywords) >= 2:
+        domain_first = domain_query.split()[0]
+        combined = f"{domain_first} {' '.join(keywords[:2])}"
+        if combined not in queries and len(combined) > 8:
+            queries.append(combined)
+
+    # Deduplicate and filter out garbage
+    seen = set()
+    unique = []
+    for q in queries:
+        q_lower = q.lower().strip()
+        if q_lower and q_lower not in seen and len(q_lower) > 5:
+            seen.add(q_lower)
+            unique.append(q)
+
+    return unique[:6]  # Max 6 queries for broader coverage
+
+
+def _detect_discovery_intent(text):
+    """
+    Detect if the user's message is a discovery/research request.
+    Returns the topic string if detected, None otherwise.
+    """
+    import re as _re
+    text_lower = text.lower().strip()
+
+    # Patterns that indicate a discovery request
+    patterns = [
+        r'(?:run|start|do|launch|begin|execute)\s+(?:a\s+)?(?:discovery|research|investigation|analysis|deep\s+analysis)\s+(?:on|about|for|into)\s+(.+)',
+        r'(?:discover|research|investigate|analyze|study)\s+(.+?)(?:\s+scientifically|\s+in depth|\s+properly|\s*$)',
+        r'(?:i\s+want|give\s+me|show\s+me)\s+(?:a\s+)?(?:discovery|research|analysis|report)\s+(?:on|about|for)\s+(.+)',
+        r'(?:run|do)\s+(?:a\s+)?(?:full|deep|complete)?\s*(?:discovery|pipeline|research|analysis)\s+(?:on|about|for)?\s*(.+)',
+        r'(?:what|tell\s+me)\s+(?:is|about|are)\s+(?:the\s+)?(?:latest\s+)?(?:research|discovery|findings)\s+(?:on|about|regarding)\s+(.+)',
+        r'(?:can\s+you|could\s+you)\s+(?:research|investigate|analyze|discover)\s+(.+)',
+    ]
+
+    for pattern in patterns:
+        match = _re.search(pattern, text_lower)
+        if match:
+            topic = match.group(1).strip()
+            # Clean up common trailing words
+            topic = _re.sub(r'\s*(please|thanks|thank you|right now|today)\s*$', '', topic)
+            if len(topic) > 5:
+                return topic
+
+    return None
+
+
 class RumiLive:
     def __init__(self, ui: RumiUI):
         self.ui = ui
@@ -2716,6 +2836,31 @@ class RumiLive:
             except Exception:
                 pass
 
+        # Discovery intent detection: route "run a discovery on X" to real pipeline
+        discovery_match = _detect_discovery_intent(text)
+        if discovery_match:
+            topic = discovery_match
+            self._post_output(f"[bold cyan]Discovery request detected: {topic}[/bold cyan]")
+            self.ui._discovery_running = True
+            self.ui._discovery_step = "scanning literature"
+            try:
+                future = asyncio.run_coroutine_threadsafe(
+                    self._run_discovery_pipeline(topic), self._loop
+                )
+                def _on_done(fut):
+                    try:
+                        fut.result()
+                    except Exception as e:
+                        self._post_output(f"ERR: Discovery failed: {e}")
+                    finally:
+                        self.ui._discovery_running = False
+                        self.ui._discovery_step = ""
+                future.add_done_callback(_on_done)
+            except Exception as e:
+                self._post_output(f"ERR: Could not start discovery: {e}")
+                self.ui._discovery_running = False
+            return  # Don't send to LLM — pipeline handles it
+
         def _send():
             elapsed = time.time() - self._last_send_content_time
             if elapsed < 0.5:
@@ -2797,7 +2942,35 @@ class RumiLive:
     # ── Discovery Engine ───────────────────────────────────────────────
 
     async def _detect_domain(self, topic: str) -> str:
-        """Auto-detect domain from topic using LLM."""
+        """Auto-detect domain from topic using LLM + keyword fallback."""
+        # Keyword-based fast detection (no LLM needed)
+        topic_lower = topic.lower()
+        _keyword_domains = {
+            "space_astronomy": ["star", "galaxy", "planet", "exoplanet", "telescope", "cosmic", "stellar",
+                                "nebula", "black hole", "pulsar", "quasar", "supernova", "asteroid", "comet",
+                                "interstellar", "oumuamua", "dark matter", "dark energy", "multiverse",
+                                "space", "astronomy", "astrophysics", "jwst", "hubble", "nasa", "esa",
+                                "radio burst", "frb", "gravitational wave", "gamma ray", "cosmolog"],
+            "physics": ["quantum", "particle", "higgs", "boson", "fermion", "relativity", "gravity",
+                        "gravitational", "string theory", "entropy", "thermodynamics", "electromagnetic"],
+            "neuroscience": ["neuron", "brain", "neural", "synaptic", "cortex", "hippocampus",
+                             "consciousness", "fmri", "cognitive", "neurotransmitter"],
+            "drug_discovery": ["drug", "inhibitor", "kinase", "antibiotic", "cancer", "pharmaceutical",
+                               "therapeutic", "binding affinity", "clinical trial", "ic50", "ec50", "molecule"],
+            "materials_science": ["perovskite", "battery", "catalyst", "bandgap", "nanomaterial",
+                                  "graphene", "2d material", "solar cell", "semiconductor", "alloy"],
+            "climate_energy": ["climate", "carbon", "emission", "renewable", "greenhouse", "warming", "co2"],
+            "ecology": ["species", "biodiversity", "ecosystem", "conservation", "habitat", "extinction"],
+            "biology": ["gene", "protein", "dna", "rna", "crispr", "genome", "cell", "mutation", "evolution"],
+            "chemistry": ["reaction", "synthesis", "catalysis", "compound", "organic", "inorganic"],
+            "computer_science": ["neural network", "llm", "transformer", "algorithm", "machine learning",
+                                 "deep learning", "ai model", "benchmark"],
+        }
+        for domain, keywords in _keyword_domains.items():
+            if any(kw in topic_lower for kw in keywords):
+                return domain
+
+        # LLM-based detection as fallback
         prompt = build_detect_prompt() + topic + '"'
         try:
             result = await self._call_llm(prompt, json_mode=False, provider="auto")
@@ -2806,9 +2979,138 @@ class RumiLive:
                 return result if result in DOMAINS else DOMAIN_ALIAS_MAP[result]
         except Exception:
             pass
-        return "drug_discovery"
+        return "general"
 
     async def _run_discovery_pipeline(self, query: str, depth: str = "quick", domain_override: str = None):
+        """Run discovery using the v2 pipeline (12 phases) with refinement + reflexion."""
+        import io
+        import contextlib
+
+        # Map depth to v2 mode
+        mode_map = {"quick": "quick", "standard": "standard", "deep": "full", "full": "full"}
+        mode = mode_map.get(depth, "full")
+        domain = domain_override or ""
+
+        self._post_output(f"[bold cyan]RUMI Discovery Pipeline v2[/bold cyan]")
+        self._post_output(f"[dim]Topic: {query} | Mode: {mode}[/dim]")
+        self.ui.set_discovery_step("running v2 discovery pipeline")
+
+        # Capture v2's print() output and redirect to TUI
+        captured = io.StringIO()
+        t0 = time.time()
+
+        try:
+            from discovery.discovery_pipeline_v2 import run_discovery_pipeline
+
+            # Run v2 in a thread (it's synchronous), capture stdout
+            def _run_v2():
+                with contextlib.redirect_stdout(captured):
+                    return run_discovery_pipeline(query, domain=domain, mode=mode)
+
+            import concurrent.futures
+            loop = asyncio.get_event_loop()
+            report = await loop.run_in_executor(
+                concurrent.futures.ThreadPoolExecutor(max_workers=1),
+                _run_v2
+            )
+
+            # Flush captured output to TUI
+            output = captured.getvalue()
+            for line in output.split("\n"):
+                if line.strip():
+                    self._post_output(line)
+
+            # Extract key results for downstream stages
+            phases = report.get("phases", {})
+            papers_count = phases.get("literature", {}).get("papers_found", 0)
+            entities_count = phases.get("knowledge_graph", {}).get("entities", 0)
+            gaps_count = len(phases.get("gap_detection", {}).get("top_gaps", []))
+            anomalies_count = len(phases.get("anomaly_detection", {}).get("top_anomalies", []))
+            discovery_score = phases.get("discovery_scoring", {}).get("discovery_score", 0)
+            grade = phases.get("discovery_scoring", {}).get("grade", "F")
+
+            self._post_output(f"\n[green]v2 Pipeline complete: {papers_count} papers, "
+                             f"{entities_count} entities, {gaps_count} gaps, "
+                             f"{anomalies_count} anomalies, score: {discovery_score:.0f}/100 ({grade})[/green]")
+
+        except Exception as e:
+            self._post_output(f"[red]v2 Pipeline failed: {e}[/red]")
+            self._post_output("[yellow]Falling back to v1 pipeline...[/yellow]")
+            # Fallback to old pipeline
+            await self._run_discovery_pipeline_v1(query, depth, domain_override)
+            return
+
+        # Stage 14: Refinement Pipeline (13 stages)
+        self._post_output("[bold cyan]Running refinement pipeline (13 stages)...[/bold cyan]")
+        self.ui.set_discovery_step("refining discoveries")
+        t0 = time.time()
+        try:
+            from discovery.refinement_pipeline import run_refinement_pipeline
+            from discovery.graph import KnowledgeGraph
+            graph = KnowledgeGraph(persist=True)
+            refinement = run_refinement_pipeline(
+                query, report.get("domain", ""), [], graph,
+                report.get("phases", {}).get("theory_competition", {}).get("theories", []),
+                report.get("phases", {}).get("contradictions", {}).get("contradictions", [])
+            )
+            if refinement:
+                report["refinement"] = refinement
+                self._post_output(f"[green]Refinement complete[/green]")
+        except Exception as e:
+            self._post_output(f"[yellow]Refinement skipped: {e}[/yellow]")
+
+        # Stage 15: Recursive Self-Improvement (Reflexion)
+        self._post_output("[bold cyan]Running reflexion cycle (self-improvement)...[/bold cyan]")
+        self.ui.set_discovery_step("reflexion: self-improving")
+        t0 = time.time()
+        try:
+            from brain.reflexion import get_recursive_improver
+            improver = get_recursive_improver(llm_fn=self._call_llm)
+            run_result = {
+                "query": query,
+                "domain": report.get("domain", ""),
+                "hypotheses": report.get("phases", {}).get("theory_competition", {}).get("theories", []),
+                "contradictions": report.get("phases", {}).get("contradictions", {}).get("contradictions", []),
+                "metrics": {},
+                "errors": report.get("errors", []),
+            }
+            reflexion_result = await improver.reflect_and_improve(
+                run_result,
+                llm_fn=self._call_llm,
+                post_output_fn=self._post_output,
+            )
+            self._post_output(f"[green]Reflexion: {reflexion_result['patches_applied']} patches applied, "
+                             f"{reflexion_result['patches_rejected']} rejected, "
+                             f"score: {reflexion_result['improvement_score']:.0%}[/green]")
+        except Exception as e:
+            self._post_output(f"[yellow]Reflexion skipped: {e}[/yellow]")
+
+        # Save report + update index
+        try:
+            data_dir = Path(__file__).parent / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            report_path = data_dir / f"discovery_v2_{int(time.time())}.json"
+            report_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+            # Update reports index for dashboard
+            idx_path = data_dir / "reports_index.json"
+            try:
+                idx = json.loads(idx_path.read_text(encoding="utf-8")) if idx_path.exists() else []
+            except Exception:
+                idx = []
+            rel = str(report_path.relative_to(Path(__file__).parent))
+            if rel not in idx:
+                idx.append(rel)
+                idx_path.write_text(json.dumps(idx[-50:], indent=2), encoding="utf-8")
+            self._post_output(f"[dim]Full report: {report_path}[/dim]")
+        except Exception:
+            pass
+
+        self._post_output("\nDone. Run /dashboard to explore visually.")
+        self.ui._discovery_running = False
+        self.ui._discovery_step = ""
+
+    async def _run_discovery_pipeline_v1(self, query: str, depth: str = "quick", domain_override: str = None):
+        """Legacy v1 pipeline — kept as fallback."""
         from discovery.pubmed import search_and_fetch
         from discovery.graph import KnowledgeGraph
         from discovery.output import format_papers, save_session
@@ -2833,28 +3135,89 @@ class RumiLive:
         domain_label = get_domain(domain)["label"] if get_domain(domain) else "General Science"
         self._post_output(f"[bold cyan]Domain detected: {domain_label}[/bold cyan]")
 
-        max_results = 20 if depth == "quick" else 100
+        # Multi-source paper fetching: arXiv + PubMed + Semantic Scholar
+        from discovery.citation_grounding import fetch_papers, build_citation_context
+        max_arxiv = 25 if depth == "quick" else 50
+        max_pubmed = 25 if depth == "quick" else 50
+        max_s2 = 15 if depth == "quick" else 30
 
-        self._post_output(f"[bold cyan]Searching PubMed...[/bold cyan]")
+        self._post_output(f"[bold cyan]Searching arXiv + PubMed + Semantic Scholar...[/bold cyan]")
         self.ui.set_discovery_step("searching literature")
-        papers = search_and_fetch(query, max_results=max_results)
-        if not papers:
-            self._post_output("No papers found. Try a different query.")
-            self.ui._discovery_running = False
-            return
-        self._post_output(f"Found {len(papers)} raw papers. Filtering by relevance...")
 
-        # Semantic relevance filtering
-        filter_ = RetrievalFilter()
-        papers = filter_.filter(papers, query, domain=domain, min_papers=3, max_papers=10)
+        # Multi-query strategy: short targeted queries
+        all_papers = []
+        seen_titles = set()
+        queries = _generate_search_queries(query, domain)
+        self._post_output(f"[dim]Queries: {', '.join(q[:40] for q in queries)}[/dim]")
+
+        for q in queries:
+            try:
+                batch = fetch_papers(q, max_arxiv=max_arxiv, max_pubmed=max_pubmed, max_s2=max_s2)
+                for p in batch:
+                    # Normalize paper format early (before filter uses pmid)
+                    if "pmid" not in p:
+                        p["pmid"] = p.get("id", p.get("arxiv_id", f"paper_{id(p)}"))
+                    if "url" not in p:
+                        p["url"] = p.get("link", p.get("pdf_url", ""))
+                    key = p.get("title", "").lower().strip()[:60]
+                    if key and key not in seen_titles:
+                        seen_titles.add(key)
+                        all_papers.append(p)
+            except Exception as e:
+                self._post_output(f"[dim]Query '{q[:40]}' failed: {e}[/dim]")
+
+        papers = all_papers
+
+        # Fallback: if multi-query failed, try single PubMed search
         if not papers:
-            self._post_output("No relevant papers after filtering. Try a different query.")
+            self._post_output("[yellow]Multi-query returned 0. Trying direct PubMed search...[/yellow]")
+            try:
+                fallback_papers = search_and_fetch(query, max_results=max_pubmed)
+                if fallback_papers:
+                    for p in fallback_papers:
+                        if "pmid" not in p:
+                            p["pmid"] = p.get("id", f"paper_{id(p)}")
+                        if "url" not in p:
+                            p["url"] = p.get("link", "")
+                    papers = fallback_papers
+                    self._post_output(f"[dim]PubMed fallback: {len(papers)} papers[/dim]")
+            except Exception as e:
+                self._post_output(f"[dim]PubMed fallback failed: {e}[/dim]")
+
+        # Fallback: if still nothing, try domain query directly
+        if not papers:
+            domain_query = _generate_search_queries("", domain)[-1]  # Get domain fallback
+            self._post_output(f"[yellow]Trying domain query: {domain_query}[/yellow]")
+            try:
+                batch = fetch_papers(domain_query, max_arxiv=max_arxiv, max_pubmed=max_pubmed, max_s2=0)
+                for p in batch:
+                    if "pmid" not in p:
+                        p["pmid"] = p.get("id", p.get("arxiv_id", f"paper_{id(p)}"))
+                    if "url" not in p:
+                        p["url"] = p.get("link", "")
+                papers = batch
+            except Exception:
+                pass
+
+        if not papers:
+            self._post_output("No papers found from any source. Try a more specific query.")
             self.ui._discovery_running = False
             return
+        sources = set(p.get("source", "?") for p in papers)
+        self._post_output(f"Found {len(papers)} papers from {', '.join(sources)}.")
+
+        # Semantic relevance filtering (papers already have pmid normalized)
+        filter_ = RetrievalFilter()
+        filtered = filter_.filter(papers, query, domain=domain, min_papers=3, max_papers=max_pubmed)
+        if filtered:
+            papers = filtered
+        else:
+            self._post_output("[dim]Filter returned 0, using unfiltered results.[/dim]")
+            papers = papers[:max_pubmed]
         self._post_output(f"{len(papers)} relevant papers retained.")
 
         # Snowball sampling: expand search using terms from initial results
-        extra_papers = filter_.snowball_expand(papers, query, domain, max_extra=5)
+        extra_papers = filter_.snowball_expand(papers, query, domain, max_extra=15)
         if extra_papers:
             self._post_output(f"[dim]Snowball sampling: found {len(extra_papers)} additional papers[/dim]")
             papers.extend(extra_papers)
@@ -2873,6 +3236,12 @@ class RumiLive:
             delay = (attempt + 1) * 5
             self._post_output(f"[yellow]Extraction attempt {attempt+1} yielded 0 entities, retrying in {delay}s...[/yellow]")
             await asyncio.sleep(delay)
+
+        # Fallback: if LLM extraction failed, extract basic entities from papers
+        if not entities:
+            self._post_output("[yellow]LLM extraction failed. Building entities from paper titles...[/yellow]")
+            entities, relationships = self._extract_entities_from_papers(papers, domain)
+            self._post_output(f"[dim]Fallback: {len(entities)} entities, {len(relationships)} relationships from paper analysis[/dim]")
 
         self._post_output("[bold cyan]Building knowledge graph...[/bold cyan]")
         graph = KnowledgeGraph()
@@ -3116,9 +3485,351 @@ class RumiLive:
         self._track_discovery_topic(query, [p["pmid"] for p in papers])
         self._post_output(format_hypotheses(hypotheses))
         self._post_output(metrics.summary())
+
+        # Stage 14: Refinement Pipeline (13 refinement stages)
+        self._post_output("[bold cyan]Running refinement pipeline (13 stages)...[/bold cyan]")
+        self.ui.set_discovery_step("refining discoveries")
+        t0 = time.time()
+        try:
+            from discovery.refinement_pipeline import run_refinement_pipeline
+            refinement = run_refinement_pipeline(
+                query, domain, papers, graph, hypotheses, contradictions
+            )
+            # Generate refined report
+            report = self._generate_refined_report(query, domain, papers, graph, hypotheses, refinement)
+            if report:
+                report_path = Path(__file__).parent / "data" / f"refined_report_{run_id}.txt"
+                report_path.parent.mkdir(parents=True, exist_ok=True)
+                report_path.write_text(report, encoding="utf-8")
+                self._post_output(report)
+                self._post_output(f"\n[green]Refined report saved: {report_path}[/green]")
+            metrics.record("refinement_pipeline", "ok", time.time() - t0)
+        except Exception as e:
+            self._post_output(f"[yellow]Refinement pipeline failed: {e}[/yellow]")
+            # Fallback to old deep report
+            try:
+                report = await self._generate_deep_report(query, domain, papers, graph, hypotheses, contradictions, metrics)
+                if report:
+                    report_path = Path(__file__).parent / "data" / f"discovery_report_{run_id}.txt"
+                    report_path.parent.mkdir(parents=True, exist_ok=True)
+                    report_path.write_text(report, encoding="utf-8")
+                    self._post_output(report)
+                    self._post_output(f"\n[green]Report saved: {report_path}[/green]")
+            except Exception as e2:
+                self._post_output(f"[yellow]Deep report also failed: {e2}[/yellow]")
+
+        # Stage 15: Recursive Self-Improvement (Reflexion)
+        self._post_output("[bold cyan]Running reflexion cycle (self-improvement)...[/bold cyan]")
+        self.ui.set_discovery_step("reflexion: self-improving")
+        t0 = time.time()
+        try:
+            from brain.reflexion import get_recursive_improver
+            improver = get_recursive_improver(llm_fn=self._call_llm)
+            run_result = {
+                "query": query,
+                "domain": domain,
+                "hypotheses": hypotheses,
+                "contradictions": contradictions,
+                "metrics": metrics.summary() if hasattr(metrics, 'summary') else {},
+                "errors": [],
+            }
+            reflexion_result = await improver.reflect_and_improve(
+                run_result,
+                llm_fn=self._call_llm,
+                post_output_fn=self._post_output,
+            )
+            self._post_output(f"[green]Reflexion: {reflexion_result['patches_applied']} patches applied, "
+                             f"{reflexion_result['patches_rejected']} rejected, "
+                             f"score: {reflexion_result['improvement_score']:.0%}[/green]")
+            metrics.record("reflexion", "ok", time.time() - t0)
+        except Exception as e:
+            self._post_output(f"[yellow]Reflexion skipped: {e}[/yellow]")
+
         self._post_output("\nDone. Run /dashboard to explore visually.")
         self.ui._discovery_running = False
         self.ui._discovery_step = ""
+
+    async def _generate_deep_report(self, query, domain, papers, graph, hypotheses, contradictions, metrics):
+        """Generate a detailed, scientist-grade research report using the LLM."""
+        # Build comprehensive context from pipeline results
+        paper_citations = "\n".join(
+            f"  [{p.get('source', '?')}] {p['title']} ({p.get('year', '?')})"
+            for p in papers[:20]
+        )
+
+        hypothesis_summaries = ""
+        for i, h in enumerate(hypotheses[:5], 1):
+            title = h.get('title', 'Untitled')
+            conf = h.get('confidence', 0)
+            desc = h.get('description', h.get('mechanistic_rationale', ''))[:300]
+            evidence = h.get('supporting_evidence', h.get('evidence', []))
+            contra = h.get('contradictory_evidence', [])
+            novelty = h.get('novelty', 'unknown')
+            params = h.get('key_parameters', [])
+            preds = h.get('predictions', [])
+            plan = h.get('experiment_plan', {})
+
+            hypothesis_summaries += f"\nHYPOTHESIS {i}: {title}\n"
+            hypothesis_summaries += f"  Confidence: {conf:.0%} | Novelty: {novelty}\n"
+            hypothesis_summaries += f"  Description: {desc}\n"
+            if evidence:
+                hypothesis_summaries += f"  Evidence: {'; '.join(str(e) for e in evidence[:3])}\n"
+            if contra:
+                hypothesis_summaries += f"  Contradictions: {'; '.join(str(c) for c in contra[:3])}\n"
+            if params:
+                hypothesis_summaries += f"  Parameters: {json.dumps(params[:3])}\n"
+            if preds:
+                hypothesis_summaries += f"  Predictions: {'; '.join(str(p) for p in preds[:3])}\n"
+            if plan and plan.get('design'):
+                hypothesis_summaries += f"  Experiment: {plan['design'][:200]}\n"
+
+        contradiction_summary = ""
+        if contradictions:
+            contradiction_summary = "\nCONTRADICTIONS FOUND:\n"
+            for c in contradictions[:5]:
+                contradiction_summary += f"  - {c.get('description', c.get('summary', ''))[:150]}\n"
+
+        entity_count = len(graph.entities) if hasattr(graph, 'entities') else 0
+        rel_count = len(graph.relationships) if hasattr(graph, 'relationships') else 0
+
+        prompt = f"""You are RUMI, an autonomous scientific discovery AI. You have just completed a full discovery pipeline on the topic: "{query}"
+
+Domain: {domain}
+Papers analyzed: {len(papers)}
+Knowledge graph: {entity_count} entities, {rel_count} relationships
+Hypotheses generated: {len(hypotheses)}
+Contradictions found: {len(contradictions) if contradictions else 0}
+
+PAPER CORPUS:
+{paper_citations}
+
+HYPOTHESES:
+{hypothesis_summaries}
+{contradiction_summary}
+
+Write a comprehensive scientific discovery report in the style of a Nature or Science review article. Structure it as follows:
+
+## ABSTRACT
+A 150-200 word summary of the discovery, including the problem, approach, key findings, and significance.
+
+## 1. INTRODUCTION
+Context and motivation. Why does this topic matter? What are the open questions? Cite the papers above.
+
+## 2. METHODOLOGY
+How the discovery pipeline worked: literature retrieval, entity extraction, knowledge graph construction, gap detection, anomaly detection, hypothesis generation, skeptic review, novelty verification.
+
+## 3. RESULTS
+
+### 3.1 Literature Analysis
+Key findings from the {len(papers)} papers analyzed. What themes emerged? What contradictions exist?
+
+### 3.2 Knowledge Graph
+{entity_count} entities and {rel_count} relationships mapped. What are the hub entities? What structural gaps exist?
+
+### 3.3 Hypotheses
+For each hypothesis:
+- Full mechanistic explanation with equations where applicable
+- Supporting evidence with citations
+- Contradictory evidence and how to address it
+- Key parameters and their expected values
+- Novelty assessment
+
+### 3.4 Mathematical Framework
+For the top hypothesis, derive or present the relevant equations. Show how the mechanism works mathematically. Include rate equations, differential equations, or statistical models as appropriate.
+
+### 3.5 Experimental Predictions
+Specific, quantitative, falsifiable predictions. What experiments should be done? What measurements should be made? What would falsify each hypothesis?
+
+## 4. DISCUSSION
+
+### 4.1 Implications
+What do these findings mean for the field? How do they change our understanding?
+
+### 4.2 Limitations
+What are the weaknesses of this analysis? What biases might exist?
+
+### 4.3 Alternative Explanations
+What other explanations should be considered?
+
+## 5. CONCLUSIONS
+What is the most likely explanation? What should be done next?
+
+## 6. REFERENCES
+Cite all papers from the corpus above with proper formatting.
+
+Be detailed. Use equations. Be specific. Write like a scientist, not a chatbot. This should be publication-quality."""
+
+        # Use the best available LLM for report generation
+        report = await self._call_llm(prompt, max_tokens=16384, provider="auto")
+        return report
+
+    def _generate_refined_report(self, topic, domain, papers, graph, hypotheses, refinement):
+        """Generate a comprehensive report from refinement pipeline results."""
+        audit = refinement.get("audit", {})
+        comp = refinement.get("competition", {})
+        reviews = refinement.get("reviews", {})
+        causal = refinement.get("causal", {})
+        uncertainty = refinement.get("uncertainty", {})
+        predictions = refinement.get("predictions", {})
+        sim = refinement.get("simulation", {})
+        classification = refinement.get("classification", {})
+        scoring = refinement.get("scoring", {})
+        courtroom = refinement.get("courtroom", {})
+
+        winner = comp.get("winner", "Unknown")
+        grade = scoring.get("grade", "?")
+        overall_score = scoring.get("overall_score", 0)
+        verdict = courtroom.get("verdict", "?")
+        classification_type = classification.get("classification", "?")
+
+        lines = []
+        lines.append("=" * 70)
+        lines.append("  RUMI REFINED DISCOVERY REPORT")
+        lines.append(f"  Topic: {topic}")
+        lines.append(f"  Domain: {domain}")
+        lines.append(f"  Papers: {len(papers)} | Entities: {len(graph.entities)}")
+        lines.append(f"  Grade: {grade} | Score: {overall_score}/100")
+        lines.append(f"  Classification: {classification_type}")
+        lines.append(f"  Verdict: {verdict}")
+        lines.append("=" * 70)
+
+        # Knowledge Foundation
+        lines.append("\n## KNOWLEDGE FOUNDATION AUDIT")
+        for fact in audit.get("known_facts", [])[:5]:
+            lines.append(f"  FACT: {fact.get('fact', '?')} [{fact.get('evidence_strength', '?')}]")
+        for prob in audit.get("open_problems", [])[:5]:
+            lines.append(f"  OPEN: {prob.get('problem', '?')} [{prob.get('importance', '?')}]")
+
+        # Winning Hypothesis
+        lines.append("\n## WINNING HYPOTHESIS")
+        lines.append(f"  {winner}")
+        for h in comp.get("hypotheses", []):
+            if h.get("title") == winner:
+                lines.append(f"  Description: {h.get('description', '')[:300]}")
+                scores = h.get("scores", {})
+                lines.append(f"  Scores: E={scores.get('evidence', '?')} C={scores.get('consistency', '?')} P={scores.get('predictive_power', '?')} N={scores.get('novelty', '?')} S={scores.get('simplicity', '?')} F={scores.get('falsifiability', '?')}")
+                break
+
+        # Adversarial Reviews
+        lines.append("\n## ADVERSARIAL REVIEWS (5 Reviewers)")
+        for r in reviews.get("reviews", []):
+            role = r.get("role", "?")
+            severity = r.get("severity", "?")
+            lines.append(f"  [{role.upper()}] {severity}")
+            for obj in r.get("objections", [])[:2]:
+                lines.append(f"    - {obj}")
+        lines.append(f"  Survived: {reviews.get('survived', '?')} | Fatal: {reviews.get('fatal_count', 0)}")
+
+        # Uncertainty
+        lines.append("\n## UNCERTAINTY DECOMPOSITION")
+        for k, v in uncertainty.get("decomposition", {}).items():
+            if isinstance(v, dict):
+                lines.append(f"  {k}: {v.get('score', '?')}/100 - {v.get('reason', '?')}")
+        lines.append(f"  Limiting: {uncertainty.get('limiting_factor', '?')}")
+
+        # Predictions
+        lines.append("\n## PREDICTIONS")
+        for p in predictions.get("predictions", []):
+            lines.append(f"  [{p.get('timescale', '?')}] {p.get('prediction', '?')[:100]}")
+            lines.append(f"    Measure: {p.get('measurement', '?')} | Falsify: {p.get('falsification_threshold', '?')}")
+
+        # Scoring
+        lines.append("\n## RESEARCHER-GRADE SCORES")
+        for metric, score in scoring.get("scores", {}).items():
+            lines.append(f"  {metric}: {score}/100")
+        lines.append(f"  OVERALL: {overall_score}/100 ({grade})")
+
+        # Courtroom
+        lines.append("\n## SCIENTIFIC COURTROOM")
+        lines.append(f"  Verdict: {verdict}")
+        jury = courtroom.get("jury", {})
+        lines.append(f"  Jury: {jury.get('tally', '?')}")
+        sc = courtroom.get("self_critique", {})
+        lines.append(f"  Weakest assumption: {sc.get('weakest_assumption', '?')}")
+        lines.append(f"  Falsification: {sc.get('falsification_experiment', '?')[:100]}")
+
+        lines.append("\n" + "=" * 70)
+        return "\n".join(lines)
+
+    def _extract_entities_from_papers(self, papers, domain):
+        """Fallback entity extraction from paper titles/abstracts when LLM fails."""
+        import re as _re
+        entities = []
+        relationships = []
+        seen_entities = set()
+
+        # Domain-specific entity patterns
+        _DOMAIN_PATTERNS = {
+            "space_astronomy": {
+                "object": ["star", "galaxy", "planet", "exoplanet", "nebula", "pulsar", "quasar",
+                           "supernova", "asteroid", "comet", "black hole", "neutron star"],
+                "process": ["outgassing", "sublimation", "accretion", "fusion", "radiation",
+                            "acceleration", "emission", "absorption"],
+                "measurement": ["luminosity", "redshift", "mass", "temperature", "velocity",
+                                "brightness", "magnitude"],
+                "instrument": ["telescope", "JWST", "Hubble", "Spitzer", "ALMA", "Kepler"],
+            },
+            "physics": {
+                "object": ["particle", "boson", "fermion", "electron", "proton", "neutron"],
+                "process": ["entanglement", "tunneling", "decay", "scattering", "annihilation"],
+                "measurement": ["energy", "momentum", "spin", "charge", "wavelength"],
+            },
+            "biology": {
+                "object": ["gene", "protein", "cell", "enzyme", "receptor", "antibody"],
+                "process": ["expression", "mutation", "transcription", "translation", "signaling"],
+                "measurement": ["expression level", "activity", "concentration"],
+            },
+        }
+
+        patterns = _DOMAIN_PATTERNS.get(domain, _DOMAIN_PATTERNS.get("space_astronomy", {}))
+
+        # Extract entities from paper titles and abstracts
+        for p in papers[:15]:
+            text = f"{p.get('title', '')} {p.get('abstract', '')[:500]}".lower()
+            for etype, keywords in patterns.items():
+                for kw in keywords:
+                    if kw in text and kw not in seen_entities:
+                        seen_entities.add(kw)
+                        entities.append({
+                            "name": kw.title(),
+                            "type": etype,
+                            "description": f"Extracted from paper: {p.get('title', '')[:80]}",
+                            "aliases": [],
+                        })
+
+        # Add the topic itself as an entity
+        if papers:
+            topic_words = set()
+            for p in papers[:5]:
+                title = p.get("title", "")
+                # Extract capitalized terms (likely entity names)
+                for match in _re.finditer(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', title):
+                    term = match.group()
+                    if len(term) > 3 and term.lower() not in {'the', 'and', 'for', 'with', 'from', 'that', 'this'}:
+                        topic_words.add(term)
+            for tw in list(topic_words)[:5]:
+                if tw.lower() not in seen_entities:
+                    seen_entities.add(tw.lower())
+                    entities.append({
+                        "name": tw,
+                        "type": "object",
+                        "description": f"Key term from paper titles",
+                        "aliases": [],
+                    })
+
+        # Build basic relationships from co-occurrence
+        for i in range(min(len(entities), 5)):
+            for j in range(i + 1, min(len(entities), 5)):
+                relationships.append({
+                    "source": entities[i]["name"],
+                    "source_type": entities[i]["type"],
+                    "target": entities[j]["name"],
+                    "target_type": entities[j]["type"],
+                    "relation": "co_occurs_in_literature",
+                    "confidence": 0.5,
+                })
+
+        return entities, relationships
 
     def _build_extraction_prompt(self, papers: list[dict], domain: str = "drug_discovery") -> str:
         papers = papers[:5]
@@ -6570,6 +7281,55 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
         except Exception as e:
             return f"Self-audit error: {e}"
 
+    @register_tool("reflexion")
+    async def _tool_reflexion(self, args):
+        """Check reflexion (self-improvement) history and stats."""
+        try:
+            from brain.reflexion import get_recursive_improver
+            improver = get_recursive_improver()
+            action = args.get("action", "stats")
+
+            if action == "stats":
+                stats = improver.get_stats()
+                lines = [
+                    "Reflexion (Recursive Self-Improvement) Stats:",
+                    f"  Total cycles: {stats['total_cycles']}",
+                    f"  Weaknesses found: {stats['total_weaknesses_found']}",
+                    f"  Patches applied: {stats['total_patches_applied']}",
+                    f"  Patches rejected: {stats['total_patches_rejected']}",
+                    f"  Avg improvement score: {stats['avg_improvement_score']:.0%}",
+                ]
+                last = stats.get("last_cycle")
+                if last:
+                    r = last.get("result", {})
+                    lines.append(f"  Last cycle: {last.get('timestamp', '?')}")
+                    lines.append(f"    Weaknesses: {r.get('weaknesses_found', 0)} | "
+                                f"Applied: {r.get('patches_applied', 0)} | "
+                                f"Score: {r.get('improvement_score', 0):.0%}")
+                return "\n".join(lines)
+
+            elif action == "history":
+                limit = int(args.get("limit", 5))
+                history = improver.get_history(limit=limit)
+                if not history:
+                    return "No reflexion history yet."
+                lines = ["Reflexion History:"]
+                for entry in history:
+                    r = entry.get("result", {})
+                    lines.append(f"  [{entry.get('timestamp', '?')[:16]}] "
+                                f"Cycle #{r.get('cycle', '?')} | "
+                                f"Weaknesses: {r.get('weaknesses_found', 0)} | "
+                                f"Applied: {r.get('patches_applied', 0)} | "
+                                f"Score: {r.get('improvement_score', 0):.0%}")
+                    for d in r.get("details", []):
+                        lines.append(f"    [{d.get('status', '?')}] {d.get('patch', '')[:60]}")
+                return "\n".join(lines)
+
+            return f"Unknown reflexion action: {action}. Use 'stats' or 'history'."
+
+        except Exception as e:
+            return f"Reflexion error: {e}"
+
     @register_tool("run_dream_cycle")
     async def _tool_run_dream(self, args):
         if not self._dreaming or isinstance(self._dreaming, _NullModule):
@@ -7802,11 +8562,6 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                             txt = _clean_transcript(sc.output_transcription.text)
                             if txt:
                                 out_buf.append(txt)
-                                # Stream text in real-time (print directly, no panel)
-                                if not sc.turn_complete:
-                                    # Add space prefix if needed to separate words
-                                    prefix = " " if out_buf and not txt.startswith(" ") else ""
-                                    print(f"{prefix}{txt}", end="", flush=True)
                         if sc.input_transcription and sc.input_transcription.text:
                             txt = _clean_transcript(sc.input_transcription.text)
                             if txt:
@@ -7816,11 +8571,6 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                             for part in sc.model_turn.parts:
                                 if hasattr(part, 'text') and part.text:
                                     out_buf.append(part.text)
-                                    # Stream text in real-time (print directly, no panel)
-                                    if not sc.turn_complete:
-                                        # Add space prefix if needed to separate words
-                                        prefix = " " if out_buf and not part.text.startswith(" ") else ""
-                                        print(f"{prefix}{part.text}", end="", flush=True)
                         if sc.turn_complete:
                             full_in = " ".join(in_buf).strip()
 
@@ -7852,11 +8602,11 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                                     except asyncio.QueueFull:
                                         break
                                 _audio_buf.clear()
-                                # Response already streamed in real-time, just add newline
-                                print()  # Newline after streamed response
                                 # Send to telegram if needed
                                 full_out = " ".join(out_buf).strip()
                                 if full_out:
+                                    # Route response through write_log for [RUMI] label + Rich formatting
+                                    self.ui.write_log(f"Rumi: {full_out}")
                                     try:
                                         if hasattr(self.telegram, 'send_response'):
                                             self.telegram.send_response(full_out)

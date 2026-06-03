@@ -1,36 +1,30 @@
 // ui-tui/src/theme.ts
-// Hermes Agent color palette — warm dark theme
+// RUMI — Premium AI Research Operating System
 
 export const theme = {
   bg: {
-    deep: '#0d1117',
-    secondary: '#161b22',
-    panel: '#1c2128',
-    element: '#21262d',
-    hover: '#30363d',
-    input: '#0d1117',
+    deep: '#000000',
+    panel: '#0a0a0a',
+    card: '#111111',
   },
   txt: {
-    bright: '#f0f6fc',
-    primary: '#c9d1d9',
-    secondary: '#8b949e',
-    muted: '#484f58',
-    dim: '#30363d',
+    bright: '#EAEAEA',
+    primary: '#EAEAEA',
+    secondary: '#7A7A7A',
+    muted: '#555555',
   },
   accent: {
-    cyan: '#39d353',
-    blue: '#58a6ff',
-    green: '#39d353',
-    amber: '#d29922',
-    red: '#f85149',
-    purple: '#bc8cff',
-    teal: '#39d353',
-    pink: '#f778ba',
+    blue: '#00BFFF',
+    cyan: '#00E5FF',
+    green: '#00E676',
+    amber: '#FFD740',
+    red: '#FF5252',
+    purple: '#B388FF',
   },
   border: {
-    subtle: '#21262d',
-    normal: '#30363d',
-    active: '#58a6ff',
+    subtle: '#333333',
+    normal: '#555555',
+    active: '#00BFFF',
   },
 } as const;
 

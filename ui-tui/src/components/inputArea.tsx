@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+// ui-tui/src/components/inputArea.tsx
+import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import TextInput from 'ink-text-input';
 import { theme } from '../theme';
@@ -7,9 +8,10 @@ import { CompletionList, SLASH_COMMANDS } from './completionList';
 interface InputAreaProps {
   onSubmit: (value: string) => void;
   isBusy: boolean;
+  disabled?: boolean;
 }
 
-export const InputArea: React.FC<InputAreaProps> = ({ onSubmit, isBusy }) => {
+export const InputArea: React.FC<InputAreaProps> = ({ onSubmit, isBusy, disabled = false }) => {
   const [value, setValue] = useState('');
   const [showCompletions, setShowCompletions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -19,6 +21,7 @@ export const InputArea: React.FC<InputAreaProps> = ({ onSubmit, isBusy }) => {
     : [];
 
   const handleSubmit = (val: string) => {
+    if (disabled) return;
     const trimmed = val.trim();
     if (!trimmed) return;
     if (showCompletions && filtered.length > 0) {
@@ -44,8 +47,8 @@ export const InputArea: React.FC<InputAreaProps> = ({ onSubmit, isBusy }) => {
   return (
     <Box flexDirection="column">
       <CompletionList items={filtered} selectedIndex={selectedIndex} visible={showCompletions} />
-      <Box flexDirection="row">
-        <Text color={theme.accent.blue} bold>{'> '}</Text>
+      <Box flexDirection="row" paddingX={1}>
+        <Text color={theme.accent.cyan} bold>{'> '}</Text>
         <TextInput
           value={value}
           onChange={handleChange}

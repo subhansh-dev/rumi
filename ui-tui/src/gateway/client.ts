@@ -1,5 +1,4 @@
-// ui-tui/src/gateway/client.ts
-import * as readline from 'readline';
+import { WsConnection } from './ws';
 import { JsonRpcRequest, JsonRpcResponse, JsonRpcEvent } from './types';
 
 type EventHandler = (method: string, params: Record<string, unknown>) => void;
@@ -12,21 +11,16 @@ export class GatewayClient {
     reject: (error: Error) => void;
   }>();
   private handlers: EventHandler[] = [];
-  private rl: readline.Interface;
+  private conn: WsConnection;
 
-  constructor() {
-    this.rl = readline.createInterface({
-      input: process.stdin,
-      terminal: false,
-    });
+  constructor(url = 'ws://127.0.0.1:18789') {
+    this.conn = new WsConnection(url);
 
-    this.rl.on('line', (line: string) => {
+    this.conn.onMessage((line: string) => {
       this.handleLine(line.trim());
     });
 
-    this.rl.on('close', () => {
-      this.emit('gateway.close', {});
-    });
+    this.conn.connect();
   }
 
   private handleLine(line: string) {
@@ -77,7 +71,7 @@ export class GatewayClient {
 
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      process.stdout.write(JSON.stringify(request) + '\n');
+      this.conn.send(JSON.stringify(request));
     });
   }
 
@@ -86,6 +80,6 @@ export class GatewayClient {
   }
 
   destroy() {
-    this.rl.close();
+    this.conn.close();
   }
 }

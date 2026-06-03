@@ -1,43 +1,31 @@
 @echo off
+setlocal enabledelayedexpansion
 :: ============================================================================
-:: RUMI Scientist AI — Windows Launcher (v2)
-:: Finds the correct Python 3.13+ with all dependencies installed.
+:: RUMI Scientist AI — Windows Launcher (v3)
+:: Finds Python 3.13+ WITH rich + prompt_toolkit installed.
 :: ============================================================================
 title RUMI Scientist AI
 
 echo.
 echo  ╔══════════════════════════════════════════════════════╗
-echo  ║           RUMI Scientist AI  v2.0.0                 ║
+echo  ║           RUMI Scientist AI  v3.0.0                 ║
 echo  ║     Autonomous Scientific Discovery Engine           ║
 echo  ╚══════════════════════════════════════════════════════╝
 echo.
 
-:: Get the directory where this script is located
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
-:: --- Find Python 3.13+ ---
-:: Priority: 1) venv  2) PATH python  3) Common install locations
 set "PYTHON_CMD="
 
-:: Check if we're in a virtual environment
-python -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
-if %errorlevel% equ 0 (
-    set "PYTHON_CMD=python"
-    goto :found_python
-)
-
-:: Try common Windows install locations
+:: 1) Check known paths FIRST (must have rich installed)
 for %%P in (
     "%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
     "%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
-    "%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
-    "C:\Python313\python.exe"
-    "C:\Python312\python.exe"
-    "C:\Python311\python.exe"
+    "%LOCALAPPDATA%\hermes\hermes-agent\venv\Scripts\python.exe"
 ) do (
     if exist %%P (
-        %%P -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
+        %%P -c "import rich; import prompt_toolkit" >nul 2>&1
         if !errorlevel! equ 0 (
             set "PYTHON_CMD=%%~P"
             goto :found_python
@@ -45,16 +33,29 @@ for %%P in (
     )
 )
 
-:: Last resort: try PATH python
-python --version >nul 2>&1
+:: 2) Check local venv
+if exist ".venv\Scripts\python.exe" (
+    .venv\Scripts\python.exe -c "import rich; import prompt_toolkit" >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PYTHON_CMD=.venv\Scripts\python.exe"
+        goto :found_python
+    )
+)
+
+:: 3) Last resort: PATH python (must have deps)
+python -c "import rich; import prompt_toolkit" >nul 2>&1
 if %errorlevel% equ 0 (
     set "PYTHON_CMD=python"
     goto :found_python
 )
 
-echo [ERROR] Python 3.11+ not found.
-echo         Install from https://python.org or create a venv:
-echo         python -m venv .venv ^&^& .venv\Scripts\activate ^&^& pip install -r requirements.txt
+echo [ERROR] No Python with rich + prompt_toolkit found.
+echo.
+echo  Your default 'python' is msys64 which is missing dependencies.
+echo  Install Python 3.13 from https://python.org then run this again,
+echo  or create a venv:
+echo    python3.13 -m venv .venv ^&^& .venv\Scripts\activate ^&^& pip install -r requirements.txt
+echo.
 pause
 exit /b 1
 
@@ -63,37 +64,15 @@ echo [OK] Using: %PYTHON_CMD%
 %PYTHON_CMD% --version
 echo.
 
-:: --- Quick dependency check ---
-echo [CHECK] Verifying dependencies...
-%PYTHON_CMD% -c "import rich; import groq; import google.genai" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [WARN] Some dependencies are missing. Installing...
-    %PYTHON_CMD% -m pip install -r requirements.txt
-    if %errorlevel% neq 0 (
-        echo [ERROR] Failed to install dependencies.
-        pause
-        exit /b 1
-    )
-    echo [OK] Dependencies installed.
-) else (
-    echo [OK] Core dependencies found.
-)
-echo.
-
 :: --- Launch RUMI ---
 if "%1"=="" (
-    echo [LAUNCH] Starting RUMI Scientist AI (interactive mode)...
+    echo [LAUNCH] Starting RUMI Scientist AI...
     echo.
     %PYTHON_CMD% rumi_launcher.py
 ) else (
     echo [LAUNCH] Running discovery pipeline: %*
     echo.
     %PYTHON_CMD% run_discovery_v2.py %*
-)
-
-set "EXIT_CODE=%errorlevel%"
-if %EXIT_CODE% neq 0 (
-    echo [RUMI] Exited with code %EXIT_CODE%
 )
 
 echo.

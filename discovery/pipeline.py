@@ -43,6 +43,7 @@ class LLMStage(Stage):
     async def call_with_retry(self, prompt, json_mode=False, max_tokens=32768):
         last_error = None
         failed_providers = set()
+        consecutive_none = 0  # Track consecutive None responses per provider
         for attempt in range(self.max_retries):
             provider_idx = 0 if attempt < 2 else 1
             if provider_idx >= len(self.providers):
@@ -61,6 +62,11 @@ class LLMStage(Stage):
                 if result and len(result) > 20:
                     return result, provider
                 last_error = f"Empty/too short response from {provider}"
+                consecutive_none += 1
+                # After 2 consecutive None from same provider, switch
+                if consecutive_none >= 2:
+                    failed_providers.add(provider)
+                    consecutive_none = 0
             except Exception as e:
                 last_error = f"{type(e).__name__} from {provider}: {e}"
                 err_str = str(e).lower()

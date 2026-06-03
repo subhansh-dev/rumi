@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from 'react';
+// ui-tui/src/components/statusBar.tsx
+import React from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../theme';
-
-const KAOMOJI = [
-  '(｡•́︿•̀｡)', '(◔_versed)', '(¬‿¬)', '( •_•)>⌐■-■', '(⌐■_■)',
-  '(´･_･`)', '◉_◉', '(°ロ°)', '( ˘⌣˘)♡', 'ヽ(>∀<☆)☆',
-  '٩(๑❛ᴗ❛๑)۶', '(⊙_⊙)', '(¬_¬)', '( ͡° ͜ʖ ͡°)', 'ಠ_ಠ',
-];
+import { ContextBar } from './contextBar';
 
 interface StatusBarProps {
   state: string;
@@ -16,6 +12,8 @@ interface StatusBarProps {
   uptime: number;
   thinkMode: boolean;
   diveMode: boolean;
+  elapsed?: number;
+  maxContext?: number;
 }
 
 function formatUptime(seconds: number): string {
@@ -30,63 +28,60 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m${s}s`;
+}
+
 export const StatusBar: React.FC<StatusBarProps> = ({
   state, model, tokens, cost, uptime, thinkMode, diveMode,
+  elapsed = 0, maxContext = 200000,
 }) => {
-  const [kaomojiIdx, setKaomojiIdx] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setKaomojiIdx(prev => (prev + 1) % KAOMOJI.length);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
-
   const stateColor = state === 'READY' || state === 'IDLE'
     ? theme.accent.green
     : state === 'THINKING' || state === 'PROCESSING'
     ? theme.accent.amber
-    : theme.txt.secondary;
+    : theme.txt.primary;
 
-  const stateLabel = state === 'THINKING' ? 'thinking…'
-    : state === 'PROCESSING' ? 'running…'
-    : state === 'SPEAKING' ? 'speaking…'
+  const stateLabel = state === 'THINKING' ? 'thinking'
+    : state === 'PROCESSING' ? 'running'
+    : state === 'SPEAKING' ? 'speaking'
     : 'ready';
 
-  const isBusy = state === 'THINKING' || state === 'PROCESSING';
-
   return (
-    <Box
-      flexDirection="row"
-      paddingX={1}
-      borderTop={true}
-      borderColor={theme.border.normal}
-    >
-      <Text color={stateColor} bold>{'● '}{stateLabel}</Text>
-      {isBusy && (
-        <Text color={theme.accent.amber}>{' '}{KAOMOJI[kaomojiIdx]}</Text>
+    <Box flexDirection="row" paddingX={1}>
+      <Text color={stateColor} bold>{stateLabel}</Text>
+      <Text color={theme.txt.muted}>{' | '}</Text>
+      <Text color={theme.txt.primary}>{model}</Text>
+      <Text color={theme.txt.muted}>{' | '}</Text>
+      <Text color={theme.txt.primary}>{formatTokens(tokens)} tok</Text>
+      <Text color={theme.txt.muted}>{' | '}</Text>
+      <ContextBar used={tokens} max={maxContext} />
+      <Text color={theme.txt.muted}>{' | '}</Text>
+      <Text color={theme.txt.primary}>{formatUptime(uptime)}</Text>
+      {elapsed > 0 && (
+        <>
+          <Text color={theme.txt.muted}>{' | '}</Text>
+          <Text color={theme.accent.amber}>{formatElapsed(elapsed)}</Text>
+        </>
       )}
-      <Text color={theme.border.normal}>{' │ '}</Text>
-      <Text color={theme.accent.blue}>{model}</Text>
-      <Text color={theme.border.normal}>{' │ '}</Text>
-      <Text color={theme.txt.secondary}>{formatTokens(tokens)} tok</Text>
-      <Text color={theme.border.normal}>{' │ '}</Text>
-      <Text color={theme.txt.secondary}>{formatUptime(uptime)}</Text>
       {cost > 0 && (
         <>
-          <Text color={theme.border.normal}>{' │ '}</Text>
-          <Text color={theme.accent.green}>{'$'}{cost.toFixed(4)}</Text>
+          <Text color={theme.txt.muted}>{' | '}</Text>
+          <Text color={theme.accent.green}>${cost.toFixed(4)}</Text>
         </>
       )}
       {thinkMode && (
         <>
-          <Text color={theme.border.normal}>{' │ '}</Text>
+          <Text color={theme.txt.muted}>{' | '}</Text>
           <Text color={theme.accent.purple}>{'think'}</Text>
         </>
       )}
       {diveMode && (
         <>
-          <Text color={theme.border.normal}>{' │ '}</Text>
+          <Text color={theme.txt.muted}>{' | '}</Text>
           <Text color={theme.accent.cyan}>{'dive'}</Text>
         </>
       )}

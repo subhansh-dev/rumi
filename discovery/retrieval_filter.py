@@ -19,13 +19,14 @@ class RetrievalFilter:
         scored = self._score_papers(papers, topic, expanded_terms)
         scored.sort(key=lambda x: x["score"], reverse=True)
 
-        # Batch LLM relevance check for borderline papers
+        # Batch LLM relevance check for borderline papers — DISABLED (too slow)
         top = [p for p in scored if p["score"] >= self.relevance_threshold]
         borderline = [p for p in scored if p["score"] < self.relevance_threshold and p["score"] >= 0.15]
 
-        if borderline and len(top) < max_papers:
-            llm_scored = self._llm_relevance_check(borderline, topic, domain)
-            top.extend(llm_scored)
+        # Skip LLM check — just use scoring
+        # if borderline and len(top) < max_papers:
+        #     llm_scored = self._llm_relevance_check(borderline, topic, domain)
+        #     top.extend(llm_scored)
 
         top.sort(key=lambda x: x["score"], reverse=True)
         top = top[:max_papers]

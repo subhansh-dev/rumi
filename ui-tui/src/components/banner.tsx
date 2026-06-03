@@ -1,65 +1,46 @@
-import React, { useState } from 'react';
+// ui-tui/src/components/banner.tsx
+import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../theme';
-
-interface BannerSection {
-  title: string;
-  content: string[];
-  defaultOpen?: boolean;
-}
 
 interface BannerProps {
   version: string;
   model: string;
-  domains: number;
-  modules: number;
-  sections?: BannerSection[];
 }
 
-export const Banner: React.FC<BannerProps> = ({
-  version, model, domains, modules, sections = [],
-}) => {
-  const [openSections, setOpenSections] = useState<Set<number>>(() => {
-    const open = new Set<number>();
-    sections.forEach((s, i) => { if (s.defaultOpen) open.add(i); });
-    return open;
-  });
+const LOGO = [
+  ' ███████╗██╗   ██╗██████╗ ██╗███╗   ██╗██╗███╗   ██╗██████╗ ',
+  ' ██╔════╝██║   ██║██╔══██╗██║████╗  ██║██║████╗  ██║██╔══██╗',
+  ' ███████╗██║   ██║██████╔╝██║██╔██╗ ██║██║██╔██╗ ██║██║  ██║',
+  ' ╚════██║██║   ██║██╔══██╗██║██║╚██╗██║██║██║╚██╗██║██║  ██║',
+  ' ███████║╚██████╔╝██║  ██║██║██║ ╚████║██║██║ ╚████║██████╔╝',
+  ' ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝╚═════╝ ',
+];
 
-  const toggle = (idx: number) => {
-    setOpenSections(prev => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      return next;
-    });
-  };
+export const Banner: React.FC<BannerProps> = ({ version, model }) => {
+  const [showLogo, setShowLogo] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowLogo(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showLogo) {
+    return (
+      <Box flexDirection="column" paddingX={1} paddingBottom={1}>
+        {LOGO.map((line, i) => (
+          <Text key={i} color={theme.accent.cyan} bold>{line}</Text>
+        ))}
+        <Text color={theme.txt.secondary}>{'Research Unified Machine Intelligence'}</Text>
+        <Text color={theme.txt.muted}>{` v${version} | ${model}`}</Text>
+      </Box>
+    );
+  }
 
   return (
-    <Box flexDirection="column" paddingX={1} paddingBottom={1}>
-      <Box>
-        <Text color={theme.accent.blue} bold>{'RUMI'}</Text>
-        <Text color={theme.txt.muted}>{` v${version} · `}</Text>
-        <Text color={theme.txt.secondary}>{model}</Text>
-        <Text color={theme.txt.muted}>{` · ${domains} domains · ${modules} modules`}</Text>
-      </Box>
-      {sections.map((section, idx) => {
-        const isOpen = openSections.has(idx);
-        const chevron = isOpen ? '▾' : '▸';
-        return (
-          <Box key={idx} paddingLeft={1}>
-            <Text color={theme.txt.muted}>
-              {chevron}{' '}{section.title}
-            </Text>
-            {isOpen && section.content.map((line, li) => (
-              <Box key={li} paddingLeft={3}>
-                <Text color={theme.txt.secondary}>
-                  {line}
-                </Text>
-              </Box>
-            ))}
-          </Box>
-        );
-      })}
+    <Box paddingX={1} paddingBottom={1}>
+      <Text color={theme.accent.cyan} bold>{'RUMI'}</Text>
+      <Text color={theme.txt.muted}>{` | ${model}`}</Text>
     </Box>
   );
 };

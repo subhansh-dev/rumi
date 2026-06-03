@@ -1,4 +1,4 @@
-"""JSON-RPC server reading from stdin, dispatching to RumiLive."""
+"""WebSocket JSON-RPC server dispatching to RumiLive."""
 from __future__ import annotations
 import asyncio
 import json
@@ -11,21 +11,29 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+try:
+    import websockets
+    from websockets.server import serve as ws_serve
+except ImportError:
+    print("[gateway] websockets not installed. Run: pip install websockets", file=sys.stderr)
+    sys.exit(1)
+
 from rumi_gateway.protocol import (
     JsonRpcRequest, JsonRpcResponse, JsonRpcEvent,
-    send_message, log_error,
+    send_message, log_error, set_websocket,
 )
 
 
 class GatewayServer:
-    """Reads JSON-RPC from stdin, manages session, writes events to stdout."""
+    """WebSocket server reading JSON-RPC from clients, dispatching to RumiLive."""
 
-    def __init__(self):
+    def __init__(self, host: str = "127.0.0.1", port: int = 18789):
+        self._host = host
+        self._port = port
         self._running = True
         self._rumi = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._session_ready = False
-        self._pending_responses: dict[int | str, asyncio.Future] = {}
         self._event_queue: asyncio.Queue = asyncio.Queue()
 
     def start(self):
@@ -35,36 +43,41 @@ class GatewayServer:
         self._loop.run_until_complete(self._run())
 
     async def _run(self):
-        """Core loop: read stdin, process, emit events."""
-        log_error("Gateway server starting")
+        """Core loop: start WebSocket server."""
+        log_error(f"Gateway server starting on ws://{self._host}:{self._port}")
+
+        async with ws_serve(self.handler, self._host, self._port):
+            log_error("Gateway ready - waiting for Ink TUI connection")
+            await asyncio.Future()  # run forever
+
+    async def handler(self, websocket):
+        """Handle a single WebSocket client connection."""
+        set_websocket(websocket)
+        log_error(f"Client connected: {websocket.remote_address}")
 
         send_message(JsonRpcEvent(
             method="gateway.ready",
-            params={"version": "3.0"},
+            params={"version": "3.1"},
         ))
 
-        reader = asyncio.StreamReader()
-        protocol = asyncio.StreamReaderProtocol(reader)
-        await self._loop.connect_read_pipe(lambda: protocol, sys.stdin)
-
-        while self._running:
-            try:
-                line = await asyncio.wait_for(reader.readline(), timeout=0.1)
-                if not line:
-                    break
-                line = line.decode("utf-8").strip()
+        try:
+            async for message in websocket:
+                line = message if isinstance(message, str) else message.decode("utf-8")
+                line = line.strip()
                 if not line:
                     continue
 
-                request = JsonRpcRequest.from_json(line)
-                await self._handle_request(request)
-
-            except asyncio.TimeoutError:
-                continue
-            except json.JSONDecodeError as e:
-                log_error(f"Bad JSON: {e}")
-            except Exception as e:
-                log_error(f"Error: {e}")
+                try:
+                    request = JsonRpcRequest.from_json(line)
+                    await self._handle_request(request)
+                except json.JSONDecodeError as e:
+                    log_error(f"Bad JSON: {e}")
+                except Exception as e:
+                    log_error(f"Error: {e}")
+        except websockets.ConnectionClosed:
+            log_error("Client disconnected")
+        finally:
+            set_websocket(None)
 
     async def _handle_request(self, req: JsonRpcRequest):
         """Dispatch a JSON-RPC request."""
@@ -76,6 +89,8 @@ class GatewayServer:
                 await self._handle_session_create(req, params)
             elif method == "session.info":
                 await self._handle_session_info(req)
+            elif method == "session.list":
+                await self._handle_session_list(req)
             elif method == "chat.send":
                 await self._handle_chat_send(req, params)
             elif method == "chat.interrupt":
@@ -135,6 +150,22 @@ class GatewayServer:
                 "uptime": int(time.time() - self._rumi._start_time) if self._rumi else 0,
                 "tokens": self._rumi.ui._total_tokens if self._rumi else 0,
                 "cost": self._rumi.ui._total_cost if self._rumi else 0,
+            },
+        ))
+
+    async def _handle_session_list(self, req: JsonRpcRequest):
+        """Return available sessions."""
+        send_message(JsonRpcResponse(
+            id=req.id,
+            result={
+                "sessions": [
+                    {
+                        "id": f"rumi-{int(time.time())}",
+                        "title": "Current Session",
+                        "model": "gemini-2.5-flash",
+                        "messages": 0,
+                    }
+                ],
             },
         ))
 
@@ -219,7 +250,7 @@ class GatewayAdapter:
         self._activity_feed = _StubActivityFeed()
 
     def handle_command(self, cmd: str):
-        """Dispatch slash commands — the adapter's equivalent of RumiUI._handle_command."""
+        """Dispatch slash commands."""
         cmd_lower = cmd.lower().strip()
 
         if cmd_lower == "/help":
@@ -227,21 +258,18 @@ class GatewayAdapter:
                 "content": "Commands: /help, /clear, /think, /dive, /status, "
                            "/stats, /timeline, /discover <topic>, /grounded <topic>, /quit",
             })
-
         elif cmd_lower == "/think":
             self._think_mode = not self._think_mode
             state = "ON" if self._think_mode else "OFF"
             self._server.emit("state.update", {
                 "state": f"THINK {state}", "think_mode": self._think_mode,
             })
-
         elif cmd_lower == "/dive":
             self._deep_dive_active = not self._deep_dive_active
             state = "ON" if self._deep_dive_active else "OFF"
             self._server.emit("state.update", {
                 "state": f"DIVE {state}", "deep_dive": self._deep_dive_active,
             })
-
         elif cmd_lower.startswith("/discover "):
             topic = cmd_lower[len("/discover "):].strip()
             if self.on_discovery_command:
@@ -249,7 +277,6 @@ class GatewayAdapter:
                     target=self.on_discovery_command,
                     args=("discover", topic), daemon=True,
                 ).start()
-
         elif cmd_lower.startswith("/grounded "):
             topic = cmd_lower[len("/grounded "):].strip()
             if self.on_discovery_command:
@@ -257,17 +284,14 @@ class GatewayAdapter:
                     target=self.on_discovery_command,
                     args=("grounded", topic), daemon=True,
                 ).start()
-
         elif cmd_lower == "/status":
             self._server.emit("status.info", {
                 "state": self._rumi_state,
                 "tokens": self._total_tokens,
                 "cost": self._total_cost,
             })
-
         elif cmd_lower == "/quit":
             self._server.emit("session.ending", {})
-
         else:
             self._server.emit("system.message", {
                 "content": f"Unknown command: {cmd_lower}",
@@ -286,7 +310,6 @@ class GatewayAdapter:
         if tl.startswith("you:"):
             content = text[4:].strip()
             self._server.emit("user.message", {"content": content})
-
         elif tl.startswith("rumi:") or tl.startswith("ai:"):
             prefix_len = 5 if tl.startswith("rumi:") else 3
             content = text[prefix_len:].strip()
@@ -294,19 +317,15 @@ class GatewayAdapter:
             content = re.sub(r'\*\*Reasoning\*\*\s*', '', content).strip()
             if content:
                 self._server.emit("assistant.message", {"content": content})
-
         elif tl.startswith("sys:"):
             content = text[4:].strip()
             self._server.emit("system.message", {"content": content})
-
         elif tl.startswith("err:") or tl.startswith("error:"):
             err_msg = text[4:].strip()
             self._server.emit("error", {"message": err_msg})
-
         elif tl.startswith("sec:"):
             sec_msg = text[4:].strip()
             self._server.emit("system.message", {"content": f"⚠ {sec_msg}"})
-
         else:
             clean = re.sub(r'\[/?\w+(?: \w+=[^\]]+)*\]', '', text).strip()
             if clean:
@@ -379,8 +398,6 @@ class GatewayAdapter:
     def feed_amplitude(self, amplitude: float):
         pass
 
-
-# Stub classes for subsystems the adapter doesn't need
 
 class _StubTimeline:
     def add(self, *a, **kw): pass

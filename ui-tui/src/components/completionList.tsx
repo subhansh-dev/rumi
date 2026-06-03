@@ -1,3 +1,4 @@
+// ui-tui/src/components/completionList.tsx
 import React from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../theme';
@@ -38,10 +39,11 @@ export const CompletionList: React.FC<CompletionListProps> = ({
 }) => {
   if (!visible || items.length === 0) return null;
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={theme.border.normal} paddingX={1}>
+    <Box flexDirection="column" paddingLeft={1}>
       {items.map((item, idx) => (
         <Box key={item.label}>
-          <Text color={idx === selectedIndex ? theme.accent.blue : theme.txt.secondary} bold={idx === selectedIndex}>
+          <Text color={idx === selectedIndex ? theme.accent.cyan : theme.txt.primary} bold={idx === selectedIndex}>
+            {idx === selectedIndex ? '> ' : '  '}
             {item.label}
           </Text>
           <Text color={theme.txt.muted}>{'  '}{item.description}</Text>

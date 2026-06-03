@@ -1,3 +1,4 @@
+// ui-tui/src/components/commandPalette.tsx
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { theme } from '../theme';
@@ -47,20 +48,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!visible) return null;
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={theme.accent.blue} padding={1} width="60%">
-      <Text color={theme.accent.blue} bold>{' (^_^)? Commands'}</Text>
-      <Text color={theme.txt.muted}>{' ─'.repeat(25)}</Text>
+    <Box flexDirection="column" padding={1} width="60%">
+      <Text color={theme.accent.cyan} bold>{'[COMMANDS]'}</Text>
+      <Text color={theme.txt.muted}>{'--'.repeat(25)}</Text>
       {PALETTE_ITEMS.map((item, idx) => (
         <Box key={item.key}>
-          <Text color={idx === selectedIndex ? theme.accent.blue : theme.txt.primary} bold={idx === selectedIndex}>
-            {idx === selectedIndex ? ' ❯ ' : '   '}
+          <Text color={idx === selectedIndex ? theme.accent.cyan : theme.txt.primary} bold={idx === selectedIndex}>
+            {idx === selectedIndex ? ' > ' : '   '}
           </Text>
-          <Text color={idx === selectedIndex ? theme.txt.bright : theme.txt.primary}>{item.label}</Text>
+          <Text color={theme.txt.primary}>{item.label}</Text>
           <Text color={theme.txt.muted}>{'  '}{item.command}</Text>
         </Box>
       ))}
-      <Text color={theme.txt.muted}>{' ─'.repeat(25)}</Text>
-      <Text color={theme.txt.muted}>{' ↑↓ navigate · Enter select · Esc close'}</Text>
+      <Text color={theme.txt.muted}>{'--'.repeat(25)}</Text>
+      <Text color={theme.txt.muted}>{' Up/Down navigate . Enter select . Esc close'}</Text>
     </Box>
   );
 };

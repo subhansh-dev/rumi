@@ -18,8 +18,8 @@ class HypothesisEngine:
         self.memory = memory or HypothesisMemory()
         self.scorer = ConfidenceScorer()
         self.miner = ContradictionMiner()
-        self.llm_stage = LLMStage("hypothesis_generation", max_retries=3,
-                                   backoff=[3, 8, 20], providers=["groq", "gemini"])
+        self.llm_stage = LLMStage("hypothesis_generation", max_retries=5,
+                                   backoff=[3, 5, 8, 12, 20], providers=["groq", "gemini"])
 
     async def generate(self, graph, topic, domain, run_id, contradictions=None, latent_candidates=None):
         prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates)
@@ -90,17 +90,20 @@ class HypothesisEngine:
         stats = graph.stats() if hasattr(graph, "stats") else {}
         graph_summary = json.dumps({
             "entities": {k: {"type": v["type"], "name": v["name"]} for k, v in
-                        (list(graph.entities.items())[:60]) if hasattr(graph, "entities")},
-            "relationships": graph.relationships[:80] if hasattr(graph, "relationships") else [],
-        }, indent=2, default=str)[:8000]
+                        (list(graph.entities.items())[:30]) if hasattr(graph, "entities")},
+            "relationships": graph.relationships[:30] if hasattr(graph, "relationships") else [],
+        }, indent=2, default=str)[:4000]
 
         contradiction_text = ""
         if contradictions:
-            contradiction_text = "\n=== DETECTED CONTRADICTIONS ===\n" + json.dumps(contradictions, indent=2, default=str)
+            capped_contra = contradictions[:5]
+            contradiction_text = "\n=== DETECTED CONTRADICTIONS ===\n" + json.dumps(capped_contra, indent=2, default=str)[:2000]
 
         latent_text = ""
         if latent_candidates:
-            latent_text = "\n=== LATENT RELATIONSHIP CANDIDATES ===\n" + json.dumps(latent_candidates, indent=2, default=str)
+            # Cap at top 15 to prevent prompt overflow
+            capped = sorted(latent_candidates, key=lambda x: x.get("shared_papers", 0), reverse=True)[:15]
+            latent_text = "\n=== LATENT RELATIONSHIP CANDIDATES (top 15) ===\n" + json.dumps(capped, indent=2, default=str)[:3000]
 
         prompt = f"""You are a rigorous, skeptical AI research scientist in {domain_label}. You NEVER overclaim novelty, NEVER present speculation as fact, and ALWAYS consider contradictory evidence.
 

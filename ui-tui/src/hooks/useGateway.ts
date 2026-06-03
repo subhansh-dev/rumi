@@ -18,7 +18,11 @@ export function useGateway() {
     topic: '', progress: 0, phase: '', isActive: false,
     papers: 0, entities: 0, edges: 0,
   });
+  const [elapsed, setElapsed] = useState(0);
+  const [queuedMessages, setQueuedMessages] = useState<string[]>([]);
+  const [sessions, setSessions] = useState<Array<{id: string; title: string; model: string; messages: number}>>([]);
   const transcript = useTranscript();
+  const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const client = new GatewayClient();
@@ -59,7 +63,7 @@ export function useGateway() {
         case 'tool.complete':
           setTools(prev => prev.map(t =>
             t.status === 'running' && t.name === params.name
-              ? { ...t, status: 'done' as const, elapsed: params.elapsed as number }
+              ? { ...t, status: 'done' as const, elapsed: params.elapsed as number, result: params.result as string }
               : { ...t, isLast: false }
           ));
           break;
@@ -90,9 +94,19 @@ export function useGateway() {
           break;
         case 'thinking.start':
           setState('THINKING');
+          setElapsed(0);
+          if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
+          elapsedIntervalRef.current = setInterval(() => setElapsed(prev => prev + 1), 1000);
           break;
         case 'thinking.done':
           setState('IDLE');
+          if (elapsedIntervalRef.current) {
+            clearInterval(elapsedIntervalRef.current);
+            elapsedIntervalRef.current = null;
+          }
+          break;
+        case 'session.list':
+          setSessions(params.sessions as Array<{id: string; title: string; model: string; messages: number}>);
           break;
         case 'error':
           transcript.addErrorMessage(params.message as string);
@@ -101,7 +115,11 @@ export function useGateway() {
     });
 
     const interval = setInterval(() => setUptime(prev => prev + 1), 1000);
-    return () => { clearInterval(interval); client.destroy(); };
+    return () => {
+      if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
+      clearInterval(interval);
+      client.destroy();
+    };
   }, []);
 
   const sendMessage = useCallback((content: string) => {
@@ -123,6 +141,7 @@ export function useGateway() {
   return {
     connected, state, model, tokens, cost, uptime,
     thinkMode, diveMode, tools, discovery,
+    elapsed, queuedMessages, sessions,
     transcript, sendMessage, interrupt, executeSlash,
   };
 }
