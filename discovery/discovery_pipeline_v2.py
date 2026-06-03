@@ -369,13 +369,17 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
 
     # Direct LLM wrapper — no thread, no silent failures
     def _truncated_llm(prompt, max_tokens=4096, **kwargs):
-        """LLM call with prompt truncation. Direct call, debug logging."""
+        """LLM call with prompt truncation. Direct call, debug logging, retry on None."""
         if len(prompt) > 8000:
             prompt = prompt[:7500] + "\n\n[Context truncated — respond with available information]"
         try:
             r = call_json(prompt, max_tokens=max_tokens, provider="auto")
             if r is None:
-                print("    [DEBUG] LLM returned None", flush=True)
+                # Auto-route failed (likely rate limited) — retry with Gemini explicitly
+                print("    [DEBUG] LLM returned None (auto), retrying Gemini...", flush=True)
+                r = call_json(prompt, max_tokens=max_tokens, provider="gemini")
+            if r is None:
+                print("    [DEBUG] LLM returned None (all providers)", flush=True)
             elif isinstance(r, str) and len(r) < 10:
                 print(f"    [DEBUG] LLM returned short string: '{r}'", flush=True)
             return r
