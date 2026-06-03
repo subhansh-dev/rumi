@@ -337,6 +337,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         for g in gaps[:3]:
             print(f"    [{g.get('type', '?')}] {g.get('reason', '')[:80]}")
         report["phases"]["gap_detection"] = gap_results.get("summary", {})
+        report["phases"]["gap_detection"]["top_gaps"] = gaps
     except Exception as e:
         print(f"  [ERROR] Gap detection failed: {e}")
         report["errors"].append(f"Phase 3: {e}")
@@ -358,6 +359,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         for a in anomalies[:3]:
             print(f"    [{a.get('type', '?')}] {a.get('reason', '')[:80]}")
         report["phases"]["anomaly_detection"] = anomaly_results.get("summary", {})
+        report["phases"]["anomaly_detection"]["top_anomalies"] = anomalies
     except Exception as e:
         print(f"  [ERROR] Anomaly detection failed: {e}")
         report["errors"].append(f"Phase 4: {e}")
@@ -517,6 +519,7 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             "accepted": len(accepted_preds),
             "acceptance_rate": validation.get("acceptance_rate", 0),
             "accepted_details": accepted_preds,
+            "predictions": predictions,
             "all_predictions": predictions,
         }
     except Exception as e:
