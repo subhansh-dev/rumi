@@ -568,16 +568,23 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             validated_theories.append(t)
         theories = validated_theories
 
-        print(f"  {len(theories)} competing theories")
+        print(f"  {len(theories)} competing theories (tournament)")
         if winner:
             w_score = winner.get("scores", {}).get("overall", 0)
             print(f"  Winner: {winner.get('name', '?')} (score: {w_score:.2f})")
+        eliminated = comp_results.get("eliminated", [])
+        if eliminated:
+            print(f"  Eliminated: {len(eliminated)} theories killed in tournament")
         report["phases"]["theory_competition"] = {
-            "theories_compared": len(theories),
+            "theories_compared": comp_results.get("theories_compared", len(theories)),
             "theories": theories,
+            "eliminated": eliminated,
             "winner": winner,
             "winner_name": winner.get("name") if winner else None,
             "winner_score": winner.get("scores", {}).get("overall", 0) if winner else 0,
+            "tournament_log": comp_results.get("tournament_log", []),
+            "competition_analysis": comp_results.get("competition_analysis", ""),
+            "discriminating_experiments": comp_results.get("discriminating_experiments", []),
         }
     except Exception as e:
         print(f"  [ERROR] Theory competition failed: {e}")
@@ -1087,8 +1094,31 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
     # ── Theory Competition ──
     if theories:
         L.append("─" * 70)
-        L.append(f"  THEORY COMPETITION ({len(theories)} theories)")
+        tc = phases.get("theory_competition", {})
+        total_compared = tc.get("theories_compared", len(theories))
+        eliminated_count = len(tc.get("eliminated", []))
+        L.append(f"  THEORY TOURNAMENT ({total_compared} entered, {len(theories)} survived, {eliminated_count} eliminated)")
         L.append("─" * 70)
+
+        # Tournament log
+        tournament_log = tc.get("tournament_log", [])
+        if tournament_log:
+            L.append(f"  Tournament rounds:")
+            for entry in tournament_log:
+                round_num = entry.get("round", "?")
+                action = entry.get("action", "?")
+                survived = entry.get("survived", entry.get("candidates", "?"))
+                elim = entry.get("eliminated", "")
+                if elim:
+                    L.append(f"    Round {round_num}: {action} — {survived} survived, {elim} eliminated")
+                else:
+                    L.append(f"    Round {round_num}: {action} — {survived} candidates")
+
+        # Competition analysis
+        analysis = tc.get("competition_analysis", "")
+        if analysis:
+            L.append(f"\n  Analysis: {str(analysis)[:300]}")
+
         # Sort by overall score
         scored = []
         for t in theories:
@@ -1097,7 +1127,8 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 scored.append((score, t))
         scored.sort(key=lambda x: -x[0])
 
-        for rank, (score, t) in enumerate(scored[:5], 1):
+        L.append(f"\n  Survivors (ranked):")
+        for rank, (score, t) in enumerate(scored[:7], 1):
             tname = t.get("name", "?")
             tdesc = t.get("description", "")
             ttype = t.get("type", "hypothesis")
@@ -1131,6 +1162,26 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 if dims:
                     L.append(f"     Scores: {', '.join(dims)}")
             L.append("")
+
+        # Discriminating experiments
+        experiments = tc.get("discriminating_experiments", [])
+        if experiments:
+            L.append(f"  Discriminating experiments (would separate top 2):")
+            for i, exp in enumerate(experiments[:3], 1):
+                L.append(f"    {i}. {str(exp)[:150]}")
+            L.append("")
+
+        # Show eliminated theories briefly
+        eliminated = tc.get("eliminated", [])
+        if eliminated:
+            L.append(f"  Eliminated ({len(eliminated)}):")
+            for t in eliminated[:5]:
+                tname = t.get("name", "?")
+                score = t.get("scores", {}).get("overall", 0)
+                reason = t.get("elimination_reason", "")
+                L.append(f"    ✗ {tname} (score: {score:.2f}) — {str(reason)[:80]}")
+            if len(eliminated) > 5:
+                L.append(f"    ... and {len(eliminated) - 5} more")
         L.append("")
 
     # ── Adversarial Test Results ──
@@ -1157,8 +1208,7 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
         ]:
             test_list = adv_test.get(test_list_name, [])
             if test_list:
-                L.append(f"
-  {label}:")
+                L.append(f"  {label}:")
                 for t in test_list:
                     name = t.get("name", "?")
                     verdict = t.get("verdict", "?")
