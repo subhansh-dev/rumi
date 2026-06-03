@@ -103,6 +103,17 @@ RELEVANT PAPERS:
 Your task: propose HIDDEN VARIABLES — unseen entities, processes, forces, or conditions
 that could explain the gaps and anomalies above.
 
+Before proposing hidden variables, think through this structured reasoning:
+
+<discovery_reasoning>
+1. WHAT GAPS EXIST? — List the knowledge gaps and anomalies that need explanation.
+2. WHAT'S MISSING? — What unseen entity, process, or force could fill these gaps?
+3. WHAT EXISTS ALREADY? — Are there known concepts that partially explain this?
+4. WHAT WOULD THE MATH LOOK LIKE? — For each proposed variable, what equations would govern it?
+5. CAN I DERIVE THE EQUATIONS? — If the variable connects to known physics, derive the relationship.
+6. HOW WOULD I MEASURE IT? — What experiment would confirm or refute this variable?
+</discovery_reasoning>
+
 REQUIREMENTS — PREFER quantitative, but don't reject qualitative:
 1. PREFER mathematical formalism. If you can derive an equation from first principles or
    combine known relations, DO the derivation — show your work, don't just state the result.

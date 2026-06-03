@@ -336,70 +336,104 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
             theory["scores"] = scores
 
     def _cross_compare(self, theories: list, topic: str, domain: str) -> dict:
-        """Head-to-head comparison of surviving theories."""
+        """Head-to-head elimination ranking.
+
+        Instead of scoring theories independently (which is unreliable), we compare
+        them in direct matchups: A vs B, one pair at a time. The theory that wins
+        more matchups is stronger — regardless of what independent scores say.
+
+        For N theories, we generate N*(N-1)/2 matchups and compute win rates.
+        """
         if len(theories) < 2:
             return {}
 
-        # Format theories for comparison
-        theory_text = ""
-        for i, t in enumerate(theories[:10]):
-            scores = t.get("scores", {})
-            theory_text += f"""
-{i+1}. {t.get('name', '?')} (type: {t.get('type', '?')}, score: {scores.get('overall', 0):.2f})
-   Description: {t.get('description', '')[:150]}
-   Explains: {', '.join(str(e)[:40] for e in t.get('explains', [])[:3])}
-   Fails: {', '.join(str(f)[:40] for f in t.get('fails_to_explain', [])[:3])}
-   Predictions: {len(t.get('predictions', []))}
+        n = len(theories[:10])  # cap at 10
+        pairs = []
+        for i in range(n):
+            for j in range(i + 1, n):
+                pairs.append((i, j))
+
+        # Batch pairs into groups of 5 to save tokens
+        batch_size = 5
+        wins = [0] * n
+        total_games = [0] * n
+
+        for batch_start in range(0, len(pairs), batch_size):
+            batch = pairs[batch_start:batch_start + batch_size]
+
+            pair_text = ""
+            for idx, (i, j) in enumerate(batch):
+                ti = theories[i]
+                tj = theories[j]
+                pair_text += f"""
+Pair {idx+1}: "{ti.get('name', '?')}" vs "{tj.get('name', '?')}"
+  A: {ti.get('description', '')[:120]}
+  A explains: {', '.join(str(e)[:40] for e in ti.get('explains', [])[:2])}
+  B: {tj.get('description', '')[:120]}
+  B explains: {', '.join(str(e)[:40] for e in tj.get('explains', [])[:2])}
 """
 
-        prompt = f"""You are a ruthless scientific panel. Compare these {len(theories[:10])} theories
-head-to-head for: {topic} ({domain})
+            prompt = f"""You are a scientific judge. For each pair below, decide which
+theory BETTER explains the observations for: {topic} ({domain})
 
-THEORIES:
-{theory_text}
+{pair_text}
 
-For EACH theory, determine:
-1. How many other theories it EXPLAINS MORE than (win count)
-2. Whether it has UNIQUE predictions no other theory makes
-3. Whether it can be REMOVED without losing explanatory power
+For each pair, choose A or B. Consider:
+- Which explains more observations?
+- Which has stronger evidence?
+- Which makes more testable predictions?
+- Which has fewer unsupported assumptions?
 
-Output JSON:
-{{
-  "comparisons": [
-    {{
-      "name": "Theory Name",
-      "win_count": N,
-      "total_comparisons": N,
-      "win_rate": 0.0-1.0,
-      "unique_predictions": ["pred1"],
-      "removable": false,
-      "reasoning": "why it wins/loses"
-    }}
-  ]
-}}"""
+Output JSON: {{"results": [{{"pair": 1, "winner": "A|B", "reason": "brief reason"}}, ...]}}"""
 
-        try:
-            raw = self.llm_call(prompt, max_tokens=4096)
-            if not raw:
-                return {}
+            try:
+                raw = self.llm_call(prompt, max_tokens=1024)
+                if not raw:
+                    continue
 
-            if isinstance(raw, str):
-                raw = raw.strip()
-                if raw.startswith("```"):
-                    raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                    raw = raw.rsplit("```", 1)[0].strip()
-                result = json.loads(raw)
+                if isinstance(raw, str):
+                    raw = raw.strip()
+                    if raw.startswith("```"):
+                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                        raw = raw.rsplit("```", 1)[0].strip()
+                    result = json.loads(raw)
+                else:
+                    result = raw
+
+                if isinstance(result, dict):
+                    for r in result.get("results", []):
+                        pair_idx = r.get("pair", 1) - 1
+                        winner = r.get("winner", "A")
+                        if pair_idx < len(batch):
+                            i, j = batch[pair_idx]
+                            total_games[i] += 1
+                            total_games[j] += 1
+                            if winner == "A":
+                                wins[i] += 1
+                            else:
+                                wins[j] += 1
+            except Exception:
+                continue
+
+        # Compute elimination scores (win rate from head-to-head matchups)
+        results = {}
+        for i in range(n):
+            name = theories[i].get("name", f"Theory {i}")
+            total = total_games[i]
+            if total > 0:
+                win_rate = wins[i] / total
             else:
-                result = raw
+                win_rate = 0.5  # no data → neutral
 
-            if isinstance(result, dict):
-                comparisons = result.get("comparisons", [])
-                return {c.get("name", ""): c for c in comparisons}
+            results[name] = {
+                "name": name,
+                "win_count": wins[i],
+                "total_comparisons": total_games[i],
+                "win_rate": round(win_rate, 3),
+                "elimination_score": round(win_rate, 3),
+            }
 
-        except Exception:
-            pass
-
-        return {}
+        return results
 
     def _generate_discriminating_experiments(self, theory1, theory2, topic, domain):
         """Generate experiments that would distinguish between top 2 theories."""

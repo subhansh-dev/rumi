@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--mode", default="full", choices=["quick", "standard", "full"], help="Pipeline depth")
     parser.add_argument("--skip-refinement", action="store_true", help="Skip refinement pipeline")
     parser.add_argument("--skip-reflexion", action="store_true", help="Skip reflexion cycle")
+    parser.add_argument("--iterate", action="store_true", help="Run twice: first pass, analyze weaknesses, second pass with refined context")
     args = parser.parse_args()
 
     topic = args.topic
@@ -43,10 +44,101 @@ def main():
     report = {}
     total_start = time.time()
 
-    # ── Stage 1: Discovery Pipeline v2 (12 phases) ──
-    print("="*70)
-    print("STAGE 1: DISCOVERY PIPELINE v2 (12 phases)")
-    print("="*70)
+    # ── Iterative refinement mode ──
+    if args.iterate:
+        print("="*70)
+        print("ITERATIVE MODE: First pass → Analyze → Second pass → Merge")
+        print("="*70)
+
+        # First pass
+        print("\n  [Pass 1/2] Running initial discovery...")
+        try:
+            from discovery.discovery_pipeline_v2 import run_discovery_pipeline
+            report_pass1 = run_discovery_pipeline(topic, domain=domain, mode=mode)
+        except Exception as e:
+            print(f"  Pass 1 failed: {e}")
+            report_pass1 = {}
+
+        # Analyze weaknesses
+        print("\n  [Analyzing weaknesses from pass 1...]")
+        p1_phases = report_pass1.get("phases", {})
+        weak_points = []
+        # Low-scoring theories
+        theories_p1 = p1_phases.get("theory_competition", {}).get("theories", [])
+        for t in theories_p1:
+            score = t.get("scores", {}).get("overall", 0)
+            if score < 0.5:
+                weak_points.append(f"Theory '{t.get('name', '?')}' scored only {score:.2f}")
+        # Failed predictions
+        preds_p1 = p1_phases.get("prediction_engine", {}).get("all_predictions", [])
+        failed_preds = [p for p in preds_p1 if isinstance(p, dict) and p.get("validation_status") == "rejected"]
+        if failed_preds:
+            weak_points.append(f"{len(failed_preds)} predictions were rejected as too vague or unfalsifiable")
+        # Unfilled gaps
+        gaps_p1 = p1_phases.get("gap_detection", {}).get("top_gaps", [])
+        if gaps_p1:
+            weak_points.append(f"{len(gaps_p1)} knowledge gaps remain unfilled")
+
+        # Build refined topic for second pass
+        refinement_context = ""
+        if weak_points:
+            refinement_context = " ".join(weak_points[:3])
+            refined_topic = f"{topic} (focus on: {refinement_context[:200]})"
+            print(f"  Weak points: {len(weak_points)}")
+            for wp in weak_points[:3]:
+                print(f"    - {wp[:100]}")
+        else:
+            refined_topic = topic
+            print("  No weak points identified — re-running with same topic")
+
+        # Second pass with refined context
+        print(f"\n  [Pass 2/2] Running refined discovery...")
+        try:
+            report_pass2 = run_discovery_pipeline(refined_topic, domain=domain, mode=mode)
+        except Exception as e:
+            print(f"  Pass 2 failed: {e}")
+            report_pass2 = {}
+
+        # Merge results — keep best from each pass
+        print("\n  [Merging results from both passes...]")
+        report = report_pass2 if report_pass2 else report_pass1
+
+        # Merge theories — keep unique ones from both passes
+        p1_theories = p1_phases.get("theory_competition", {}).get("theories", [])
+        p2_theories = report_pass2.get("phases", {}).get("theory_competition", {}).get("theories", [])
+        if p1_theories and p2_theories:
+            seen_names = {t.get("name", "").lower() for t in p2_theories}
+            for t in p1_theories:
+                if t.get("name", "").lower() not in seen_names:
+                    p2_theories.append(t)
+            report.setdefault("phases", {}).setdefault("theory_competition", {})["theories"] = p2_theories
+            report["phases"]["theory_competition"]["theories_compared"] = len(p2_theories)
+
+        # Merge hidden variables
+        p1_hvs = p1_phases.get("missing_variables", {}).get("variable_details", [])
+        p2_hvs = report.get("phases", {}).get("missing_variables", {}).get("variable_details", [])
+        if p1_hvs and p2_hvs:
+            seen_names = {hv.get("name", "").lower() for hv in p2_hvs}
+            for hv in p1_hvs:
+                if hv.get("name", "").lower() not in seen_names:
+                    p2_hvs.append(hv)
+            report["phases"]["missing_variables"]["variable_details"] = p2_hvs
+            report["phases"]["missing_variables"]["proposed"] = len(p2_hvs)
+
+        print(f"  Merged: {len(p2_theories)} theories, {len(p2_hvs)} hidden variables")
+        report["iterative"] = {
+            "pass1_score": p1_phases.get("discovery_scoring", {}).get("discovery_score", 0),
+            "pass2_score": report.get("phases", {}).get("discovery_scoring", {}).get("discovery_score", 0),
+            "weak_points": weak_points,
+            "refined_topic": refined_topic,
+        }
+
+    else:
+        # ── Standard single-pass mode ──
+        # ── Stage 1: Discovery Pipeline v2 (12 phases) ──
+        print("="*70)
+        print("STAGE 1: DISCOVERY PIPELINE v2 (12 phases)")
+        print("="*70)
     t0 = time.time()
     try:
         from discovery.discovery_pipeline_v2 import run_discovery_pipeline

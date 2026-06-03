@@ -347,6 +347,70 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         return _finalize_report(report, papers, graph, gaps, [], [], [], [], [], [], t_start)
 
     # ══════════════════════════════════════════════════════════════
+    # PHASE 3.5: LITERATURE REFINEMENT — Multi-round search
+    # ══════════════════════════════════════════════════════════════
+    # Adaptive literature search: analyze what was found, generate
+    # targeted queries for gaps, fetch again. Multi-round approach.
+    if gaps and len(papers) < 50:
+        print("\n[Phase 3.5/12] LITERATURE REFINEMENT — Targeted search based on gaps...", flush=True)
+        try:
+            # Generate targeted queries from gaps
+            gap_queries = set()
+            for g in gaps[:6]:
+                if isinstance(g, dict):
+                    reason = g.get("reason", g.get("description", ""))
+                    gtype = g.get("type", "")
+                    # Extract key terms from gap descriptions
+                    words = [w for w in reason.split() if len(w) > 4 and w.lower() not in
+                             ("these", "their", "there", "which", "about", "would", "could",
+                              "should", "between", "through", "having", "being", "other")]
+                    if len(words) >= 2:
+                        gap_queries.add(" ".join(words[:4]))
+
+            # Also generate queries from graph entities that have few connections
+            if hasattr(graph, 'entities') and graph.entities:
+                entity_degrees = {}
+                for src, tgt, _ in graph.relationships:
+                    entity_degrees[src] = entity_degrees.get(src, 0) + 1
+                    entity_degrees[tgt] = entity_degrees.get(tgt, 0) + 1
+                # Find under-connected entities
+                low_degree = sorted(entity_degrees.items(), key=lambda x: x[1])[:5]
+                for eid, deg in low_degree:
+                    ename = graph.entities.get(eid, {}).get("name", eid)
+                    if ename and len(ename) > 3:
+                        gap_queries.add(f"{topic} {ename}")
+
+            if gap_queries:
+                existing_titles = {p["title"].lower()[:60] for p in papers}
+                new_papers = []
+                for query in list(gap_queries)[:3]:
+                    try:
+                        round_papers = fetch_papers(query, max_arxiv=8, max_pubmed=8, max_s2=8)
+                        for p in round_papers:
+                            if p["title"].lower()[:60] not in existing_titles:
+                                existing_titles.add(p["title"].lower()[:60])
+                                new_papers.append(p)
+                    except Exception:
+                        continue
+
+                if new_papers:
+                    papers.extend(new_papers)
+                    # Rebuild graph with new papers
+                    try:
+                        for p in new_papers:
+                            graph.add_entity(p.get("title", "")[:80], entity_type="paper")
+                    except Exception:
+                        pass
+                    print(f"  Gap-targeted search: +{len(new_papers)} new papers (total: {len(papers)})")
+                else:
+                    print("  Gap-targeted search: no new papers found")
+            else:
+                print("  No gap queries generated — skipping refinement")
+
+        except Exception as e:
+            print(f"  [WARN] Literature refinement failed: {e}")
+
+    # ══════════════════════════════════════════════════════════════
     # PHASE 4: ANOMALY DETECTION
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 4/12] ANOMALY DETECTION — Finding what doesn't fit...", flush=True)
@@ -632,6 +696,33 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     except Exception as e:
         print(f"  [ERROR] Adversarial test failed: {e}")
         report["errors"].append(f"Phase 8.5: {e}")
+
+    # ══════════════════════════════════════════════════════════════
+    # PHASE 8.6: CRITICAL EVALUATION — Formal assessment
+    # ══════════════════════════════════════════════════════════════
+    # Evaluates the top discovery across 6 dimensions:
+    # novelty, methodology, significance, clarity, limitations, reproducibility.
+    print("\n[Phase 8.6/12] CRITICAL EVALUATION — Formal assessment...", flush=True)
+    try:
+        from discovery.peer_review import CriticalEvaluator
+        reviewer = CriticalEvaluator(llm_call=_truncated_llm)
+        top_theory = winner or (theories[0] if theories else {})
+        if top_theory:
+            peer_review = reviewer.review(
+                top_theory, mechanisms, accepted_preds, papers, topic, domain,
+                adversarial_results=test_results if 'test_results' in dir() else None
+            )
+            report["phases"]["peer_review"] = peer_review
+            print(f"  Overall score: {peer_review.get('overall_score', 0)}/10")
+            print(f"  Recommendation: {peer_review.get('recommendation', 'unknown')}")
+            major = peer_review.get("major_issues", [])
+            if major:
+                print(f"  Major issues: {len(major)}")
+                for issue in major[:2]:
+                    print(f"    ! {str(issue)[:80]}")
+    except Exception as e:
+        print(f"  [WARN] Critical evaluation failed: {e}")
+        report["errors"].append(f"Phase 8.6: {e}")
 
     # ══════════════════════════════════════════════════════════════
     # PHASE 9: COMPUTATIONAL VERIFICATION
@@ -1229,6 +1320,42 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                         L.append(f"      Falsification: {str(falsification)[:100]}")
                     if reasoning:
                         L.append(f"      Verdict: {str(reasoning)[:120]}")
+        L.append("")
+
+    # ── Critical Evaluation ──
+    pr = phases.get("peer_review", {})
+    if pr:
+        L.append("─" * 70)
+        L.append("  CRITICAL EVALUATION — 6-Dimension Assessment")
+        L.append("─" * 70)
+        L.append(f"  Overall Score: {pr.get('overall_score', 0)}/10")
+        L.append(f"  Recommendation: {pr.get('recommendation', 'unknown')}")
+        summary = pr.get("summary", "")
+        if summary:
+            L.append(f"  Summary: {str(summary)[:300]}")
+        # Dimension scores
+        for dim in ["novelty", "methodology", "significance", "clarity", "limitations", "reproducibility"]:
+            dim_data = pr.get(dim, {})
+            if isinstance(dim_data, dict):
+                score = dim_data.get("score", "?")
+                comment = dim_data.get("comment", "")
+                L.append(f"  {dim.capitalize()}: {score}/10 — {str(comment)[:80]}")
+        # Issues
+        major = pr.get("major_issues", [])
+        minor = pr.get("minor_issues", [])
+        questions = pr.get("questions_for_authors", [])
+        if major:
+            L.append(f"  Major issues ({len(major)}):")
+            for issue in major:
+                L.append(f"    ! {str(issue)[:120]}")
+        if minor:
+            L.append(f"  Minor issues ({len(minor)}):")
+            for issue in minor:
+                L.append(f"    - {str(issue)[:120]}")
+        if questions:
+            L.append(f"  Questions for authors:")
+            for q in questions:
+                L.append(f"    ? {str(q)[:120]}")
         L.append("")
 
     # ── Contradictions ──

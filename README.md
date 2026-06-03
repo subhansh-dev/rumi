@@ -23,8 +23,8 @@
 </p>
 
 <p align="center">
-  <b>Autonomous Scientific Cognition Framework</b><br>
-  Terminal-native · 44 Brain Modules · 48 Discovery Modules · 17 Domains · Recursive Self-Improvement
+  <b>Autonomous Scientific Discovery Engine</b><br>
+  15-Phase Pipeline · Theory Tournament · Adversarial Testing · Critical Evaluation · 17 Domains
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 
 ## What is RUMI?
 
-**RUMI** (Research & Unified Machine Intelligence) is an autonomous scientific discovery engine. Give it a topic and it reads papers, builds knowledge graphs, finds gaps and anomalies, generates hypotheses with mechanisms and equations, stress-tests them through adversarial debate and skeptic review, scores everything on 7 dimensions, and then improves itself afterward. Unlike conventional AI assistants that search and summarize, RUMI implements a 12-phase discovery engine backed by a 44-module cognitive architecture inspired by dual-process theory, the Free Energy Principle, and causal inference frameworks.
+**RUMI** (Research & Unified Machine Intelligence) is an autonomous scientific discovery engine. Give it a topic and it reads papers, builds knowledge graphs, finds gaps and anomalies, generates hypotheses with mechanisms and equations, runs a tournament of 20 competing theories, attacks every discovery with adversarial testing, evaluates through critical assessment, and then improves itself afterward. Unlike conventional AI assistants that search and summarize, RUMI implements a 12-phase discovery engine backed by a 44-module cognitive architecture inspired by dual-process theory, the Free Energy Principle, and causal inference frameworks.
 
 RUMI addresses three fundamental limitations of current AI-assisted research:
 
@@ -79,7 +79,9 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 | **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring |
 | **Learning** | No feedback loop | Error-driven updates, experience replay, dreaming-based consolidation, meta-learning |
 | **Discovery** | Search-and-summarize | 12-phase pipeline: literature → graph → gaps → anomalies → hidden variables → mechanisms → predictions → competition → scoring |
-| **Quality Control** | None | Skeptic review, mathematical consistency checking, falsification engine, scientific courtroom |
+| **Theory Selection** | Generate 1, accept it | Tournament: 20 candidates, elimination rounds, head-to-head ranking |
+| **Quality Control** | None | Adversarial testing (attack every discovery), critical evaluation (6-dimension assessment), skeptic review, mathematical consistency checking |
+| **Literature** | Single search | Adaptive multi-round: analyze gaps, refine queries, targeted re-search |
 | **Self-Improvement** | None | Reflexion: analyzes weaknesses, generates patches, tests in sandbox, applies fixes |
 
 ---
@@ -90,13 +92,16 @@ RUMI's discovery engine is not a research assistant. It's a discovery engine. Th
 
 ```
 Phase 1:  Literature          arXiv + PubMed + Semantic Scholar (multi-query, snowball sampling)
+Phase 1.5 Adaptive Literature  Gap-targeted multi-round search (refines queries based on gaps)
 Phase 2:  Knowledge Graph     Algorithmic + LLM entity extraction, relationship building
 Phase 3:  Gap Detection       Structural holes, orphan observations, missing mechanisms
 Phase 4:  Anomaly Detection   Conflicting evidence, outliers, prediction violations
 Phase 5:  Hidden Variables    Propose unseen entities/processes (dark matter style reasoning)
 Phase 6:  Mechanisms          Causal pathways with equations, not just correlations
 Phase 7:  Predictions         Testable predictions with falsification criteria
-Phase 8:  Theory Competition  Multiple competing explanations, scored on 7 dimensions
+Phase 8:  Theory Tournament   20 candidates, elimination rounds, head-to-head ranking
+Phase 8.5 Adversarial Test    Attacks every discovery: existing theory? removable vars? falsification?
+Phase 8.6 Critical Evaluation 6-dimension assessment: novelty, methodology, significance, clarity, limits, reproducibility
 Phase 9:  Computational       Real graph analysis, Monte Carlo, statistical testing
 Phase 10: Contradictions      Scientific tension analysis, competing theory detection
 Phase 11: Skeptic Review      Adversarial critique with strengths/weaknesses/failure conditions
@@ -200,7 +205,9 @@ Classification: extension
 | `mechanism_generator` | Generate causal pathways with equations |
 | `mechanism_discovery` | Search for conservation laws, intermediate variables, energy flow |
 | `prediction_engine` | Generate testable predictions with falsification criteria |
-| `theory_competition` | Compare multiple explanations, score on 7 dimensions |
+| `theory_competition` | Tournament: 20 candidates, elimination rounds, head-to-head ranking |
+| `test_stage` | Adversarial attack: existing theory? removable variables? falsification? |
+| `peer_review` | Critical evaluation: 6-dimension assessment with recommendation |
 | `discovery_scorer` | 7-dimension quality gate with mathematical rigor |
 | `computational_verification` | Real graph analysis, Monte Carlo, statistics |
 | `domain_ontologies` | Real physics for 17 domains: equations, mechanisms, constraints |
@@ -290,6 +297,26 @@ After every discovery run, RUMI analyzes its own performance:
 - Tests patches in sandbox (syntax, compile, import)
 - Applies safe patches with git-backed rollback
 - Maximum 3 patches per cycle to prevent runaway
+### 9. Theory Tournament
+RUMI generates 20 competing theories and forces them to compete:
+- Round 1: 20 candidates (10 standard + 10 creative/cross-domain)
+- Round 2: Score all on 7 dimensions, eliminate bottom half
+- Round 3: Head-to-head elimination ranking (pairwise matchups)
+- Final: Top 7 survivors with discriminating experiments
+
+### 10. Adversarial Testing (Phase 8.5)
+Every discovery gets attacked with three questions:
+- What existing theory already explains this?
+- Can any new variable be removed?
+- What observation would falsify it?
+Each gets a verdict: survived / weakened / killed
+
+### 11. Critical Evaluation (Phase 8.6)
+Formal 6-dimension assessment of the top discovery:
+- Novelty, Methodology, Significance, Clarity, Limitations, Reproducibility
+- Overall score (0-10) with recommendation: accept / minor_revision / major_revision / reject
+- Major issues, minor issues, and questions for authors
+
 
 ---
 

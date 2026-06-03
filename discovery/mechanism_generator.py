@@ -95,6 +95,17 @@ A mechanism is NOT just "X causes Y." A mechanism is:
   "X activates pathway P with rate constant k1, which produces intermediate I
    at concentration [I] = k1[X]/k2, which converts to effect Y when [I] > threshold"
 
+Before generating mechanisms, think through this structured reasoning:
+
+<discovery_reasoning>
+1. WHAT DO I KNOW? — List the key observations, anomalies, and gaps from the context.
+2. WHAT COULD EXPLAIN THIS? — Brainstorm at least 5 possible mechanisms (including conventional ones).
+3. WHICH ARE MOST PROMISING? — Rank by: (a) explains the most observations, (b) has existing evidence, (c) is testable.
+4. WHAT EQUATIONS APPLY? — For each promising mechanism, identify what known equations could govern it.
+5. CAN I DERIVE ANYTHING? — If any equation can be derived from first principles, do the derivation.
+6. WHAT WOULD FALSIFY EACH? — For each mechanism, state what observation would kill it.
+</discovery_reasoning>
+
 REQUIREMENTS — prefer quantitative, derive when possible:
 1. PREFER quantitative relationships (equations, rates, thresholds). If no equation exists
    yet, provide the physical quantity and how it couples to observables.
