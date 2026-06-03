@@ -901,6 +901,11 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                            encoding="utf-8")
     print(f"\n  Report saved: {report_path}")
 
+    # Save human-readable text report alongside JSON
+    txt_path = report_path.with_suffix(".txt")
+    txt_path.write_text(report_text, encoding="utf-8")
+    print(f"  Text report: {txt_path}")
+
     # Update reports index for dashboard
     idx_path = data_dir / "reports_index.json"
     try:
