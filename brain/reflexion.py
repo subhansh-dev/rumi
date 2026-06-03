@@ -208,7 +208,7 @@ class PostDiscoveryAnalyzer:
                 "type": "pipeline_error",
                 "severity": "critical",
                 "detail": str(err)[:200],
-                "module": err.get("module", "unknown"),
+                "module": err.get("module", "unknown") if isinstance(err, dict) else "unknown",
                 "suggestion": "Fix the error condition",
             })
 
