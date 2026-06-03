@@ -182,6 +182,14 @@ if HAVE_RICH:
         "dim": TXT_MUTED,
     })
 
+    # Force UTF-8 stdout for Rich on Windows
+    if sys.platform == "win32":
+        import io as _io
+        if hasattr(sys.stdout, 'buffer') and sys.stdout.encoding != 'utf-8':
+            sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        if hasattr(sys.stderr, 'buffer') and sys.stderr.encoding != 'utf-8':
+            sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
     console = Console(
         force_terminal=True,
         color_system="truecolor",
@@ -1026,10 +1034,9 @@ class RumiUI:
     # TOOLBAR (Hermes Agent style)
     # ----------------------------------------------------------------
     def _get_toolbar(self):
-        """Hermes-style status bar with face ticker, context bar, cost."""
+        """Live-updating status bar — called by prompt_toolkit on every keypress."""
         elapsed = int(time.time() - self._start_time)
         uptime = f"{elapsed // 3600:02d}:{(elapsed % 3600) // 60:02d}:{elapsed % 60:02d}"
-        term_width = console.width or 80
 
         parts = []
 
@@ -1046,10 +1053,13 @@ class RumiUI:
         # Model
         parts.append("Gemini 2.5")
 
-        # Context bar (if tokens > 0)
-        if self._total_tokens > 0:
-            parts.append(" │ ")
-            parts.append(self._get_context_bar_text(self._total_tokens, 200000))
+        # Context bar — always show
+        pct = min(100, int((self._total_tokens / 200000) * 100))
+        filled = int(pct / 10)
+        empty = 10 - filled
+        bar = "█" * filled + "░" * empty
+        parts.append(" │ ")
+        parts.append(f"[{bar}] {pct}%")
 
         # Tokens
         parts.append(" │ ")
@@ -1060,10 +1070,9 @@ class RumiUI:
             parts.append(" │ ")
             parts.append(f"${self._total_cost:.4f}")
 
-        # Uptime
-        if term_width >= 60:
-            parts.append(" │ ")
-            parts.append(uptime)
+        # Uptime — always show
+        parts.append(" │ ")
+        parts.append(uptime)
 
         # Mode badges
         if self._think_mode:
@@ -1084,23 +1093,53 @@ class RumiUI:
         return result
 
     def _toolbar_to_html(self, text: str) -> str:
-        """Convert toolbar text to prompt_toolkit HTML with colors."""
+        """HTML toolbar with subtle border and color-coded sections."""
         html = text
-        # Color the face/verb section
+        # Status face/text
         if "● ready" in html:
-            html = html.replace("● ready", "<style fg='#00E676'>● ready</style>")
-        # Color model
-        html = html.replace("Gemini 2.5", "<style fg='#2979FF'>Gemini 2.5</style>")
-        # Color separators
-        html = html.replace("│", "<style fg='#555555'>│</style>")
-        # Color tokens
+            html = html.replace("● ready",
+                "<style bg='#1a1a1a' fg='#00E676'> ● ready </style>")
+        else:
+            # busy face/verb — cyan highlight
+            _busy_match = _re.search(r'([^\s]+)\s(\S+)…', html)
+            if _busy_match:
+                html = html.replace(_busy_match.group(),
+                    f"<style bg='#0d1b2a' fg='#00BCD4'>{_busy_match.group()}</style>")
+        # Model
+        html = html.replace("Gemini 2.5",
+            "<style bg='#1a1a1a' fg='#2979FF'>Gemini 2.5</style>")
+        # Context bar — color by percentage
+        ctx_match = _re.search(r'\[([█░]+)\]\s*(\d+)%', html)
+        if ctx_match:
+            pct = int(ctx_match.group(2))
+            if pct < 50:
+                color = '#00E676'
+            elif pct < 80:
+                color = '#FFD600'
+            elif pct < 95:
+                color = '#FF9100'
+            else:
+                color = '#FF1744'
+            html = html.replace(ctx_match.group(),
+                f"<style bg='#1a1a1a' fg='{color}'>{ctx_match.group()}</style>")
+        # Tokens
         tok_match = _re.search(r'(\d[\d,]* tok)', html)
         if tok_match:
-            html = html.replace(tok_match.group(), f"<style fg='#EAEAEA'>{tok_match.group()}</style>")
-        # Color cost
+            html = html.replace(tok_match.group(),
+                f"<style bg='#1a1a1a' fg='#EAEAEA'>{tok_match.group()}</style>")
+        # Cost
         cost_match = _re.search(r'\$[\d.]+', html)
         if cost_match:
-            html = html.replace(cost_match.group(), f"<style fg='#FFD600'>{cost_match.group()}</style>")
+            html = html.replace(cost_match.group(),
+                f"<style bg='#1a1a1a' fg='#FFD600'>{cost_match.group()}</style>")
+        # Uptime — dim gray
+        time_match = _re.search(r'(\d{2}:\d{2}:\d{2})', html)
+        if time_match:
+            html = html.replace(time_match.group(),
+                f"<style bg='#1a1a1a' fg='#666666'>{time_match.group()}</style>")
+        # Separators — subtle
+        html = html.replace("│",
+            "<style bg='#1a1a1a' fg='#333333'> │ </style>")
         return html
 
     def _get_context_bar_text(self, tokens_used: int = 0, max_tokens: int = 200000) -> str:
@@ -1169,13 +1208,14 @@ class RumiUI:
             def _(event):
                 self._handle_command("/graph")
 
+        _pt_failed = False  # Track if prompt_toolkit failed once
         while self._running:
             try:
                 # Print status bar before prompt when no prompt_toolkit
-                if not HAVE_PT:
+                if not HAVE_PT or _pt_failed:
                     self._print_status_bar()
 
-                if HAVE_PT and self._pt_history is not None:
+                if HAVE_PT and not _pt_failed and self._pt_history is not None:
                     from prompt_toolkit.completion import WordCompleter
                     _completer = WordCompleter(SLASH_COMMANDS, ignore_case=True)
                     value = _pt_prompt(
@@ -1219,7 +1259,9 @@ class RumiUI:
                 self._handle_command("/exit")
                 break
             except Exception:
-                time.sleep(0.1)
+                # prompt_toolkit can't render in this terminal — fall back to input()
+                _pt_failed = True
+                continue
 
     # ----------------------------------------------------------------
     # COMMAND PALETTE (Hermes Agent style)
@@ -1611,56 +1653,53 @@ class RumiUI:
                 time.sleep(1)
 
     def _print_status_bar(self):
-        """Print status bar (works with or without rich)."""
+        """Print status bar (ANSI fallback when no prompt_toolkit)."""
         elapsed = int(time.time() - self._start_time)
         uptime = f"{elapsed // 3600:02d}:{(elapsed % 3600) // 60:02d}:{elapsed % 60:02d}"
 
         if HAVE_RICH:
             status = Text()
-            status.append("  ", style=TXT_SECOND)
-            status.append("● ", style=ACCENT_GREEN)
-            status.append("ready", style=ACCENT_GREEN)
-            status.append(" │ ", style=TXT_SECOND)
-            status.append("Gemini 2.5", style=ACCENT_BLUE)
-            status.append(" │ ", style=TXT_SECOND)
-            if self._total_tokens > 0:
-                pct = min(100, int((self._total_tokens / 200000) * 100))
-                filled = int(pct / 10)
-                empty = 10 - filled
-                bar = "█" * filled + "░" * empty
-                color = ACCENT_GREEN if pct < 50 else ACCENT_AMBER
-                status.append(f"[{bar}] {pct}%", style=color)
-                status.append(" │ ", style=TXT_SECOND)
-            status.append(f"{self._total_tokens:,} tok", style=TXT_PRIMARY)
-            status.append(" │ ", style=TXT_SECOND)
-            status.append(uptime, style=TXT_PRIMARY)
-            if self._think_mode:
-                status.append(" │ think", style=ACCENT_PURPLE)
-            if self._deep_dive_active:
-                status.append(" │ dive", style=ACCENT_GREEN)
+            status.append("┌", style=TXT_SECOND)
+            status.append("─" * 76, style=TXT_SECOND)
+            status.append("┐", style=TXT_SECOND)
             console.print(status)
+            line = Text()
+            line.append("  ", style="")
+            line.append("● ready", style=ACCENT_GREEN)
+            line.append(" │ ", style=TXT_SECOND)
+            line.append("Gemini 2.5", style=ACCENT_BLUE)
+            pct = min(100, int((self._total_tokens / 200000) * 100))
+            filled = int(pct / 10)
+            empty = 10 - filled
+            bar = "█" * filled + "░" * empty
+            color = ACCENT_GREEN if pct < 50 else ACCENT_AMBER
+            line.append(" │ ", style=TXT_SECOND)
+            line.append(f"[{bar}] {pct}%", style=color)
+            line.append(" │ ", style=TXT_SECOND)
+            line.append(f"{self._total_tokens:,} tok", style=TXT_PRIMARY)
+            line.append(" │ ", style=TXT_SECOND)
+            line.append(uptime, style=TXT_SECOND)
+            console.print(line)
+            end = Text()
+            end.append("└", style=TXT_SECOND)
+            end.append("─" * 76, style=TXT_SECOND)
+            end.append("┘", style=TXT_SECOND)
+            console.print(end)
         else:
             # ANSI fallback
-            parts = []
-            parts.append(f"  {_ansi(ACCENT_GREEN)}● ready{_RESET}")
-            parts.append(f" {_ansi(TXT_SECOND)}│{_RESET} ")
-            parts.append(f"{_ansi(ACCENT_BLUE)}Gemini 2.5{_RESET}")
-            parts.append(f" {_ansi(TXT_SECOND)}│{_RESET} ")
-            if self._total_tokens > 0:
-                pct = min(100, int((self._total_tokens / 200000) * 100))
-                filled = int(pct / 10)
-                empty = 10 - filled
-                bar = "█" * filled + "░" * empty
-                color = ACCENT_GREEN if pct < 50 else ACCENT_AMBER
-                parts.append(f"{_ansi(color)}[{bar}] {pct}%{_RESET}")
-                parts.append(f" {_ansi(TXT_SECOND)}│{_RESET} ")
-            parts.append(f"{_ansi(TXT_PRIMARY)}{self._total_tokens:,} tok{_RESET}")
-            parts.append(f" {_ansi(TXT_SECOND)}│{_RESET} ")
-            parts.append(f"{_ansi(TXT_PRIMARY)}{uptime}{_RESET}")
-            if self._think_mode:
-                parts.append(f" {_ansi(TXT_SECOND)}│{_RESET} {_ansi(ACCENT_PURPLE)}think{_RESET}")
-            if self._deep_dive_active:
-                parts.append(f" {_ansi(TXT_SECOND)}│{_RESET} {_ansi(ACCENT_GREEN)}dive{_RESET}")
+            g = _ansi(ACCENT_GREEN)
+            b = _ansi(ACCENT_BLUE)
+            d = _ansi(TXT_SECOND)
+            w = _ansi(TXT_PRIMARY)
+            r = _RESET
+            pct = min(100, int((self._total_tokens / 200000) * 100))
+            filled = int(pct / 10)
+            empty = 10 - filled
+            bar = "█" * filled + "░" * empty
+            color = g if pct < 50 else _ansi(ACCENT_AMBER)
+            print(f"{d}┌{'─' * 76}┐{r}")
+            print(f"  {g}● ready{r} {d}│{r} {b}Gemini 2.5{r} {d}│{r} {color}[{bar}] {pct}%{r} {d}│{r} {w}{self._total_tokens:,} tok{r} {d}│{r} {d}{uptime}{r}")
+            print(f"{d}└{'─' * 76}┘{r}")
             sys.stdout.write("".join(parts) + "\n")
             sys.stdout.flush()
 
@@ -2024,6 +2063,15 @@ class RumiUI:
 
         console.print()
 
+        console.print(Text("  Enter your Cerebras API key:", style=ACCENT_CYAN))
+        console.print(Text("  (Get one at: https://cloud.cerebras.ai)", style=TXT_SECOND))
+        cerebras_key = input("  ❯ ").strip()
+        if not cerebras_key:
+            console.print(Text("  Skipped — Cerebras will not be available.", style=TXT_SECOND))
+            cerebras_key = ""
+
+        console.print()
+
         console.print(Text("  Second Groq key (optional, for rate limiting)", style=TXT_SECOND))
         groq_key2 = input("  ❯ ").strip()
 
@@ -2080,6 +2128,7 @@ class RumiUI:
                 "gemini_api_key_fallback": "",
                 "groq_api_key": groq_key,
                 "groq_api_key2": groq_key2,
+                "cerebras_api_key": cerebras_key,
                 "os_system": detected,
                 "camera_index": 0,
                 "telegram_bot_token": tg_token,

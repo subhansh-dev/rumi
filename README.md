@@ -56,7 +56,7 @@
 | Dimension | RUMI |
 |-----------|------|
 | **Interface** | Terminal-native (Rich + prompt_toolkit) |
-| **Models** | Gemini 2.5 Flash + Groq (Llama 3.3 70B), multi-model routing with token-aware rate limiting |
+| **Models** | Cerebras + Gemini 2.5 Flash + Groq (Llama 3.3 70B), multi-model routing with auto-fallback |
 | **Architecture** | 44 brain modules + 48 discovery modules |
 | **Pipeline** | Literature → Knowledge Graph → Gap Detection → Anomaly Detection → Hidden Variables → Mechanisms → Predictions → Theory Competition → Computational Verification → Contradictions → Skeptic Review → Discovery Scoring |
 | **Memory** | 9-type system: neural, episodic, vector, procedural, working, associative, predictive, consolidated, global workspace |
@@ -275,7 +275,7 @@ RUMI routes inputs through a layered pipeline inspired by dual-process theory an
 | Cognitive Integration | Orchestrates all reasoning into unified pipeline |
 | Module Competition | Minsky Society of Mind — modules bid for processing |
 
-### Consciousness & Self-Awareness (10 modules)
+### Metacognitive Systems (10 modules)
 
 | Module | Purpose |
 |--------|---------|
@@ -326,7 +326,7 @@ RUMI routes inputs through a layered pipeline inspired by dual-process theory an
 | Git | Any recent version |
 | OS | Windows (primary), Linux/macOS (partial) |
 | RAM | 4GB+ (8GB recommended) |
-| API Keys | Gemini (free) at [aistudio.google.com](https://aistudio.google.com/app/apikey) + Groq (free) at [console.groq.com/keys](https://console.groq.com/keys) |
+| API Keys | Cerebras (free) at [cloud.cerebras.ai](https://cloud.cerebras.ai) + Gemini (free) at [aistudio.google.com](https://aistudio.google.com/app/apikey) + Groq (free) at [console.groq.com/keys](https://console.groq.com/keys) |
 
 ### Quick Start
 
@@ -370,6 +370,29 @@ On first launch, RUMI prompts for your Gemini and Groq API keys and saves them t
 from discovery.discovery_pipeline_v2 import run_discovery_pipeline
 result = run_discovery_pipeline("anomalous stellar dimming", mode="full")
 ```
+
+### Dashboard
+
+After running a discovery, open the interactive dashboard to explore results:
+
+```
+/dashboard
+```
+
+The dashboard shows:
+- **Overview** — metric cards, pipeline phase strip, discovery score gauge
+- **Phases** — all 12+ pipeline phases with status and data
+- **Theories** — theory competition results with scores
+- **Gaps** — knowledge gaps detected in the literature
+- **Anomalies** — anomalies and outlier entities
+- **Predictions** — testable predictions with confidence
+- **Knowledge Graph** — interactive vis-network graph
+- **Papers** — searchable paper list
+- **Run History** — all past discovery runs with scores
+
+<p align="center">
+  <img src="assets/dashboard.png" alt="RUMI Discovery Dashboard" width="900" />
+</p>
 
 ### Slash Commands
 

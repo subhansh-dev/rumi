@@ -135,18 +135,20 @@ class PostDiscoveryAnalyzer:
 
         # === Weakness 1: Low hypothesis confidence ===
         if hypotheses:
-            avg_conf = sum(h.get("confidence", 0) for h in hypotheses) / len(hypotheses)
-            if avg_conf < 0.4:
-                weaknesses.append({
-                    "type": "low_confidence",
-                    "severity": "high",
-                    "detail": f"Average hypothesis confidence: {avg_conf:.0%}",
-                    "module": "hypothesis_engine",
-                    "suggestion": "Improve prompt quality, add more domain context, or increase paper count",
-                })
-                module_issues.setdefault("hypothesis_engine", []).append(
-                    "low_confidence: hypotheses lack supporting evidence"
-                )
+            valid_hyps = [h for h in hypotheses if isinstance(h, dict)]
+            if valid_hyps:
+                avg_conf = sum(h.get("confidence", 0) for h in valid_hyps) / len(valid_hyps)
+                if avg_conf < 0.4:
+                    weaknesses.append({
+                        "type": "low_confidence",
+                        "severity": "high",
+                        "detail": f"Average hypothesis confidence: {avg_conf:.0%}",
+                        "module": "hypothesis_engine",
+                        "suggestion": "Improve prompt quality, add more domain context, or increase paper count",
+                    })
+                    module_issues.setdefault("hypothesis_engine", []).append(
+                        "low_confidence: hypotheses lack supporting evidence"
+                    )
 
         # === Weakness 2: No contradictions found ===
         if not contradictions:
@@ -693,6 +695,22 @@ class RecursiveImprover:
             "avg_improvement_score": avg_improvement,
             "last_cycle": self._history[-1] if self._history else None,
         }
+
+    def reflect_and_improve_sync(self, run_result, llm_fn=None, post_output_fn=None):
+        """Synchronous wrapper for reflect_and_improve."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're inside an async context, use a new thread
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, self.reflect_and_improve(run_result, llm_fn, post_output_fn))
+                    return future.result(timeout=300)
+            else:
+                return loop.run_until_complete(self.reflect_and_improve(run_result, llm_fn, post_output_fn))
+        except Exception:
+            return asyncio.run(self.reflect_and_improve(run_result, llm_fn, post_output_fn))
 
 
 # ════════════════════════════════════════════════════════════════════════

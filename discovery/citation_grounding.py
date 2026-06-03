@@ -79,14 +79,16 @@ def fetch_papers(query: str, max_arxiv: int = 20, max_pubmed: int = 20,
     try:
         s2_results = s2_search(query, limit=max_s2)
         for p in s2_results:
+            if not isinstance(p, dict):
+                continue
             _add_paper({
                 "source": "semantic_scholar",
                 "id": p.get("paperId", ""),
                 "title": p.get("title", "").strip(),
                 "abstract": p.get("abstract", "")[:600] if p.get("abstract") else "",
-                "authors": [a.get("name", "") for a in p.get("authors", [])[:5]],
+                "authors": [a.get("name", "") if isinstance(a, dict) else str(a) for a in p.get("authors", [])[:5]],
                 "year": str(p.get("year", "")),
-                "url": f"https://www.semanticscholar.org/paper/{p.get('paperId', '')}",
+                "link": f"https://www.semanticscholar.org/paper/{p.get('paperId', '')}",
                 "citation_key": f"S2:{p.get('paperId', '')[:8]}",
                 "citation_count": p.get("citationCount", 0),
                 "influential_citations": p.get("influentialCitationCount", 0),

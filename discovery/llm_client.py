@@ -268,7 +268,7 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
     try:
         resp = requests.post(
             "https://api.cerebras.ai/v1/chat/completions",
-            headers=headers, json=payload, timeout=30,
+            headers=headers, json=payload, timeout=60,
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -290,7 +290,7 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
                 _rate_limit_cerebras()
                 resp2 = requests.post(
                     "https://api.cerebras.ai/v1/chat/completions",
-                    headers=headers, json=payload, timeout=30,
+                    headers=headers, json=payload, timeout=60,
                 )
                 if resp2.status_code == 200:
                     data = resp2.json()
@@ -350,6 +350,9 @@ def call_thinking(prompt: str, max_tokens: int = 32768,
     if provider == "auto":
         result = _call_gemini(prompt, False, max_tokens, temperature,
                               model=GEMINI_THINKING_MODEL)
+        if result:
+            return result
+        result = _call_cerebras(prompt, False, min(max_tokens, 8192), temperature)
         if result:
             return result
         return _call_groq(prompt, False, max_tokens, temperature)

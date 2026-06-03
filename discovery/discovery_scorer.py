@@ -121,6 +121,9 @@ class DiscoveryScorer:
         # 6. EVIDENCE STRENGTH
         evidence = self._score_evidence(theory, papers, graph, theory_scores)
 
+        # 7. MATHEMATICAL RIGOR — penalize theories without equations
+        math_rigor = self._score_mathematical_rigor(theory, mechanism_steps)
+
         scores = {
             "novelty": round(novelty, 1),
             "explanatory_power": round(explanatory, 1),
@@ -128,6 +131,7 @@ class DiscoveryScorer:
             "falsifiability": round(falsifiability, 1),
             "simplicity": round(simplicity, 1),
             "evidence_strength": round(evidence, 1),
+            "mathematical_rigor": round(math_rigor, 1),
         }
 
         # Weighted scores
@@ -335,6 +339,42 @@ class DiscoveryScorer:
         base += min(20, len(steps) * 4)
 
         return min(100.0, base)
+
+    def _score_mathematical_rigor(self, theory: dict, mechanism_steps: list) -> float:
+        """Score mathematical rigor — penalize theories without equations."""
+        desc = theory.get("description", theory.get("mechanism", ""))
+        math_model = theory.get("mathematical_model", "")
+
+        # Check for equations/formulas
+        has_equation = any(kw in desc.lower() for kw in [
+            "equation", "formula", "=", "derivation", "rate constant",
+            "threshold", "concentration", "flux", "amplitude"
+        ]) or bool(math_model)
+
+        # Check for quantitative content
+        has_numbers = any(c.isdigit() for c in desc)
+
+        # Check for derivation
+        has_derivation = any(kw in desc.lower() for kw in [
+            "derived from", "follows from", "based on", "framework"
+        ])
+
+        # Check for assumptions stated
+        has_assumptions = any(kw in desc.lower() for kw in [
+            "assuming", "assumption", "given that", "under condition"
+        ])
+
+        base = 20  # Start low
+        if has_equation:
+            base += 30
+        if has_numbers:
+            base += 20
+        if has_derivation:
+            base += 20
+        if has_assumptions:
+            base += 10
+
+        return min(100.0, max(10.0, base))
 
     def _generate_summary(self, theory: dict, scores: dict,
                           discovery_score: float, grade: str) -> str:

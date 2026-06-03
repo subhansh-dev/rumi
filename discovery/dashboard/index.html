@@ -895,9 +895,18 @@ async function loadV2Reports() {
 
 async function loadJSON(url) {
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) return null;
-    return await resp.json();
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.onload = function() {
+        if (xhr.status === 200 || xhr.status === 0) { // status 0 for file://
+          try { resolve(JSON.parse(xhr.responseText)); }
+          catch(e) { resolve(null); }
+        } else { resolve(null); }
+      };
+      xhr.onerror = function() { resolve(null); };
+      xhr.send();
+    });
   } catch(e) { return null; }
 }
 

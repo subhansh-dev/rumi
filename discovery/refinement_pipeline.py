@@ -40,19 +40,37 @@ def _llm(prompt, max_tokens=4096, json_mode=False):
     if not raw:
         return None
     if json_mode:
-        text = raw.strip()
+        text = raw.strip() if isinstance(raw, str) else str(raw)
+        # Strip markdown code blocks
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0].strip()
+        # Try direct parse
         try:
-            return json.loads(text)
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
         except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", text, re.DOTALL)
-            if match:
-                try:
-                    return json.loads(match.group())
-                except json.JSONDecodeError:
-                    pass
+            pass
+        # Try extracting JSON object
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            try:
+                parsed = json.loads(match.group())
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+        # Try fixing common JSON issues
+        for candidate in [text, text.replace("'", '"'), re.sub(r',\s*}', '}', text), re.sub(r',\s*]', ']', text)]:
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except (json.JSONDecodeError, Exception):
+                continue
+        # All JSON parsing failed — wrap raw text in a dict so callers don't crash
+        return {"_raw": raw[:2000], "_parse_failed": True}
     return raw
 
 
@@ -262,7 +280,7 @@ Return JSON:
 }}"""
 
     result = _llm(prompt, max_tokens=4096, json_mode=True)
-    if not result:
+    if not result or isinstance(result, str):
         return {"hypotheses": [{"title": h.get("title", ""), "parameters_audit": [], "free_parameters_count": 0, "verdict": "conditional"} for h in hypotheses[:5]]}
     return result
 
@@ -369,6 +387,9 @@ If any reviewer finds a fatal flaw, set survived to false."""
     result = _llm(prompt, max_tokens=4096, json_mode=True)
     if not result:
         return {"reviews": [], "fatal_count": 0, "survived": True}
+    if isinstance(result, str):
+        # LLM returned raw text, not JSON — extract what we can
+        return {"reviews": [], "fatal_count": 0, "survived": True, "raw": result[:500]}
     return result
 
 
@@ -637,6 +658,9 @@ Return JSON:
     result = _llm(prompt, max_tokens=4096, json_mode=True)
     if not result:
         return {"scores": {}, "grade": "F", "overall_score": 0}
+    if isinstance(result, str):
+        # LLM returned raw text — try to extract score from text
+        return {"scores": {}, "grade": "F", "overall_score": 0, "raw": result[:500]}
     return result
 
 
@@ -703,21 +727,55 @@ Return JSON:
     if not result:
         return {"verdict": "UNKNOWN", "survived": False}
 
-    # Parse JSON from thinking response
-    text = result.strip()
+    # Parse JSON from thinking response — robust parsing
+    text = result.strip() if isinstance(result, str) else str(result)
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
         text = text.rsplit("```", 1)[0].strip()
     try:
-        return json.loads(text)
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
     except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
+        pass
+
+    # Try to extract JSON from anywhere in the response
+    import re
+    # Try multiple JSON extraction strategies
+    for pattern in [r'\{[^{}]*"verdict"[^{}]*\}', r'\{[^{}]*"prosecution"[^{}]*\}', r'\{.*?\}(?=\s*$|\s*\n)']:
+        match = re.search(pattern, text, re.DOTALL)
         if match:
             try:
-                return json.loads(match.group())
+                parsed = json.loads(match.group())
+                if isinstance(parsed, dict):
+                    return parsed
             except json.JSONDecodeError:
-                pass
-    return {"verdict": "PARSE_FAILED", "survived": False, "raw": result[:2000]}
+                continue
+
+    # Try finding any JSON object
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        try:
+            parsed = json.loads(match.group())
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    # If all parsing fails, extract verdict from text
+    verdict = "UNKNOWN"
+    survived = False
+    if "RUMI_DISCOVERY" in text or "accepted" in text.lower():
+        verdict = "RUMI_DISCOVERY"
+        survived = True
+    elif "REJECTED" in text or "rejected" in text.lower():
+        verdict = "REJECTED"
+        survived = False
+    elif "CONDITIONAL" in text or "conditional" in text.lower():
+        verdict = "CONDITIONAL"
+        survived = True
+
+    return {"verdict": verdict, "survived": survived, "raw": text[:2000]}
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -373,7 +373,7 @@ def generate_mechanisms_algorithmic(graph, hypotheses, topic, domain):
     return mechanisms
 
 
-def generate_predictions_algorithmic(mechanisms, hypotheses, topic, domain):
+def generate_predictions_algorithmic(mechanisms, hypotheses, topic, domain, graph=None):
     """
     Generate testable predictions without LLM calls.
     v2.1: Extracts predictions from hypotheses and mechanisms, grounded in domain.
@@ -399,7 +399,7 @@ def generate_predictions_algorithmic(mechanisms, hypotheses, topic, domain):
                 })
 
     # Add domain-specific predictions from graph entities
-    entities = graph.entities if hasattr(graph, 'entities') else {}
+    entities = graph.entities if graph and hasattr(graph, 'entities') else {}
     for eid, edata in list(entities.items())[:5]:
         name = edata.get("name", "")
         etype = edata.get("type", "")

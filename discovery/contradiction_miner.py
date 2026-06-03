@@ -74,10 +74,93 @@ class ContradictionMiner:
         temporal = self._find_temporal(g, entities)
         contradictions.extend(temporal)
 
+        # Also find scientific tensions (competing theories, conflicting evidence)
+        tensions = self._find_scientific_tensions(g, entities, rels)
+        contradictions.extend(tensions)
+
         scores = {c["id"]: c["severity"] for c in contradictions}
         summary = self._summarize(contradictions)
 
         return {"contradictions": contradictions, "severity_scores": scores, "summary": summary}
+
+    def _find_scientific_tensions(self, graph, entities, rels):
+        """Find scientific tensions — competing theories, conflicting evidence."""
+        tensions = []
+
+        # 1. Find entities with multiple competing explanations
+        entity_types = {}
+        for eid, edata in entities.items():
+            etype = edata.get("type", "unknown")
+            if etype not in entity_types:
+                entity_types[etype] = []
+            entity_types[etype].append(edata.get("name", ""))
+
+        # 2. Find relationships that suggest tension
+        # Look for entities connected to many others (potential competing explanations)
+        connection_count = {}
+        for r in rels:
+            src = r.get("source", "")
+            tgt = r.get("target", "")
+            connection_count[src] = connection_count.get(src, 0) + 1
+            connection_count[tgt] = connection_count.get(tgt, 0) + 1
+
+        # Hub entities with many connections often have competing explanations
+        hubs = [(name, count) for name, count in connection_count.items() if count >= 3]
+        hubs.sort(key=lambda x: x[1], reverse=True)
+
+        for hub_name, hub_count in hubs[:3]:
+            # Find what connects to this hub
+            connected = set()
+            for r in rels:
+                if r.get("source") == hub_name:
+                    connected.add(r.get("target", ""))
+                elif r.get("target") == hub_name:
+                    connected.add(r.get("source", ""))
+
+            if len(connected) >= 2:
+                tensions.append({
+                    "id": f"tension_hub_{hub_name.replace(' ', '_')}",
+                    "type": "scientific_tension",
+                    "entity_a": hub_name,
+                    "entity_b": ", ".join(list(connected)[:3]),
+                    "relation_a": "hub_connects",
+                    "relation_b": "multiple_explanations",
+                    "papers_a": [],
+                    "papers_b": [],
+                    "severity": 0.4,
+                    "summary": f"'{hub_name}' is a hub entity connecting {len(connected)} other entities. "
+                              f"This suggests competing explanations may exist for its role in the system.",
+                    "tension_type": "competing_explanations",
+                })
+
+        # 3. Find entities with high degree that might have conflicting roles
+        for eid, edata in entities.items():
+            name = edata.get("name", "")
+            papers = edata.get("papers", [])
+            if len(papers) >= 2:
+                # Check if this entity appears in multiple contexts
+                contexts = set()
+                for r in rels:
+                    if r.get("source") == name or r.get("target") == name:
+                        contexts.add(r.get("relation", ""))
+
+                if len(contexts) >= 2:
+                    tensions.append({
+                        "id": f"tension_context_{name.replace(' ', '_')}",
+                        "type": "contextual_tension",
+                        "entity_a": name,
+                        "entity_b": "multiple_contexts",
+                        "relation_a": list(contexts)[0] if contexts else "unknown",
+                        "relation_b": list(contexts)[1] if len(contexts) > 1 else "unknown",
+                        "papers_a": papers[:2],
+                        "papers_b": [],
+                        "severity": 0.3,
+                        "summary": f"'{name}' appears in {len(contexts)} different contexts ({', '.join(list(contexts)[:3])}). "
+                                  f"This may indicate competing roles or explanations.",
+                        "tension_type": "contextual_conflict",
+                    })
+
+        return tensions
 
     def _find_direct(self, relationships, entities):
         found = []

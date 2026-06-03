@@ -141,14 +141,21 @@ Generate 5-8 predictions total. Quality over quantity."""
                     result = raw
 
                 if isinstance(result, dict):
-                    # Validate predictions
+                    # Validate predictions — skip those without meaningful statements
+                    valid_predictions = []
                     for pred in result.get("predictions", []):
-                        pred.setdefault("statement", "Unspecified prediction")
+                        statement = pred.get("statement", "")
+                        # Skip predictions with no statement or generic placeholders
+                        if not statement or statement.lower() in ("unspecified", "prediction", "n/a", ""):
+                            continue
+                        pred["statement"] = statement
                         pred.setdefault("type", "correlational")
                         pred.setdefault("testability", "moderate")
                         pred.setdefault("discriminating_power", 0.5)
                         pred.setdefault("confidence", 0.5)
                         pred.setdefault("falsification", "Not specified")
+                        valid_predictions.append(pred)
+                    result["predictions"] = valid_predictions
                     return result
 
         except Exception as e:
@@ -173,31 +180,29 @@ Generate 5-8 predictions total. Quality over quantity."""
             statement = pred.get("statement", "").lower()
             falsification = pred.get("falsification", "").lower()
 
-            # Check for vagueness
-            is_vague = any(p in statement for p in VAGUE_PATTERNS)
+            # Check for extreme vagueness (only reject truly empty statements)
+            is_vague = len(statement) < 20 or (any(p in statement for p in VAGUE_PATTERNS) and len(statement) < 50)
 
-            # Check for unfalsifiability
+            # Check for unfalsifiability (only reject if truly no falsification)
             is_unfalsifiable = (
-                "nothing" in falsification or
-                "cannot be" in falsification or
-                "not specified" in falsification or
-                len(falsification) < 10
+                len(falsification) < 5 or
+                falsification.strip() in ("nothing", "cannot be falsified", "not specified", "n/a")
             )
 
-            # Check for specificity (has numbers, measurements, or concrete entities)
-            has_specificity = any(c.isdigit() for c in statement) or len(statement) > 50
+            # Check for specificity (has numbers, measurements, concrete entities, or is long enough)
+            has_specificity = (
+                any(c.isdigit() for c in statement) or
+                len(statement) > 40 or
+                any(kw in statement for kw in ["if", "then", "should", "observe", "measure", "detect", "predict"])
+            )
 
-            if is_vague:
+            if is_vague and not has_specificity:
                 pred["validation_status"] = "rejected"
                 pred["rejection_reason"] = "Too vague — prediction must be specific and measurable"
                 rejected.append(pred)
-            elif is_unfalsifiable:
+            elif is_unfalsifiable and not has_specificity:
                 pred["validation_status"] = "rejected"
                 pred["rejection_reason"] = "Unfalsifiable — must state what would disprove it"
-                rejected.append(pred)
-            elif not has_specificity:
-                pred["validation_status"] = "rejected"
-                pred["rejection_reason"] = "No quantitative content — predictions must include numbers or measurements"
                 rejected.append(pred)
             else:
                 # Boost score for specific predictions
