@@ -5,13 +5,13 @@ Rate limit: 50 req/sec with polite pool (mailto header).
 """
 
 import json
+import re
 import time
 import urllib.request
 import urllib.parse
 
 CROSSREF_BASE = "https://api.crossref.org/works"
 _LAST_CALL = 0.0
-_429_COOLDOWN_UNTIL = 0.0
 
 
 def _rate_limit():
@@ -24,10 +24,6 @@ def _rate_limit():
 
 def search_papers(query: str, max_results: int = 20) -> list[dict]:
     """Search CrossRef for papers. Returns list of paper dicts."""
-    global _429_COOLDOWN_UNTIL
-    if time.time() < _429_COOLDOWN_UNTIL:
-        return []
-
     q = urllib.parse.quote(query)
     url = f"{CROSSREF_BASE}?query={q}&rows={max_results}&mailto=subhansh.dev@gmail.com&sort=relevance&order=desc"
     _rate_limit()
@@ -40,10 +36,9 @@ def search_papers(query: str, max_results: int = 20) -> list[dict]:
                 data = json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                _429_COOLDOWN_UNTIL = time.time() + 120
-                return []
-            if attempt < 2:
-                time.sleep(3)
+                wait = 5 * (attempt + 1)
+                print(f"  [CrossRef] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
+                time.sleep(wait)
                 continue
             return []
         except Exception:
@@ -59,8 +54,6 @@ def search_papers(query: str, max_results: int = 20) -> list[dict]:
             if not title:
                 continue
             abstract = item.get("abstract", "")[:500]
-            # Strip HTML tags from abstract
-            import re
             abstract = re.sub(r'<[^>]+>', '', abstract)
             authors = []
             for a in item.get("author", [])[:5]:

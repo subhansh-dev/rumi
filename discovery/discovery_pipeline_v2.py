@@ -562,76 +562,49 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 5/12] MISSING VARIABLES — Proposing hidden factors...", flush=True)
 
-    # Phase-specific LLM routing — fast models for extraction, best for reasoning
-    # cerebras: fastest (entity extraction, scoring, pattern matching)
-    # gemini: best reasoning (mechanisms, theories, adversarial critique)
-    # auto: balanced (Cerebras→Groq→Gemini fallback)
-    # Provider strategy: Cerebras (gpt-oss-120b) = best reasoning, primary for heavy phases.
-    # Groq (llama-3.3-70b) = fast fallback, good for extraction/simple tasks.
-    # Gemini = last resort only (tiny daily quota).
-    # All providers fall back to next: Cerebras → Groq → Gemini.
+    # Phase-specific LLM routing — spread work across ALL providers
+    # Each provider has internal fallback: Cerebras → Groq → Gemini
     PHASE_PROVIDERS = {
-        "literature": "cerebras",       # Phase 1: extraction — Cerebras fast
-        "knowledge_graph": "cerebras",  # Phase 2: entity extraction
-        "gap_detection": "cerebras",    # Phase 3: pattern matching
-        "anomaly_detection": "cerebras",# Phase 4: pattern matching
+        "literature": "groq",           # Phase 1: extraction — Groq fast
+        "knowledge_graph": "groq",      # Phase 2: entity extraction — Groq fast
+        "gap_detection": "groq",        # Phase 3: pattern matching — Groq fast
+        "anomaly_detection": "groq",    # Phase 4: pattern matching — Groq fast
         "missing_variables": "cerebras",# Phase 5: creative hypotheses — Cerebras 120B
-        "mechanism_generation": "cerebras",  # Phase 6: deep causal reasoning — needs 120B
-        "prediction_engine": "cerebras",     # Phase 7: testable predictions — needs 120B
-        "theory_competition": "cerebras",    # Phase 8: tournament generation — needs 120B
-        "adversarial_test": "cerebras", # Phase 8.5: fast critique
-        "critical_evaluation": "cerebras",   # Phase 8.6: formal assessment — needs 120B
-        "skeptic_review": "cerebras",   # Phase 11: adversarial review — needs 120B
-        "scoring": "cerebras",          # Phase 12: mostly algorithmic
+        "mechanism_generation": "cerebras",  # Phase 6: deep causal reasoning — Cerebras 120B
+        "prediction_engine": "groq",    # Phase 7: testable predictions — Groq (volume)
+        "theory_competition": "groq",   # Phase 8: tournament gen — Groq (volume)
+        "adversarial_test": "cerebras", # Phase 8.5: critique — Cerebras 120B
+        "critical_evaluation": "cerebras",   # Phase 8.6: formal assessment — Cerebras 120B
+        "skeptic_review": "gemini",     # Phase 11: adversarial review — Gemini (creative)
+        "scoring": "groq",              # Phase 12: mostly algorithmic — Groq fast
     }
     _current_phase = {"name": "missing_variables"}  # mutable for closure
 
-    # Direct LLM wrapper — no thread, no silent failures
+    # Direct LLM wrapper — simple: one call with built-in fallback, one retry
     def _truncated_llm(prompt, max_tokens=4096, **kwargs):
-        """LLM call with prompt truncation + phase-aware routing + retry.
+        """LLM call with prompt truncation + phase-aware routing.
 
-        Cerebras returns clean JSON without json_mode flag (its json_mode is broken).
-        So we try regular call first, fall back to json_mode only if needed.
+        The provider's call() function already has fallback chain:
+        cerebras → groq → gemini. So one call tries all 3.
         """
         if len(prompt) > 8000:
             prompt = prompt[:7500] + "\n\n[Context truncated — respond with available information]"
-        # Allow phase override via kwargs
         phase = kwargs.get("phase", _current_phase["name"])
         provider = PHASE_PROVIDERS.get(phase, "auto")
-        for attempt in range(3):  # retry up to 3 times
-            try:
-                # Cerebras returns clean JSON without json_mode — try regular call first
-                from discovery.llm_client import call as _llm_call
-                r = _llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider=provider)
-                if r is None and provider != "auto":
-                    print(f"    [DEBUG] LLM returned None ({provider}), trying auto...", flush=True)
-                    r = _llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider="auto")
-                # If still None, try with json_mode as last resort (helps Gemini/Groq)
-                if r is None:
-                    r = call_json(prompt, max_tokens=max_tokens, provider=provider)
-                if r is None and attempt < 2:
-                    import discovery.llm_client as _lc
-                    soonest = min(
-                        getattr(_lc, '_cerebras_cooldown_until', 0),
-                        getattr(_lc, '_groq_cooldown_until', 0),
-                        getattr(_lc, '_gemini_cooldown_until', 0),
-                    )
-                    wait = max(5, min(30, soonest - time.time()))
-                    print(f"    [DEBUG] LLM None (attempt {attempt+1}/3), waiting {wait:.0f}s...", flush=True)
-                    time.sleep(wait)
-                    continue
-                if r is None:
-                    print(f"    [DEBUG] LLM returned None (all providers exhausted)", flush=True)
-                elif isinstance(r, str) and len(r) < 10:
-                    print(f"    [DEBUG] LLM returned short string: '{r}'", flush=True)
-                return r
-            except Exception as e:
-                print(f"    [ERROR] LLM exception: {e}", flush=True)
-                if attempt < 2:
-                    time.sleep(5)
-                    continue
-                return None
-        return None
+        try:
+            # Single call — provider handles fallback internally
+            r = llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider=provider)
+            if r is None:
+                print(f"    [DEBUG] LLM None ({provider}), waiting 10s for cooldown...", flush=True)
+                time.sleep(10)
+                # Retry once — providers may have recovered
+                r = llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider="auto")
+            if r is None:
+                print(f"    [DEBUG] LLM exhausted (all providers)", flush=True)
+            return r
+        except Exception as e:
+            print(f"    [ERROR] LLM exception: {e}", flush=True)
+            return None
 
     try:
         mv_generator = MissingVariableGenerator(graph=graph, llm_call=_truncated_llm)

@@ -325,7 +325,7 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
 _cerebras_cooldown_until = 0.0
 _groq_cooldown_until = 0.0
 _gemini_cooldown_until = 0.0
-COOLDOWN_SECONDS = 30  # skip a provider for 30s after it fails
+COOLDOWN_SECONDS = 15  # skip a provider for 15s after it fails (shorter = more resilient)
 
 def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
          temperature: float = 0.3, provider: str = "auto") -> str | None:
