@@ -10,7 +10,7 @@ import urllib.parse
 
 ARXIV_BASE = "https://export.arxiv.org/api/query"
 _LAST_CALL = 0.0
-_429_COOLDOWN_UNTIL = 0.0  # global cooldown after 429
+_429_COOLDOWN_UNTIL = 0.0  # per-run cooldown after 429 (reset on module import)
 
 
 def _rate_limit():
@@ -49,9 +49,9 @@ def search_papers(query: str, max_results: int = 10) -> list[dict]:
             break
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                wait = 15 * (attempt + 1)  # 15s, 30s, 45s
+                wait = 5 * (attempt + 1)  # 5s, 10s, 15s
                 print(f"  [arXiv] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
-                _429_COOLDOWN_UNTIL = time.time() + 1800  # skip arxiv for 30 min (entire run)
+                _429_COOLDOWN_UNTIL = time.time() + 999999  # skip arxiv for rest of this run
                 time.sleep(wait)
                 continue
             return []
