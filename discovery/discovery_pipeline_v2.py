@@ -352,25 +352,52 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # ══════════════════════════════════════════════════════════════
     # PHASE 1: LITERATURE
     # ══════════════════════════════════════════════════════════════
-    print("\n[Phase 1/12] LITERATURE — Fetching papers from 3 sources...", flush=True)
+    print("\n[Phase 1/12] LITERATURE — Fetching papers from 4 sources (3 rounds)...", flush=True)
     try:
-        # Primary query
-        papers = fetch_papers(topic, max_arxiv=20, max_pubmed=20, max_s2=20)
-        print(f"  Primary search: {len(papers)} papers")
+        # Round 1: Full topic query across all 4 sources
+        papers = fetch_papers(topic, max_arxiv=20, max_pubmed=20, max_s2=20, max_crossref=20)
+        print(f"  Round 1: {len(papers)} papers")
 
-        # Broader query — extract key terms and search again
+        # Round 2: Shortened key-phrase query
         topic_words = [w for w in topic.lower().split() if len(w) > 4]
         if len(topic_words) >= 2:
-            broad_query = " ".join(topic_words[:3])
-            broad_papers = fetch_papers(broad_query, max_arxiv=10, max_pubmed=10, max_s2=10)
-            # Add non-duplicates
+            broad_query = " ".join(topic_words[:4])
             existing_titles = {p["title"].lower()[:60] for p in papers}
-            for p in broad_papers:
+            r2 = fetch_papers(broad_query, max_arxiv=15, max_pubmed=15, max_s2=15, max_crossref=15)
+            added = 0
+            for p in r2:
                 if p["title"].lower()[:60] not in existing_titles:
+                    existing_titles.add(p["title"].lower()[:60])
                     papers.append(p)
-            print(f"  Broadened search: +{len(papers) - len(broad_papers)} new papers")
+                    added += 1
+            print(f"  Round 2: +{added} new papers ({len(papers)} total)")
 
-        print(f"  Total: {len(papers)} papers from {len(set(p['source'] for p in papers))} sources")
+        # Round 3: Domain-specific sub-queries for deeper coverage
+        if len(papers) < 40:
+            sub_queries = []
+            topic_lower = topic.lower()
+            if "black hole" in topic_lower:
+                sub_queries = ["primordial black holes dark matter",
+                               "Hawking radiation gamma ray",
+                               "sub-solar mass gravitational wave merger",
+                               "PBH microlensing OGLE EROS"]
+            elif "exoplanet" in topic_lower:
+                sub_queries = ["exoplanet atmosphere characterization",
+                               "biosignature detection JWST"]
+            elif "neuroscience" in topic_lower or "brain" in topic_lower:
+                sub_queries = ["neural network connectivity",
+                               "brain-computer interface"]
+            existing_titles = {p["title"].lower()[:60] for p in papers}
+            for sq in sub_queries[:3]:
+                r3 = fetch_papers(sq, max_arxiv=10, max_pubmed=10, max_s2=10, max_crossref=10)
+                for p in r3:
+                    if p["title"].lower()[:60] not in existing_titles:
+                        existing_titles.add(p["title"].lower()[:60])
+                        papers.append(p)
+            print(f"  Round 3: {len(papers)} total papers after domain queries")
+
+        sources = set(p['source'] for p in papers)
+        print(f"  Total: {len(papers)} papers from {len(sources)} sources: {', '.join(sorted(sources))}")
         for p in papers[:5]:
             cites = p.get('citation_count', '')
             cite_str = f" ({cites} citations)" if cites else ""

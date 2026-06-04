@@ -20,10 +20,14 @@ import time
 from discovery.arxiv_api import search_papers as arxiv_search
 from discovery.pubmed import search as pubmed_search, fetch as pubmed_fetch
 from discovery.semantic_scholar import search_papers as s2_search
+try:
+    from discovery.crossref import search_papers as crossref_search
+except ImportError:
+    crossref_search = None
 
 
 def fetch_papers(query: str, max_arxiv: int = 20, max_pubmed: int = 20,
-                 max_s2: int = 20) -> list[dict]:
+                 max_s2: int = 20, max_crossref: int = 20) -> list[dict]:
     """
     Fetch real papers from arXiv + PubMed + Semantic Scholar.
     Returns unified list sorted by date (newest first).
@@ -95,6 +99,27 @@ def fetch_papers(query: str, max_arxiv: int = 20, max_pubmed: int = 20,
             })
     except Exception as e:
         print(f"  [SemanticScholar] Error: {e}")
+
+    # ── CrossRef (fourth source — broad academic coverage) ──
+    if crossref_search:
+        try:
+            cr_results = crossref_search(query, max_results=max_crossref)
+            for p in cr_results:
+                if not isinstance(p, dict):
+                    continue
+                _add_paper({
+                    "source": "crossref",
+                    "id": p.get("doi", ""),
+                    "title": p.get("title", "").strip(),
+                    "abstract": p.get("abstract", "")[:600],
+                    "authors": p.get("authors", []),
+                    "year": str(p.get("year", "")),
+                    "url": p.get("url", ""),
+                    "citation_key": f"DOI:{p.get('doi', '')[:20]}",
+                    "citation_count": p.get("citation_count", 0),
+                })
+        except Exception as e:
+            print(f"  [CrossRef] Error: {e}")
 
     # Sort by year descending
     papers.sort(key=lambda p: p.get("year", "0000"), reverse=True)
