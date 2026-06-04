@@ -561,7 +561,11 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
 
     # Direct LLM wrapper — no thread, no silent failures
     def _truncated_llm(prompt, max_tokens=4096, **kwargs):
-        """LLM call with prompt truncation + phase-aware routing + retry."""
+        """LLM call with prompt truncation + phase-aware routing + retry.
+
+        Cerebras returns clean JSON without json_mode flag (its json_mode is broken).
+        So we try regular call first, fall back to json_mode only if needed.
+        """
         if len(prompt) > 8000:
             prompt = prompt[:7500] + "\n\n[Context truncated — respond with available information]"
         # Allow phase override via kwargs
@@ -569,13 +573,16 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
         provider = PHASE_PROVIDERS.get(phase, "auto")
         for attempt in range(3):  # retry up to 3 times
             try:
-                r = call_json(prompt, max_tokens=max_tokens, provider=provider)
+                # Cerebras returns clean JSON without json_mode — try regular call first
+                from discovery.llm_client import call as _llm_call
+                r = _llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider=provider)
                 if r is None and provider != "auto":
-                    # Phase-specific provider failed — try all providers via auto
                     print(f"    [DEBUG] LLM returned None ({provider}), trying auto...", flush=True)
-                    r = call_json(prompt, max_tokens=max_tokens, provider="auto")
+                    r = _llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider="auto")
+                # If still None, try with json_mode as last resort (helps Gemini/Groq)
+                if r is None:
+                    r = call_json(prompt, max_tokens=max_tokens, provider=provider)
                 if r is None and attempt < 2:
-                    # All providers exhausted — wait and retry
                     import discovery.llm_client as _lc
                     soonest = min(
                         getattr(_lc, '_cerebras_cooldown_until', 0),
