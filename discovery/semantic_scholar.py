@@ -23,21 +23,17 @@ def _rate_limit():
 
 def _fetch(url: str) -> dict | None:
     _rate_limit()
-    for attempt in range(3):
+    for attempt in range(2):
         try:
-            with urllib.request.urlopen(url, timeout=20) as resp:
+            with urllib.request.urlopen(url, timeout=15) as resp:
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                wait = 5 * (attempt + 1)  # 5s, 10s, 15s
-                print(f"  [S2] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
-                time.sleep(wait)
+                print(f"  [S2] 429 rate limited (attempt {attempt+1}/2)", flush=True)
+                time.sleep(3)
                 continue
             return None
         except Exception:
-            if attempt < 2:
-                time.sleep(3)
-                continue
             return None
     return None
 

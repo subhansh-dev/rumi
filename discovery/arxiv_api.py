@@ -37,22 +37,18 @@ def search_papers(query: str, max_results: int = 10) -> list[dict]:
     q = urllib.parse.quote(short_q)
     url = f"{ARXIV_BASE}?search_query=all:{q}&start=0&max_results={max_results}"
     _rate_limit()
-    for attempt in range(3):
+    for attempt in range(2):
         try:
-            with urllib.request.urlopen(url, timeout=30) as resp:
+            with urllib.request.urlopen(url, timeout=20) as resp:
                 xml_data = resp.read().decode()
             break
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                wait = 5 * (attempt + 1)  # 5s, 10s, 15s
-                print(f"  [arXiv] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
-                time.sleep(wait)
+                print(f"  [arXiv] 429 rate limited (attempt {attempt+1}/2)", flush=True)
+                time.sleep(3)
                 continue
             return []
         except Exception:
-            if attempt < 2:
-                time.sleep(5)
-                continue
             return []
     else:
         return []

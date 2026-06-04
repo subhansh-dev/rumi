@@ -27,24 +27,20 @@ def search_papers(query: str, max_results: int = 20) -> list[dict]:
     q = urllib.parse.quote(query)
     url = f"{CROSSREF_BASE}?query={q}&rows={max_results}&mailto=subhansh.dev@gmail.com&sort=relevance&order=desc"
     _rate_limit()
-    for attempt in range(3):
+    for attempt in range(2):
         try:
             req = urllib.request.Request(url, headers={
                 "User-Agent": "RUMI/1.0 (mailto:subhansh.dev@gmail.com)"
             })
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                wait = 5 * (attempt + 1)
-                print(f"  [CrossRef] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
-                time.sleep(wait)
+                print(f"  [CrossRef] 429 rate limited (attempt {attempt+1}/2)", flush=True)
+                time.sleep(3)
                 continue
             return []
         except Exception:
-            if attempt < 2:
-                time.sleep(3)
-                continue
             return []
 
         papers = []
