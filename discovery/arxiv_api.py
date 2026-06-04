@@ -37,20 +37,14 @@ def search_papers(query: str, max_results: int = 10) -> list[dict]:
     q = urllib.parse.quote(short_q)
     url = f"{ARXIV_BASE}?search_query=all:{q}&start=0&max_results={max_results}"
     _rate_limit()
-    for attempt in range(2):
-        try:
-            with urllib.request.urlopen(url, timeout=20) as resp:
-                xml_data = resp.read().decode()
-            break
-        except urllib.error.HTTPError as e:
-            if e.code == 429:
-                print(f"  [arXiv] 429 rate limited (attempt {attempt+1}/2)", flush=True)
-                time.sleep(3)
-                continue
-            return []
-        except Exception:
-            return []
-    else:
+    try:
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            xml_data = resp.read().decode()
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            print("  [arXiv] 429 — skipping", flush=True)
+        return []
+    except Exception:
         return []
 
     import xml.etree.ElementTree as ET

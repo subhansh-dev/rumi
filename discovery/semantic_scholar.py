@@ -23,19 +23,15 @@ def _rate_limit():
 
 def _fetch(url: str) -> dict | None:
     _rate_limit()
-    for attempt in range(2):
-        try:
-            with urllib.request.urlopen(url, timeout=15) as resp:
-                return json.loads(resp.read().decode())
-        except urllib.error.HTTPError as e:
-            if e.code == 429:
-                print(f"  [S2] 429 rate limited (attempt {attempt+1}/2)", flush=True)
-                time.sleep(3)
-                continue
-            return None
-        except Exception:
-            return None
-    return None
+    try:
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            print("  [S2] 429 — skipping", flush=True)
+        return None
+    except Exception:
+        return None
 
 
 def search_papers(query: str, limit: int = 20) -> list[dict]:
