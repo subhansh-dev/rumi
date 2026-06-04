@@ -222,7 +222,7 @@ def build_knowledge_graph(papers: list, domain: str) -> KnowledgeGraph:
 
     for p in papers:
         pmid = p.get("id", p.get("citation_key", "unknown"))
-        graph.add_paper(pmid, p["title"], p.get("abstract", ""), p["url"], p.get("year", ""))
+        graph.add_paper(pmid, p["title"], p.get("abstract", ""), p.get("url", ""), p.get("year", ""))
 
     for ent in extracted.get("entities", []):
         pmid = papers[0].get("id", "unknown") if papers else "unknown"

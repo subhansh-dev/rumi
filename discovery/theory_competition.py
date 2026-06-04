@@ -270,29 +270,40 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
             if not raw:
                 from discovery.llm_client import call_json
                 raw = call_json(prompt, max_tokens=8192, provider="auto")
+            if not raw:
+                print(f"    [WARN] {batch_label}: LLM returned None/empty on all providers", flush=True)
+                return []
 
-            if raw:
-                if isinstance(raw, str):
-                    raw = raw.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                        raw = raw.rsplit("```", 1)[0].strip()
+            if isinstance(raw, str):
+                raw = raw.strip()
+                if raw.startswith("```"):
+                    raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                    raw = raw.rsplit("```", 1)[0].strip()
+                # Try to extract JSON from response
+                import re
+                json_match = re.search(r'\{[\s\S]*\}', raw)
+                if json_match:
+                    raw = json_match.group()
+                try:
                     result = json.loads(raw)
-                else:
-                    result = raw
+                except json.JSONDecodeError:
+                    print(f"    [WARN] {batch_label}: Could not parse JSON from LLM response ({len(raw)} chars)", flush=True)
+                    return []
+            else:
+                result = raw
 
-                if isinstance(result, dict):
-                    theories = result.get("theories", [])
-                    # Ensure defaults
-                    for t in theories:
-                        t.setdefault("name", "Unnamed Theory")
-                        t.setdefault("type", "alternative")
-                        t.setdefault("scores", {})
-                        t.setdefault("explains", [])
-                        t.setdefault("fails_to_explain", [])
-                        t.setdefault("predictions", [])
-                        t.setdefault("key_assumptions", [])
-                    return theories[:count]
+            if isinstance(result, dict):
+                theories = result.get("theories", [])
+                # Ensure defaults
+                for t in theories:
+                    t.setdefault("name", "Unnamed Theory")
+                    t.setdefault("type", "alternative")
+                    t.setdefault("scores", {})
+                    t.setdefault("explains", [])
+                    t.setdefault("fails_to_explain", [])
+                    t.setdefault("predictions", [])
+                    t.setdefault("key_assumptions", [])
+                return theories[:count]
 
         except Exception as e:
             print(f"    [WARN] {batch_label} failed: {e}", flush=True)
