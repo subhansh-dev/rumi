@@ -11,6 +11,7 @@ import urllib.parse
 
 S2_BASE = "https://api.semanticscholar.org/graph/v1"
 _LAST_CALL = 0.0
+_HIT_429_THIS_RUN = False
 
 
 def _rate_limit():
@@ -22,6 +23,9 @@ def _rate_limit():
 
 
 def _fetch(url: str) -> dict | None:
+    global _HIT_429_THIS_RUN
+    if _HIT_429_THIS_RUN:
+        return None
     _rate_limit()
     for attempt in range(3):
         try:
@@ -29,8 +33,9 @@ def _fetch(url: str) -> dict | None:
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                wait = 10 * (attempt + 1)  # 10s, 20s, 30s
-                print(f"  [S2] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
+                if attempt == 0:
+                    print(f"  [S2] 429 rate limited, will retry...", flush=True)
+                wait = 10 * (attempt + 1)
                 time.sleep(wait)
                 continue
             return None
@@ -39,6 +44,8 @@ def _fetch(url: str) -> dict | None:
                 time.sleep(3)
                 continue
             return None
+    _HIT_429_THIS_RUN = True
+    print("  [S2] 429 exhausted — skipping remaining calls this run", flush=True)
     return None
 
 
@@ -85,10 +92,7 @@ def get_paper_influence(title: str) -> dict | None:
 
 
 def enrich_entities(graph) -> int:
-    """Enrich paper entities in graph with Semantic Scholar citation data.
-
-    Returns count of enriched papers.
-    """
+    """Enrich paper entities in graph with Semantic Scholar citation data."""
     enriched = 0
     for pmid, paper in list(graph.papers.items()):
         title = paper.get("title", "")

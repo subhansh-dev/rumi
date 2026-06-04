@@ -10,6 +10,9 @@ import urllib.parse
 
 ARXIV_BASE = "https://export.arxiv.org/api/query"
 _LAST_CALL = 0.0
+# Per-run 429 tracking: if arxiv 429s, skip remaining calls this run.
+# Resets on next import (fresh run).
+_HIT_429_THIS_RUN = False
 
 
 def _rate_limit():
@@ -22,6 +25,10 @@ def _rate_limit():
 
 def search_papers(query: str, max_results: int = 10) -> list[dict]:
     """Search arXiv papers. Returns list of paper dicts."""
+    global _HIT_429_THIS_RUN
+    if _HIT_429_THIS_RUN:
+        return []
+
     # Use shorter, keyword-based queries for better arxiv results
     if ':' in query:
         short_q = query.split(':')[0].strip()
@@ -41,8 +48,9 @@ def search_papers(query: str, max_results: int = 10) -> list[dict]:
             break
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                wait = 10 * (attempt + 1)  # 10s, 20s, 30s
-                print(f"  [arXiv] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
+                if attempt == 0:
+                    print(f"  [arXiv] 429 rate limited, will retry...", flush=True)
+                wait = 10 * (attempt + 1)
                 time.sleep(wait)
                 continue
             return []
@@ -52,6 +60,8 @@ def search_papers(query: str, max_results: int = 10) -> list[dict]:
                 continue
             return []
     else:
+        _HIT_429_THIS_RUN = True
+        print("  [arXiv] 429 exhausted — skipping remaining calls this run", flush=True)
         return []
 
     import xml.etree.ElementTree as ET
@@ -95,6 +105,9 @@ def search_papers(query: str, max_results: int = 10) -> list[dict]:
 
 def get_paper_metadata(arxiv_id: str) -> dict | None:
     """Get metadata for a specific arXiv paper by ID."""
+    global _HIT_429_THIS_RUN
+    if _HIT_429_THIS_RUN:
+        return None
     url = f"{ARXIV_BASE}?id_list={arxiv_id}"
     _rate_limit()
     try:
@@ -116,10 +129,7 @@ def get_paper_metadata(arxiv_id: str) -> dict | None:
 
 
 def enrich_entities(graph, query: str = "", max_results: int = 5) -> int:
-    """Add arXiv papers as additional paper sources to the graph.
-
-    Returns number of papers added.
-    """
+    """Add arXiv papers as additional paper sources to the graph."""
     if not query:
         return 0
     papers = search_papers(query, max_results)

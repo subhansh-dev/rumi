@@ -12,6 +12,7 @@ import urllib.parse
 
 CROSSREF_BASE = "https://api.crossref.org/works"
 _LAST_CALL = 0.0
+_HIT_429_THIS_RUN = False
 
 
 def _rate_limit():
@@ -24,6 +25,10 @@ def _rate_limit():
 
 def search_papers(query: str, max_results: int = 20) -> list[dict]:
     """Search CrossRef for papers. Returns list of paper dicts."""
+    global _HIT_429_THIS_RUN
+    if _HIT_429_THIS_RUN:
+        return []
+
     q = urllib.parse.quote(query)
     url = f"{CROSSREF_BASE}?query={q}&rows={max_results}&mailto=subhansh.dev@gmail.com&sort=relevance&order=desc"
     _rate_limit()
@@ -36,8 +41,9 @@ def search_papers(query: str, max_results: int = 20) -> list[dict]:
                 data = json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                wait = 10 * (attempt + 1)  # 10s, 20s, 30s
-                print(f"  [CrossRef] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
+                if attempt == 0:
+                    print(f"  [CrossRef] 429 rate limited, will retry...", flush=True)
+                wait = 10 * (attempt + 1)
                 time.sleep(wait)
                 continue
             return []
@@ -78,4 +84,6 @@ def search_papers(query: str, max_results: int = 20) -> list[dict]:
                 "citation_count": item.get("is-referenced-by-count", 0),
             })
         return papers
+    _HIT_429_THIS_RUN = True
+    print("  [CrossRef] 429 exhausted — skipping remaining calls this run", flush=True)
     return []
