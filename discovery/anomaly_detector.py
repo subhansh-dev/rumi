@@ -19,6 +19,7 @@ import json
 import math
 from collections import defaultdict, Counter
 from typing import List, Dict, Optional, Tuple
+from discovery.json_extract import extract_json
 
 
 class AnomalyDetector:
@@ -425,7 +426,7 @@ Example:
                     if raw.startswith("```"):
                         raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                         raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
+                    result = extract_json(raw)
                 else:
                     result = raw
 

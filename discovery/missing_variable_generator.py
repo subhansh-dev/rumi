@@ -200,18 +200,14 @@ quantitative predictions. Reject any proposal that is just a fancy name without 
             if not raw:
                 try:
                     from discovery.llm_client import call_json
-                    raw = call_json(prompt, max_tokens=8192, provider="gemini")
+                    raw = call_json(prompt, max_tokens=8192, provider="auto")
                 except Exception:
                     pass
             if raw:
-                if isinstance(raw, str):
-                    raw = raw.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                        raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
-                else:
-                    result = raw
+                from discovery.json_extract import extract_json
+                result = extract_json(raw, expected_key="hidden_variables")
+                if result is None and isinstance(raw, str):
+                    print(f"    [WARN] hidden_variables: JSON extraction failed ({len(raw)} chars)", flush=True)
 
                 if isinstance(result, dict):
                     # Validate and enrich
@@ -295,16 +291,12 @@ Output JSON:
                     from discovery.llm_client import call_json
                     raw = call_json(prompt, max_tokens=4096, provider="gemini")
                 except Exception:
-                    pass
-            if raw:
-                if isinstance(raw, str):
-                    raw = raw.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                        raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
-                else:
-                    result = raw
+                    raw = self.llm_call(prompt, max_tokens=4096)
+                    if raw:
+                        from discovery.json_extract import extract_json
+                        result = extract_json(raw, expected_key="hidden_variables")
+                        if result is None and isinstance(raw, str):
+                            print(f"    [WARN] hidden_variables (graph): JSON extraction failed ({len(raw)} chars)", flush=True)
                 if isinstance(result, dict):
                     return result
         except Exception:

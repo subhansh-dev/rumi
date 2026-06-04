@@ -2,6 +2,7 @@
 
 import json
 from discovery.pipeline import LLMStage
+from discovery.json_extract import extract_json
 
 
 class SkepticAgent:
@@ -61,7 +62,7 @@ Output JSON:
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                 raw = raw.rsplit("```", 1)[0].strip()
-            return json.loads(raw)
+            return extract_json(raw)
         except json.JSONDecodeError:
             return self._default()
 

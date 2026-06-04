@@ -11,6 +11,7 @@ from discovery.hypothesis_memory import HypothesisMemory
 from discovery.contradiction_miner import ContradictionMiner
 from discovery.confidence_scorer import ConfidenceScorer
 from discovery.pipeline import LLMStage
+from discovery.json_extract import extract_json
 
 
 class HypothesisEngine:
@@ -251,7 +252,7 @@ Output JSON:
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                 raw = raw.rsplit("```", 1)[0].strip()
-            result = json.loads(raw)
+            result = extract_json(raw)
             self.memory.update_critique(hypothesis["id"],
                                          result.get("critique", ""),
                                          json.dumps(result.get("weaknesses", [])))
@@ -311,7 +312,7 @@ Output ONLY valid JSON with the SAME structure as the original hypothesis:
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                 raw = raw.rsplit("```", 1)[0].strip()
-            refined = json.loads(raw)
+            refined = extract_json(raw)
 
             # Preserve metadata from original
             refined["id"] = hypothesis.get("id", "")

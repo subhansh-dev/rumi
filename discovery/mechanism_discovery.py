@@ -14,6 +14,7 @@ Generate mechanism candidates, simulate each, reject unsupported ones.
 
 import json
 from typing import List, Dict, Optional
+from discovery.json_extract import extract_json
 
 
 class MechanismDiscoveryEngine:
@@ -125,7 +126,7 @@ Output JSON:
                             raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                             raw = raw.rsplit("```", 1)[0].strip()
                         try:
-                            result = json.loads(raw)
+                            result = extract_json(raw)
                         except json.JSONDecodeError:
                             import re
                             match = re.search(r'\{.*\}', raw, re.DOTALL)

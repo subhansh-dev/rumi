@@ -18,6 +18,7 @@ This module:
 
 import json
 from typing import List, Dict, Optional
+from discovery.json_extract import extract_json
 
 
 class PredictionEngine:
@@ -136,7 +137,7 @@ Generate 5-8 predictions total. Quality over quantity."""
                     if raw.startswith("```"):
                         raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                         raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
+                    result = extract_json(raw, expected_key="predictions")
                 else:
                     result = raw
 

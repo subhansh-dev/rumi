@@ -18,6 +18,7 @@ This is the difference between "discovering" something and
 import json
 import re
 from typing import Dict, List, Optional
+from discovery.json_extract import extract_json
 
 
 class NoveltyChecker:
@@ -218,7 +219,7 @@ Output JSON:
                     if raw.startswith("```"):
                         raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                         raw = raw.rsplit("```", 1)[0].strip()
-                    return json.loads(raw)
+                    return extract_json(raw)
         except Exception:
             pass
         return None

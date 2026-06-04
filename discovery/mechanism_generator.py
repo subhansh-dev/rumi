@@ -190,14 +190,10 @@ Prefer mechanisms that make counterfactual predictions (most powerful causal lev
                 except Exception:
                     pass
             if raw:
-                if isinstance(raw, str):
-                    raw = raw.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                        raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
-                else:
-                    result = raw
+                from discovery.json_extract import extract_json
+                result = extract_json(raw, expected_key="mechanisms")
+                if result is None and isinstance(raw, str):
+                    print(f"    [WARN] mechanisms: JSON extraction failed ({len(raw)} chars)", flush=True)
 
                 if isinstance(result, dict):
                     for m in result.get("mechanisms", []):
@@ -267,14 +263,10 @@ Output JSON:
                 except Exception:
                     pass
             if raw:
-                if isinstance(raw, str):
-                    raw = raw.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                        raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
-                else:
-                    result = raw
+                from discovery.json_extract import extract_json
+                result = extract_json(raw, expected_key="mechanisms")
+                if result is None and isinstance(raw, str):
+                    print(f"    [WARN] mechanisms (causal): JSON extraction failed ({len(raw)} chars)", flush=True)
                 if isinstance(result, dict):
                     return result
         except Exception:

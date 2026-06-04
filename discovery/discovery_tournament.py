@@ -17,6 +17,7 @@ import json
 import random
 import copy
 from typing import Dict, List, Optional
+from discovery.json_extract import extract_json
 
 
 class DiscoveryTournament:
@@ -176,7 +177,7 @@ Output JSON:
                     if raw.startswith("```"):
                         raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                         raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
+                    result = extract_json(raw)
                     return result.get("hypotheses", [])
         except Exception:
             pass
@@ -287,7 +288,7 @@ Output JSON:
                     if raw.startswith("```"):
                         raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                         raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
+                    result = extract_json(raw)
                     return result.get("hypotheses", [])
         except Exception:
             pass

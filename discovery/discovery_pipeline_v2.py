@@ -1059,16 +1059,12 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
 
             raw = _truncated_llm(skeptic_prompt, max_tokens=4096)
             if raw:
-                if isinstance(raw, str):
-                    raw = raw.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                        raw = raw.rsplit("```", 1)[0].strip()
-                    try:
-                        skeptic_result = json.loads(raw)
-                    except json.JSONDecodeError:
-                        # Try to extract JSON from the response
-                        import re
+                from discovery.json_extract import extract_json
+                skeptic_result = extract_json(raw)
+                if skeptic_result is None:
+                    # Fallback: try regex extraction
+                    import re
+                    if isinstance(raw, str):
                         match = re.search(r'\{.*\}', raw, re.DOTALL)
                         if match:
                             try:

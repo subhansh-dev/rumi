@@ -274,68 +274,11 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
                 print(f"    [WARN] {batch_label}: LLM returned None/empty on all providers", flush=True)
                 return []
 
-            if isinstance(raw, str):
-                raw = raw.strip()
-                # Debug: show what we got
-                print(f"    [DEBUG] {batch_label}: LLM returned {len(raw)} chars, starts with: {repr(raw[:60])}", flush=True)
-                if raw.startswith("```"):
-                    raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                    raw = raw.rsplit("```", 1)[0].strip()
-                # Try to extract JSON from response — find the first REAL JSON object
-                # The LLM often wraps JSON in markdown or prose. Find it by looking
-                # for {"theories": which is the key we need.
-                import re
-                json_start = None
-                # Method 1: Look for {"theories" or { "theories"
-                theories_match = re.search(r'\{\s*"theories"', raw)
-                if theories_match:
-                    json_start = theories_match.start()
-                else:
-                    # Method 2: Find first { followed by a quote (skip LaTeX/math braces)
-                    for i, ch in enumerate(raw):
-                        if ch == '{':
-                            rest = raw[i+1:].lstrip()
-                            if rest and rest[0] == '"':
-                                json_start = i
-                                break
-                if json_start is not None:
-                    # Find matching closing brace
-                    depth = 0
-                    for i in range(json_start, len(raw)):
-                        if raw[i] == '{':
-                            depth += 1
-                        elif raw[i] == '}':
-                            depth -= 1
-                            if depth == 0:
-                                raw = raw[json_start:i+1]
-                                break
-                # Try parsing, with fixes for common LLM JSON issues
-                result = None
-                for parse_attempt in range(3):
-                    try:
-                        result = json.loads(raw)
-                        break
-                    except json.JSONDecodeError as e:
-                        if parse_attempt == 0:
-                            # Fix trailing commas
-                            fixed = re.sub(r',\s*}', '}', raw)
-                            fixed = re.sub(r',\s*]', ']', fixed)
-                            raw = fixed
-                        elif parse_attempt == 1:
-                            # Try extracting just the "theories" array
-                            arr_match = re.search(r'"theories"\s*:\s*(\[[\s\S]*\])', raw)
-                            if arr_match:
-                                try:
-                                    arr = json.loads(arr_match.group(1))
-                                    result = {"theories": arr}
-                                    break
-                                except json.JSONDecodeError:
-                                    pass
-                            print(f"    [WARN] {batch_label}: JSON parse failed ({len(raw)} chars, pos {e.pos}): {raw[max(0,e.pos-30):e.pos+30]}", flush=True)
-                if result is None:
-                    return []
-            else:
-                result = raw
+            from discovery.json_extract import extract_json
+            result = extract_json(raw, expected_key="theories")
+            if result is None:
+                print(f"    [WARN] {batch_label}: JSON extraction failed ({len(raw) if raw else 0} chars)", flush=True)
+                return []
 
             if isinstance(result, dict):
                 theories = result.get("theories", [])
@@ -452,11 +395,8 @@ Output JSON: {{"results": [{{"pair": 1, "winner": "A|B", "reason": "brief reason
                     continue
 
                 if isinstance(raw, str):
-                    raw = raw.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                        raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
+                    from discovery.json_extract import extract_json
+                    result = extract_json(raw)
                 else:
                     result = raw
 
@@ -519,11 +459,8 @@ Output JSON: {{"experiments": ["experiment 1 description", "experiment 2 descrip
             raw = self.llm_call(prompt, max_tokens=2048)
             if raw:
                 if isinstance(raw, str):
-                    raw = raw.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                        raw = raw.rsplit("```", 1)[0].strip()
-                    result = json.loads(raw)
+                    from discovery.json_extract import extract_json
+                    result = extract_json(raw)
                 else:
                     result = raw
                 if isinstance(result, dict):
