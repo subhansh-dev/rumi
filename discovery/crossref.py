@@ -27,18 +27,25 @@ def search_papers(query: str, max_results: int = 20) -> list[dict]:
     q = urllib.parse.quote(query)
     url = f"{CROSSREF_BASE}?query={q}&rows={max_results}&mailto=subhansh.dev@gmail.com&sort=relevance&order=desc"
     _rate_limit()
-    try:
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "RUMI/1.0 (mailto:subhansh.dev@gmail.com)"
-        })
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        if e.code == 429:
-            print("  [CrossRef] 429 — skipping", flush=True)
-        return []
-    except Exception:
-        return []
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "RUMI/1.0 (mailto:subhansh.dev@gmail.com)"
+            })
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                wait = 10 * (attempt + 1)  # 10s, 20s, 30s
+                print(f"  [CrossRef] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
+                time.sleep(wait)
+                continue
+            return []
+        except Exception:
+            if attempt < 2:
+                time.sleep(3)
+                continue
+            return []
 
         papers = []
         for item in data.get("message", {}).get("items", []):
