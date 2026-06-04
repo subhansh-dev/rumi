@@ -279,11 +279,29 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
                 if raw.startswith("```"):
                     raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                     raw = raw.rsplit("```", 1)[0].strip()
-                # Try to extract JSON from response
+                # Try to extract JSON from response — find the first REAL JSON object
+                # Skip LaTeX braces like {15}\!-\!10^{17} by looking for {" or {\n
                 import re
-                json_match = re.search(r'\{[\s\S]*\}', raw)
-                if json_match:
-                    raw = json_match.group()
+                # Find JSON start: { followed by " or newline (not LaTeX math)
+                json_start = None
+                for i, ch in enumerate(raw):
+                    if ch == '{':
+                        # Check if this looks like JSON (next non-whitespace is a quote)
+                        rest = raw[i+1:].lstrip()
+                        if rest and rest[0] == '"':
+                            json_start = i
+                            break
+                if json_start is not None:
+                    # Find matching closing brace
+                    depth = 0
+                    for i in range(json_start, len(raw)):
+                        if raw[i] == '{':
+                            depth += 1
+                        elif raw[i] == '}':
+                            depth -= 1
+                            if depth == 0:
+                                raw = raw[json_start:i+1]
+                                break
                 # Try parsing, with fixes for common LLM JSON issues
                 result = None
                 for parse_attempt in range(3):
