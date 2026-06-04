@@ -284,10 +284,30 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
                 json_match = re.search(r'\{[\s\S]*\}', raw)
                 if json_match:
                     raw = json_match.group()
-                try:
-                    result = json.loads(raw)
-                except json.JSONDecodeError:
-                    print(f"    [WARN] {batch_label}: Could not parse JSON from LLM response ({len(raw)} chars)", flush=True)
+                # Try parsing, with fixes for common LLM JSON issues
+                result = None
+                for parse_attempt in range(3):
+                    try:
+                        result = json.loads(raw)
+                        break
+                    except json.JSONDecodeError as e:
+                        if parse_attempt == 0:
+                            # Fix trailing commas
+                            fixed = re.sub(r',\s*}', '}', raw)
+                            fixed = re.sub(r',\s*]', ']', fixed)
+                            raw = fixed
+                        elif parse_attempt == 1:
+                            # Try extracting just the "theories" array
+                            arr_match = re.search(r'"theories"\s*:\s*(\[[\s\S]*\])', raw)
+                            if arr_match:
+                                try:
+                                    arr = json.loads(arr_match.group(1))
+                                    result = {"theories": arr}
+                                    break
+                                except json.JSONDecodeError:
+                                    pass
+                            print(f"    [WARN] {batch_label}: JSON parse failed ({len(raw)} chars, pos {e.pos}): {raw[max(0,e.pos-30):e.pos+30]}", flush=True)
+                if result is None:
                     return []
             else:
                 result = raw
