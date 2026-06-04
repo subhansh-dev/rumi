@@ -539,44 +539,65 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # cerebras: fastest (entity extraction, scoring, pattern matching)
     # gemini: best reasoning (mechanisms, theories, adversarial critique)
     # auto: balanced (Cerebras→Groq→Gemini fallback)
+    # Provider strategy: Cerebras (gpt-oss-120b) = best reasoning, primary for heavy phases.
+    # Groq (llama-3.3-70b) = fast fallback, good for extraction/simple tasks.
+    # Gemini = last resort only (tiny daily quota).
+    # All providers fall back to next: Cerebras → Groq → Gemini.
     PHASE_PROVIDERS = {
-        "literature": "cerebras",       # Phase 1: simple extraction
+        "literature": "cerebras",       # Phase 1: extraction — Cerebras fast
         "knowledge_graph": "cerebras",  # Phase 2: entity extraction
         "gap_detection": "cerebras",    # Phase 3: pattern matching
         "anomaly_detection": "cerebras",# Phase 4: pattern matching
-        "missing_variables": "auto",    # Phase 5: needs some creativity
-        "mechanism_generation": "gemini",# Phase 6: deep causal reasoning
-        "prediction_engine": "auto",    # Phase 7: balanced
-        "theory_competition": "gemini", # Phase 8: tournament needs best reasoning
-        "adversarial_test": "cerebras", # Phase 8.5: fast adversarial perspective
-        "critical_evaluation": "auto",  # Phase 8.6: balanced
-        "skeptic_review": "gemini",     # Phase 11: critical analysis
+        "missing_variables": "cerebras",# Phase 5: creative hypotheses — Cerebras 120B
+        "mechanism_generation": "cerebras",  # Phase 6: deep causal reasoning — needs 120B
+        "prediction_engine": "cerebras",     # Phase 7: testable predictions — needs 120B
+        "theory_competition": "cerebras",    # Phase 8: tournament generation — needs 120B
+        "adversarial_test": "cerebras", # Phase 8.5: fast critique
+        "critical_evaluation": "cerebras",   # Phase 8.6: formal assessment — needs 120B
+        "skeptic_review": "cerebras",   # Phase 11: adversarial review — needs 120B
         "scoring": "cerebras",          # Phase 12: mostly algorithmic
     }
     _current_phase = {"name": "missing_variables"}  # mutable for closure
 
     # Direct LLM wrapper — no thread, no silent failures
     def _truncated_llm(prompt, max_tokens=4096, **kwargs):
-        """LLM call with prompt truncation + phase-aware routing."""
+        """LLM call with prompt truncation + phase-aware routing + retry."""
         if len(prompt) > 8000:
             prompt = prompt[:7500] + "\n\n[Context truncated — respond with available information]"
         # Allow phase override via kwargs
         phase = kwargs.get("phase", _current_phase["name"])
         provider = PHASE_PROVIDERS.get(phase, "auto")
-        try:
-            r = call_json(prompt, max_tokens=max_tokens, provider=provider)
-            if r is None and provider != "auto":
-                # Phase-specific provider failed — try all providers via auto
-                print(f"    [DEBUG] LLM returned None ({provider}), trying auto...", flush=True)
-                r = call_json(prompt, max_tokens=max_tokens, provider="auto")
-            if r is None:
-                print(f"    [DEBUG] LLM returned None (all providers exhausted)", flush=True)
-            elif isinstance(r, str) and len(r) < 10:
-                print(f"    [DEBUG] LLM returned short string: '{r}'", flush=True)
-            return r
-        except Exception as e:
-            print(f"    [ERROR] LLM exception: {e}", flush=True)
-            return None
+        for attempt in range(3):  # retry up to 3 times
+            try:
+                r = call_json(prompt, max_tokens=max_tokens, provider=provider)
+                if r is None and provider != "auto":
+                    # Phase-specific provider failed — try all providers via auto
+                    print(f"    [DEBUG] LLM returned None ({provider}), trying auto...", flush=True)
+                    r = call_json(prompt, max_tokens=max_tokens, provider="auto")
+                if r is None and attempt < 2:
+                    # All providers exhausted — wait and retry
+                    import discovery.llm_client as _lc
+                    soonest = min(
+                        getattr(_lc, '_cerebras_cooldown_until', 0),
+                        getattr(_lc, '_groq_cooldown_until', 0),
+                        getattr(_lc, '_gemini_cooldown_until', 0),
+                    )
+                    wait = max(5, min(30, soonest - time.time()))
+                    print(f"    [DEBUG] LLM None (attempt {attempt+1}/3), waiting {wait:.0f}s...", flush=True)
+                    time.sleep(wait)
+                    continue
+                if r is None:
+                    print(f"    [DEBUG] LLM returned None (all providers exhausted)", flush=True)
+                elif isinstance(r, str) and len(r) < 10:
+                    print(f"    [DEBUG] LLM returned short string: '{r}'", flush=True)
+                return r
+            except Exception as e:
+                print(f"    [ERROR] LLM exception: {e}", flush=True)
+                if attempt < 2:
+                    time.sleep(5)
+                    continue
+                return None
+        return None
 
     try:
         mv_generator = MissingVariableGenerator(graph=graph, llm_call=_truncated_llm)

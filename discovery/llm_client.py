@@ -335,27 +335,45 @@ def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
 
     if provider == "auto":
         # Cerebras first (fastest free provider), then Groq, then Gemini
-        if now >= _cerebras_cooldown_until:
-            result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
-            if result:
-                return result
-            _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
+        for attempt in range(2):  # retry once if all in cooldown
+            now = time.time()
+            if now >= _cerebras_cooldown_until:
+                result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+                _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
+            if now >= _groq_cooldown_until:
+                result = _call_groq(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+                _groq_cooldown_until = time.time() + COOLDOWN_SECONDS
+            if now >= _gemini_cooldown_until:
+                result = _call_gemini(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+                _gemini_cooldown_until = time.time() + COOLDOWN_SECONDS
+            # All providers in cooldown — wait for the soonest one
+            soonest = min(_cerebras_cooldown_until, _groq_cooldown_until, _gemini_cooldown_until)
+            wait = max(0, soonest - time.time())
+            if wait > 0 and wait < 60 and attempt == 0:
+                print(f"    [LLM] All providers cooling down, waiting {wait:.0f}s...", flush=True)
+                time.sleep(wait + 1)
+                continue
+            break
+        return None
+    if provider == "cerebras":
+        result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
+        if result:
+            return result
+        _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
+        # Cerebras failed — try Groq then Gemini
         if now >= _groq_cooldown_until:
             result = _call_groq(prompt, json_mode, max_tokens, temperature)
             if result:
                 return result
-            _groq_cooldown_until = time.time() + COOLDOWN_SECONDS
         if now >= _gemini_cooldown_until:
-            result = _call_gemini(prompt, json_mode, max_tokens, temperature)
-            if result:
-                return result
-            _gemini_cooldown_until = time.time() + COOLDOWN_SECONDS
+            return _call_gemini(prompt, json_mode, max_tokens, temperature)
         return None
-    if provider == "cerebras":
-        result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
-        if not result:
-            _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
-        return result
     if provider == "groq":
         result = _call_groq(prompt, json_mode, max_tokens, temperature)
         if result:

@@ -22,13 +22,39 @@ def _rate_limit():
 
 def search_papers(query: str, max_results: int = 10) -> list[dict]:
     """Search arXiv papers. Returns list of paper dicts."""
-    q = urllib.parse.quote(query)
+    # Use shorter, keyword-based queries for better arxiv results
+    # Long colon-separated titles confuse the arxiv search
+    if ':' in query:
+        # Extract the part before the colon (usually the core topic)
+        short_q = query.split(':')[0].strip()
+    else:
+        short_q = query
+    # Further shorten if still too long (>80 chars)
+    if len(short_q) > 80:
+        words = short_q.split()
+        short_q = ' '.join(words[:8])
+
+    q = urllib.parse.quote(short_q)
     url = f"{ARXIV_BASE}?search_query=all:{q}&start=0&max_results={max_results}"
     _rate_limit()
-    try:
-        with urllib.request.urlopen(url, timeout=20) as resp:
-            xml_data = resp.read().decode()
-    except Exception:
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as resp:
+                xml_data = resp.read().decode()
+            break
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                wait = 10 * (attempt + 1)  # 10s, 20s, 30s
+                print(f"  [arXiv] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
+                time.sleep(wait)
+                continue
+            return []
+        except Exception:
+            if attempt < 2:
+                time.sleep(5)
+                continue
+            return []
+    else:
         return []
 
     import xml.etree.ElementTree as ET
