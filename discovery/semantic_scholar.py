@@ -11,6 +11,7 @@ import urllib.parse
 
 S2_BASE = "https://api.semanticscholar.org/graph/v1"
 _LAST_CALL = 0.0
+_429_COOLDOWN_UNTIL = 0.0
 
 
 def _rate_limit():
@@ -22,6 +23,9 @@ def _rate_limit():
 
 
 def _fetch(url: str) -> dict | None:
+    global _429_COOLDOWN_UNTIL
+    if time.time() < _429_COOLDOWN_UNTIL:
+        return None
     _rate_limit()
     for attempt in range(3):
         try:
@@ -29,8 +33,9 @@ def _fetch(url: str) -> dict | None:
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                wait = 8 * (attempt + 1)  # 8s, 16s, 24s
+                wait = 10 * (attempt + 1)  # 10s, 20s, 30s
                 print(f"  [S2] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
+                _429_COOLDOWN_UNTIL = time.time() + 120  # skip S2 for 2 min
                 time.sleep(wait)
                 continue
             return None
