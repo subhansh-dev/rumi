@@ -35,7 +35,7 @@ def _fetch(url: str) -> dict | None:
             if e.code == 429:
                 wait = 10 * (attempt + 1)  # 10s, 20s, 30s
                 print(f"  [S2] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
-                _429_COOLDOWN_UNTIL = time.time() + 120  # skip S2 for 2 min
+                _429_COOLDOWN_UNTIL = time.time() + 1800  # skip S2 for 30 min (entire run)
                 time.sleep(wait)
                 continue
             return None

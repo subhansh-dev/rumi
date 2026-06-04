@@ -51,7 +51,7 @@ def search_papers(query: str, max_results: int = 10) -> list[dict]:
             if e.code == 429:
                 wait = 15 * (attempt + 1)  # 15s, 30s, 45s
                 print(f"  [arXiv] 429 rate limited, waiting {wait}s (attempt {attempt+1}/3)", flush=True)
-                _429_COOLDOWN_UNTIL = time.time() + 120  # skip arxiv for 2 min
+                _429_COOLDOWN_UNTIL = time.time() + 1800  # skip arxiv for 30 min (entire run)
                 time.sleep(wait)
                 continue
             return []
