@@ -282,17 +282,22 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
                     raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                     raw = raw.rsplit("```", 1)[0].strip()
                 # Try to extract JSON from response — find the first REAL JSON object
-                # Skip LaTeX braces like {15}\!-\!10^{17} by looking for {" or {\n
+                # The LLM often wraps JSON in markdown or prose. Find it by looking
+                # for {"theories": which is the key we need.
                 import re
-                # Find JSON start: { followed by " or newline (not LaTeX math)
                 json_start = None
-                for i, ch in enumerate(raw):
-                    if ch == '{':
-                        # Check if this looks like JSON (next non-whitespace is a quote)
-                        rest = raw[i+1:].lstrip()
-                        if rest and rest[0] == '"':
-                            json_start = i
-                            break
+                # Method 1: Look for {"theories" or { "theories"
+                theories_match = re.search(r'\{\s*"theories"', raw)
+                if theories_match:
+                    json_start = theories_match.start()
+                else:
+                    # Method 2: Find first { followed by a quote (skip LaTeX/math braces)
+                    for i, ch in enumerate(raw):
+                        if ch == '{':
+                            rest = raw[i+1:].lstrip()
+                            if rest and rest[0] == '"':
+                                json_start = i
+                                break
                 if json_start is not None:
                     # Find matching closing brace
                     depth = 0
