@@ -276,6 +276,8 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
 
             if isinstance(raw, str):
                 raw = raw.strip()
+                # Debug: show what we got
+                print(f"    [DEBUG] {batch_label}: LLM returned {len(raw)} chars, starts with: {repr(raw[:60])}", flush=True)
                 if raw.startswith("```"):
                     raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                     raw = raw.rsplit("```", 1)[0].strip()

@@ -580,28 +580,47 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     }
     _current_phase = {"name": "missing_variables"}  # mutable for closure
 
-    # Direct LLM wrapper — simple: one call with built-in fallback, one retry
+    # Direct LLM wrapper — multi-layer fallback using ALL providers
+    # Layer 1: Phase-specific provider (with its own internal fallback chain)
+    # Layer 2: Auto (Cerebras→Groq→Gemini with cooldown-aware retry)
+    # Layer 3: Wait for cooldown, retry auto one more time
     def _truncated_llm(prompt, max_tokens=4096, **kwargs):
-        """LLM call with prompt truncation + phase-aware routing.
-
-        The provider's call() function already has fallback chain:
-        cerebras → groq → gemini. So one call tries all 3.
-        """
+        """LLM call with prompt truncation + phase-aware routing + multi-layer fallback."""
         if len(prompt) > 8000:
             prompt = prompt[:7500] + "\n\n[Context truncated — respond with available information]"
         phase = kwargs.get("phase", _current_phase["name"])
         provider = PHASE_PROVIDERS.get(phase, "auto")
+
         try:
-            # Single call — provider handles fallback internally
+            # Layer 1: Try phase-specific provider (has internal fallback: cerebras→groq→gemini)
             r = llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider=provider)
-            if r is None:
-                print(f"    [DEBUG] LLM None ({provider}), waiting 10s for cooldown...", flush=True)
-                time.sleep(10)
-                # Retry once — providers may have recovered
+            if r:
+                return r
+
+            # Layer 2: Phase provider exhausted — try auto (starts from cerebras, different cooldown state)
+            if provider != "auto":
+                print(f"    [DEBUG] {provider} exhausted, trying auto...", flush=True)
                 r = llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider="auto")
-            if r is None:
-                print(f"    [DEBUG] LLM exhausted (all providers)", flush=True)
-            return r
+                if r:
+                    return r
+
+            # Layer 3: All providers in cooldown — wait for soonest, retry
+            import discovery.llm_client as _lc
+            soonest = min(
+                getattr(_lc, '_cerebras_cooldown_until', 0),
+                getattr(_lc, '_groq_cooldown_until', 0),
+                getattr(_lc, '_gemini_cooldown_until', 0),
+            )
+            wait = max(0, min(20, soonest - time.time()))
+            if wait > 0:
+                print(f"    [DEBUG] All providers cooling down, waiting {wait:.0f}s...", flush=True)
+                time.sleep(wait + 1)
+            r = llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider="auto")
+            if r:
+                return r
+
+            print(f"    [DEBUG] LLM exhausted (all providers)", flush=True)
+            return None
         except Exception as e:
             print(f"    [ERROR] LLM exception: {e}", flush=True)
             return None
