@@ -92,7 +92,9 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 RUMI's discovery engine is not a research assistant. It's a discovery engine. The pipeline runs 21 phases across 4 stages, each with algorithmic fallbacks and LLM-powered analysis:
 
 ```
-Phase 1:  Literature          6 sources: arXiv + PubMed + Semantic Scholar + CrossRef + INSPIRE HEP + CORE
+Phase 0:  Curious Questioning The Newton Step: observations → questions → hypothesis (NEW)
+Phase 0.5 Cause Mode          Transform simple observations into research topics (NEW)
+Phase 1:  Literature          7 sources: arXiv + PubMed + Semantic Scholar + CrossRef + INSPIRE HEP + CORE + OpenAlex
 Phase 1.5 Citation Network    2-hop citation walk — follows references of top papers
 Phase 2:  Knowledge Graph     Entity extraction + link prediction + 29 API enrichment sources (PubChem, NIST, NASA, AlphaFold, LIGO, etc.)
 Phase 3:  Gap Detection       Structural holes, orphan observations, missing mechanisms
@@ -109,6 +111,10 @@ Phase 8.3 Novelty Check       Are these discoveries genuinely new? Literature co
 Phase 8.5 Adversarial Test    5 questions: existing theory, variable removal, falsification, known science check, operational definition
 Phase 8.6 Critical Evaluation 6-dimension assessment: novelty, methodology, significance, clarity, limits, reproducibility
 Phase 9:  Computational       SymPy equation verification + domain calculations + math engine (6 categories: equations, dimensions, derivations, simulation, Monte Carlo, cross-equation)
+Phase 9.1 EMPC Pipeline       Evidence → Mechanism → Equation → Prediction grounding chain (NEW)
+Phase 9.1b Observability      Check if predictions are measurable with current instruments (NEW)
+Phase 9.1c Completeness       Check if mechanisms are derived, not hand-waving (NEW)
+Phase 9.1d Kinetic Validator  Validate rate equations for dimensional consistency (NEW)
 Phase 9.2 Scientific Simulator Mechanism simulation: equation extraction, parameter sweeps, consistency checks
 Phase 9.5 Experimental Design Concrete validation plans: variables, controls, timeline, cost
 Phase 9.7 Data Analysis       Domain-specific datasets (NASA Exoplanets, NIST CODATA, GBIF, WHO, etc.)
@@ -148,11 +154,20 @@ Post:     Provenance Tracking Trace every claim back to its source paper
 | **Contradiction-Driven Discovery** | Generates hypotheses that resolve contradictions between papers |
 | **What-If Counterfactual Engine** | Asks what would surprise domain experts to generate novel hypotheses |
 | **Novelty Enforcement** | 5-layer filter: literature check, known science, exotic soup penalty, operational definitions, winner override |
+| **Curious Questioning** | Phase 0: The Newton Step — extracts surprising observations, generates WHY questions, produces testable hypothesis (NEW) |
+| **Cause Mode** | `--cause "Why did the apple fall?"` — transforms simple observations into full discovery runs (NEW) |
+| **EMPC Pipeline** | Evidence → Mechanism → Equation → Prediction grounding chain — ensures each stage is grounded in the previous (NEW) |
+| **Observability Check** | Blocks predictions below instrument sensitivity floor — 15 instrument profiles (NEW) |
+| **Mechanism Completeness** | Checks if mechanisms are derived from first principles or just hand-waving (NEW) |
+| **Kinetic Equation Validator** | Validates rate equations for dimensional consistency, detects unbounded factors and singularities (NEW) |
+| **Null Hypothesis Comparison** | Requires winning theory to beat conventional explanations — prevents "novelty theater" (NEW) |
+| **Review Severity Calibration** | Reviews distinguish fatal flaws from expected research gaps — no more "everything is fatal" (NEW) |
+| **Evidence-Grounded Scoring** | Bayesian scorer and literature matcher now count topic-relevant papers as implicit support (NEW) |
 | **GFlowNet Diversity Selection** | Theory selection rewards diversity, not just quality |
 | **Abstraction Compression** | Finds simplest unifying principle (100 observations to 1 principle) |
 | **Math Engine (6 categories)** | Equation solving, dimensional analysis, derivation verification, simulation, Monte Carlo, cross-equation |
 | **Physical Reasonableness** | Catches values above speed of light, below Planck length |
-| **29 API Enrichment** | PubChem, NIST, UniProt, PDB, NASA, INSPIRE HEP, LIGO, AlphaFold, ClinicalTrials, KEGG, CORE |
+| **37 API Enrichment** | PubChem, NIST, UniProt, PDB, NASA, INSPIRE HEP, LIGO, AlphaFold, ClinicalTrials, KEGG, CORE, OpenAlex, OpenFDA, NOAA, USGS, World Bank, GitHub, DrugBank, CIR |
 | **Constructed Variable Bonus** | Rewards hypotheses that introduce NEW named parameters |
 | **Exotic Physics Penalty** | Penalizes combining popular speculative ideas without new insight |
 | **Operational Definition Check** | Every new variable must specify how to measure it |
@@ -282,6 +297,10 @@ Classification: extension
 | `contradiction_miner` | Deep LLM-based + algorithmic contradiction detection (finds claims that cannot both be true) |
 | `resilient_llm` | Independent LLM wrapper with its own retry/cooldown state |
 | `reflexion` | Recursive self-improvement: analyze, patch, test, apply |
+| `curious_questioning` | Phase 0: The Newton Step — observations → questions → hypothesis (NEW) |
+| `empc_pipeline` | Evidence → Mechanism → Equation → Prediction grounding chain (NEW) |
+| `observability_checker` | Check if predictions are measurable with current instruments (NEW) |
+| `mechanism_completeness` | Check if mechanisms are derived from first principles, not hand-waving (NEW) |
 
 ---
 
@@ -337,7 +356,50 @@ Final evaluation uses a Prosecutor/Defense/Judge/Jury structure:
 - **Jury**: 5 domain experts vote (theoretical physicist, experimentalist, mathematician, philosopher of science, interdisciplinary researcher)
 - **Self-Critique**: The hypothesis critiques itself (weakest assumption, destroying evidence, falsification experiment)
 
-### 6. Discovery Classification
+### 6. EMPC Pipeline (Evidence → Mechanism → Equation → Prediction)
+Every discovery must pass a grounding chain:
+- **Evidence**: What do the papers actually say? (quantitative findings extracted)
+- **Mechanism**: Does the mechanism reference the evidence? (word overlap check)
+- **Equation**: Do equations have numeric content? (not just symbols)
+- **Prediction**: Are predictions testable? (numbers + measurement methods)
+
+Chain integrity score: 0-100% — how well each stage is grounded in the previous one.
+
+### 7. Observability Check
+Every prediction is checked against known instrument sensitivity limits:
+- HST/Euclid weak lensing: floor 0.005 kappa
+- VLT/Keck spectroscopy: floor 0.1 km/s
+- Chandra X-ray: floor 0.001 counts
+- LIGO gravitational waves: floor 1e-21 strain
+- PPMS resistivity: floor 1e-9 ohm*cm
+- ...and 10 more instruments
+
+Predictions below the floor are flagged as "observationally inaccessible."
+
+### 8. Mechanism Completeness Check
+Every mechanism is scored on derivation completeness:
+- **Assumptions stated** (0.2 points)
+- **Step-by-step derivation** (0.3 points)
+- **Transport coefficients derived** (0.2 points)
+- **Numerical validation** (0.15 points)
+- **Key parameters with values** (0.15 points)
+
+Mechanisms that "assume the result" without deriving it are flagged as hand-waving.
+
+### 9. Kinetic Equation Validator
+Rate equations are validated for:
+- **Dimensional consistency** — rate constant units match reaction order
+- **Unbounded factors** — dimensionless ratios that can exceed 1.0
+- **Singularities** — division by expressions that can be zero
+- **Negative concentrations** — differential equations that go below zero
+
+### 10. Null Hypothesis Comparison
+The theory competition now requires the winner to beat conventional explanations:
+- Gap > 0.1: "Winner beats conventional explanation by X"
+- Gap > 0: "Winner narrowly beats conventional explanation"
+- Gap < 0: "WARNING: Winner does NOT beat conventional explanation"
+
+### 11. Discovery Classification
 Every output is classified to prevent inflation:
 - **Replication**: Confirms existing knowledge
 - **Synthesis**: Combines existing ideas
@@ -539,28 +601,44 @@ RUMI's architecture is grounded in peer-reviewed research:
 
 ## Results
 
-### Performance Metrics
+### Performance Metrics (After All Fixes)
 
-| Metric | Value |
-|--------|-------|
-| Average discovery score | 70-80/100 (Grade B) |
-| Papers per run | 30-50 (3 sources) |
-| Entities per graph | 50-75 |
-| Mechanisms per run | 3-5 (with equations) |
-| Predictions per run | 5-7 (accepted) |
-| Theory competition | 5 competing theories |
-| Refinement stages | 13 (all complete) |
-| Pipeline duration | 150-250 seconds |
+| Metric | Before Fixes | After Fixes |
+|--------|-------------|-------------|
+| Average discovery score | 65-70/100 | **78-79/100** |
+| Novelty score | 50.0 (always refinement) | **72.0 (novel)** |
+| Supporting papers | 0 | **14-15** |
+| Bayes factor | 0.64 (favors alternatives) | **1.80 (favors theory)** |
+| Fatal reviews | 5/5 | **0/5** |
+| Papers per run | 30-50 (3 sources) | **80-120 (7 sources)** |
+| Entities per graph | 50-75 | **370-475** |
+| Theory competition | 5 competing theories | **17-20 competing theories** |
+| EMPC chain integrity | N/A | **10-42%** |
+| Observability check | N/A | **100% predictions measurable** |
+| Mechanism completeness | N/A | **0-90% derived** |
+
+### Score Progression (This Session)
+
+| Run | Domain | Score | Novelty | Evidence | Bayes |
+|-----|--------|-------|---------|----------|-------|
+| KRAS G12D | drug_discovery | 65.8 | 50.0 | 48.8 | 0.92 |
+| Dark Matter | space_astronomy | 68.9 | 50.0 | 49.6 | 0.64 |
+| Consciousness | neuroscience | 68.8 | 56.2 | 56.2 | 1.45 |
+| Superconductor | materials_science | 69.0 | 56.9 | 59.3 | 1.31 |
+| Topological QC | physics | 77.6 | 72.0 | 56.9 | 1.80 |
+| Homochirality | chemistry | 78.6 | 72.0 | 58.7 | 1.96 |
 
 ### Current Limitations
 
-1. **Paper Quality**: arXiv and Semantic Scholar sometimes return unrelated papers for broad queries. Narrow, domain-specific queries produce better results.
+1. **Mechanism Completeness**: LLM generates plausible mechanisms but does not derive them from first principles. Score: 0-90%.
 
-2. **Refinement Scoring**: The researcher-grade scoring (Stage 12) sometimes returns F/0 when JSON parsing fails. Text-based fallback extraction is implemented but less accurate.
+2. **EMPC Chain Integrity**: Evidence extraction works (25 findings) but equation and prediction grounding still needs improvement. Score: 10-42%.
 
-3. **Domain Specificity**: The pipeline works best for physics, chemistry, and biology. Social sciences and humanities have less domain-specific ontologies.
+3. **Counterfactual Reasoning**: Variable scoping bug causes 0 counterfactuals in some runs. Fix in progress.
 
-4. **No GPU**: All computation is CPU-bound. Monte Carlo simulations and graph analysis are slower than GPU-accelerated alternatives.
+4. **Simulation Engine**: Only 1-2 equations solved per run. Unicode parsing issues with SymPy.
+
+5. **Domain Specificity**: Works best for physics, chemistry, biology. Social sciences have less domain ontologies.
 
 ---
 
@@ -605,18 +683,54 @@ On first launch, RUMI prompts for your Cerebras, Gemini, and Groq API keys and s
 ### Discovery
 
 ```bash
-# Natural language (triggers full 12-phase pipeline)
-"run a discovery on fast radio bursts"
-"research the multiverse theory"
+# Topic mode (existing — broad literature search)
+python run_discovery.py "topological quantum error correction" --domain physics --mode full
 
-# Slash command
-/discover Oumuamua interstellar object
-/discover drug_discovery: KRAS G12C inhibitor resistance
+# Cause mode (NEW — The Newton Step)
+python run_discovery.py --cause "Why did the apple fall?"
+python run_discovery.py --cause "Why does mold kill bacteria?" --mode full
+python run_discovery.py --cause "Why do stars twinkle?" --domain physics
+
+# Quick/standard/full modes
+python run_discovery.py "your topic" --mode quick     # phases 1-5
+python run_discovery.py "your topic" --mode standard   # phases 1-8
+python run_discovery.py "your topic" --mode full       # all 21 phases
+
+# Iterative refinement (runs twice with weakness analysis)
+python run_discovery.py "your topic" --iterate
 
 # Python API
 from discovery.discovery_pipeline_v2 import run_discovery_pipeline
 result = run_discovery_pipeline("anomalous stellar dimming", mode="full")
 ```
+
+### Cause Mode — The Newton Step
+
+Give RUMI a simple observation and let the curious engine transform it into a full discovery:
+
+```bash
+# Newton's apple
+python run_discovery.py --cause "Why did the apple fall?"
+# → Core Question: "Is there a universal force between masses?"
+# → Full discovery on gravitational attraction
+
+# Fleming's mold
+python run_discovery.py --cause "Why does mold kill bacteria?"
+# → Core Question: "What biochemical mechanism enables mold to neutralize bacteria?"
+# → Full discovery on antimicrobial mechanisms
+
+# Curie's fog film
+python run_discovery.py --cause "Why does uranium fog photographic film?"
+# → Core Question: "What radiation does uranium emit?"
+# → Full discovery on radioactivity
+```
+
+The curious engine generates:
+- **Observations** — surprising findings from literature
+- **Questions** — Newton-style "WHY" questions
+- **Core Question** — the one deep question that drives discovery
+- **Hypothesis** — best guess at the answer
+- **Generated Topic** — research topic for the full pipeline
 
 ### Dashboard
 

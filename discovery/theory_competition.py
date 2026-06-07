@@ -510,7 +510,7 @@ Output JSON: {{"experiments": ["experiment 1 description", "experiment 2 descrip
         return []
 
     def _generate_analysis(self, survivors, eliminated, topic, domain):
-        """Generate competition analysis summary."""
+        """Generate competition analysis summary with null hypothesis comparison."""
         if not survivors:
             return "No theories survived."
 
@@ -529,6 +529,26 @@ Output JSON: {{"experiments": ["experiment 1 description", "experiment 2 descrip
                 analysis += f"Close competition — runner-up {runner_up.get('name', '?')} is within {gap:.2f}. "
             else:
                 analysis += f"Clear winner — gap to runner-up is {gap:.2f}. "
+
+        # Null hypothesis comparison — does the winner beat conventional explanations?
+        null_theories = [t for t in (survivors + eliminated)
+                         if t.get("type") in ("conventional", "null")]
+        if null_theories:
+            best_null = max(null_theories, key=lambda t: t.get("scores", {}).get("overall", 0))
+            null_score = best_null.get("scores", {}).get("overall", 0)
+            gap = winner_score - null_score
+            if gap > 0.1:
+                analysis += (f"NULL HYPOTHESIS CHECK: Winner beats best conventional explanation "
+                             f"'{best_null.get('name', '?')}' by {gap:.2f}. "
+                             f"The novel theory is meaningfully better than existing explanations. ")
+            elif gap > 0:
+                analysis += (f"NULL HYPOTHESIS CHECK: Winner narrowly beats conventional explanation "
+                             f"'{best_null.get('name', '?')}' by {gap:.2f}. "
+                             f"The advantage is marginal — more evidence needed. ")
+            else:
+                analysis += (f"NULL HYPOTHESIS CHECK: WARNING — Winner does NOT beat conventional explanation "
+                             f"'{best_null.get('name', '?')}' (gap: {gap:.2f}). "
+                             f"The novel theory may not be better than existing explanations. ")
 
         return analysis
 

@@ -384,6 +384,41 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     print("=" * 70)
 
     # ══════════════════════════════════════════════════════════════
+    # PHASE 0: CURIOUS QUESTIONING — The Newton Step
+    # ══════════════════════════════════════════════════════════════
+    curious_result = None
+    try:
+        from discovery.curious_questioning import CuriousQuestioning
+        # Use LLM client directly (before _truncated_llm is defined)
+        from discovery.llm_client import call_json as _early_llm
+        cq = CuriousQuestioning(llm_call=_early_llm)
+        # Run on a small initial paper set for observations
+        initial_papers = fetch_papers(topic, max_arxiv=10, max_pubmed=10, max_s2=5, max_crossref=5)
+        curious_result = cq.run(topic, domain, papers=initial_papers)
+        if curious_result:
+            n_obs = len(curious_result.get("observations", []))
+            n_q = len(curious_result.get("questions", []))
+            core_q = curious_result.get("reframed", "")[:80]
+            print(f"\n[Phase 0/12] CURIOUS QUESTIONING — The Newton Step", flush=True)
+            print(f"  Observations: {n_obs} surprising findings", flush=True)
+            print(f"  Questions: {n_q} generated", flush=True)
+            if core_q:
+                print(f"  Core Question: {core_q}", flush=True)
+            hypothesis = curious_result.get("question_hypothesis", "")
+            if hypothesis:
+                print(f"  Question Hypothesis: {hypothesis[:100]}", flush=True)
+            # Save to report immediately (before any early returns)
+            report["curious_questioning"] = {
+                "observations": curious_result.get("observations", []),
+                "questions": curious_result.get("questions", []),
+                "core_question": curious_result.get("reframed", ""),
+                "question_hypothesis": curious_result.get("question_hypothesis", ""),
+                "why_it_matters": curious_result.get("why_it_matters", ""),
+            }
+    except Exception as e:
+        print(f"  [WARN] Curious questioning skipped: {e}")
+
+    # ══════════════════════════════════════════════════════════════
     # PHASE 1: LITERATURE
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 1/12] LITERATURE — Fetching papers from 4 sources (3 rounds)...", flush=True)
@@ -2461,6 +2496,61 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
             print(f"  [Enhancer] Post-pipeline enhancement complete", flush=True)
     except Exception as e:
         print(f"  [WARN] Discovery enhancer skipped: {e}")
+
+    # -- EMPC Pipeline: Evidence -> Mechanism -> Equation -> Prediction --
+    try:
+        from discovery.empc_pipeline import EMPCPipeline
+        empc = EMPCPipeline()
+        empc_result = empc.run(topic, domain, papers, mechanisms, theories)
+        if empc_result:
+            integrity = empc_result.get("chain_integrity", 0)
+            scores = empc_result.get("grounding_scores", {})
+            print(f"  [EMPC] Chain integrity: {integrity:.1%}", flush=True)
+            print(f"    Evidence: {scores.get('evidence_quality', 0):.1%} | "
+                  f"Mechanism: {scores.get('mechanism_grounding', 0):.1%} | "
+                  f"Equation: {scores.get('equation_grounding', 0):.1%} | "
+                  f"Prediction: {scores.get('prediction_grounding', 0):.1%}", flush=True)
+            report["empc_pipeline"] = empc_result
+    except Exception as e:
+        print(f"  [WARN] EMPC pipeline skipped: {e}")
+
+    # -- Observability Check: Can we actually measure predictions? --
+    try:
+        from discovery.observability_checker import ObservabilityChecker
+        obs_checker = ObservabilityChecker()
+        all_preds = []
+        for t in (theories or []):
+            if isinstance(t, dict):
+                all_preds.extend(t.get("predictions", []))
+        if all_preds:
+            obs_result = obs_checker.check_predictions(all_preds, domain)
+            accessible = obs_result.get("accessible", 0)
+            total = obs_result.get("total", 0)
+            rate = obs_result.get("accessibility_rate", 0)
+            print(f"  [Observability] {accessible}/{total} predictions measurable ({rate:.0%})", flush=True)
+            for d in obs_result.get("details", []):
+                if not d.get("is_accessible"):
+                    print(f"    BLOCKED: {d.get('prediction','')[:60]} -> {d.get('reason','')[:60]}", flush=True)
+            report["observability"] = obs_result
+    except Exception as e:
+        print(f"  [WARN] Observability check skipped: {e}")
+
+    # -- Mechanism Completeness: Are derivations complete? --
+    try:
+        from discovery.mechanism_completeness import MechanismCompletenessChecker
+        mcc = MechanismCompletenessChecker()
+        if mechanisms:
+            mcc_result = mcc.check_mechanisms(mechanisms)
+            complete = mcc_result.get("complete", 0)
+            total = mcc_result.get("total", 0)
+            avg = mcc_result.get("avg_completeness", 0)
+            print(f"  [Completeness] {complete}/{total} mechanisms complete (avg: {avg:.1%})", flush=True)
+            for d in mcc_result.get("details", []):
+                if d.get("gaps"):
+                    print(f"    {d['name']}: {', '.join(d['gaps'][:2])}", flush=True)
+            report["mechanism_completeness"] = mcc_result
+    except Exception as e:
+        print(f"  [WARN] Completeness check skipped: {e}")
 
     # ══════════════════════════════════════════════════════════════
     # PHASE 13: REFINEMENT PIPELINE (13 stages)

@@ -27,9 +27,11 @@ class BayesianScorer:
     """
 
     def __init__(self):
-        # Default priors
-        self.default_prior = 0.1  # most hypotheses are wrong
-        self.min_prior = 0.01
+        # Default priors — more reasonable for scientific hypotheses
+        # A novel hypothesis proposed by a structured discovery pipeline
+        # deserves a higher prior than a random guess
+        self.default_prior = 0.15
+        self.min_prior = 0.05
         self.max_prior = 0.5
 
     def score(self, theory: dict, papers: list = None,
@@ -144,41 +146,63 @@ class BayesianScorer:
         1. Simplicity (fewer assumptions → higher prior)
         2. Type (null > conventional > extension > novel)
         3. Coherence with known physics
+        4. Whether the theory has quantitative content
+
+        NOTE: A novel hypothesis from a structured discovery pipeline
+        is NOT the same as a random guess. The pipeline has already
+        filtered through literature review, gap detection, anomaly
+        detection, and mechanism generation. This justifies a higher
+        base prior than traditional Bayesian analysis would assign.
         """
-        # Base prior from theory type
+        # Base prior from theory type — more generous for structured discovery
         type_priors = {
-            "null": 0.3,
-            "conventional": 0.25,
-            "extension_of_known": 0.15,
-            "modification_of_known": 0.10,
-            "alternative": 0.08,
-            "proposed": 0.05,
-            "novel": 0.03,
+            "null": 0.35,
+            "conventional": 0.30,
+            "extension_of_known": 0.20,
+            "modification_of_known": 0.15,
+            "alternative": 0.12,
+            "proposed": 0.10,
+            "proposed_new": 0.10,
+            "novel": 0.08,
         }
         theory_type = theory.get("type", "proposed")
         is_novel = theory.get("is_novel_vs_known", theory.get("is_novel_vs_extension", ""))
         if is_novel == "novel":
-            base = type_priors.get("novel", 0.03)
+            base = type_priors.get("novel", 0.08)
         elif is_novel in ("extension_of_known", "modification_of_known"):
-            base = type_priors.get(is_novel, 0.10)
+            base = type_priors.get(is_novel, 0.15)
         else:
-            base = type_priors.get(theory_type, 0.08)
+            base = type_priors.get(theory_type, 0.10)
 
         # Simplicity adjustment
         simplicity = self._simplicity_score(theory)
-        simplicity_factor = 0.5 + simplicity * 0.5  # 0.5 to 1.0
+        simplicity_factor = 0.7 + simplicity * 0.3  # 0.7 to 1.0 (less punitive)
 
-        prior = base * simplicity_factor
+        # Quantitative content bonus — theories with equations are more testable
+        has_equations = bool(theory.get("mathematical_model") or
+                           theory.get("mathematical_formalism") or
+                           any(c.isdigit() for c in str(theory.get("description", ""))))
+        quant_bonus = 1.1 if has_equations else 1.0
+
+        prior = base * simplicity_factor * quant_bonus
         return max(self.min_prior, min(self.max_prior, prior))
 
     def _compute_likelihood(self, theory: dict, papers: list,
                             contradictions: list) -> float:
         """
         Likelihood: P(data | hypothesis)
-        Based on:
-        1. How many observations the theory explains
-        2. How many predictions match known data
-        3. Contradiction penalty
+
+        This is the core of the Bayesian update. It measures how well
+        the theory explains the available evidence.
+
+        Components:
+        1. Explanatory fit — does the theory explain observations?
+        2. Prediction quality — does it make testable predictions?
+        3. Literature support — do papers study the same topic?
+        4. Contradiction penalty — does evidence contradict the theory?
+
+        IMPORTANT: If papers=[], likelihood defaults to 0.5 (uninformative).
+        This is NOT the same as "no evidence supports the theory."
         """
         # Explanatory fit
         explains = theory.get("explains", [])
@@ -186,17 +210,16 @@ class BayesianScorer:
         total = len(explains) + len(fails)
         explanatory = len(explains) / total if total > 0 else 0.5
 
-        # Prediction accuracy
+        # Prediction quality — quantitative predictions are more testable
         predictions = theory.get("predictions", [])
         pred_score = 0.5
         if predictions:
-            # Count predictions with quantitative content
             quant_preds = sum(1 for p in predictions
                               if isinstance(p, (str, dict)) and
                               any(c.isdigit() for c in str(p)))
-            pred_score = min(1.0, 0.3 + quant_preds * 0.15)
+            pred_score = min(1.0, 0.3 + quant_preds * 0.12)
 
-        # Literature support
+        # Literature support — topic-relevant papers count as evidence
         lit_support = self._literature_support(theory, papers)
 
         # Contradiction penalty

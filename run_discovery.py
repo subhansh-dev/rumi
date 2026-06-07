@@ -32,15 +32,76 @@ sys.path.insert(0, str(Path(__file__).parent))
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="RUMI Full Discovery Runner")
-    parser.add_argument("topic", help="Research topic")
+    parser.add_argument("topic", nargs="?", default="", help="Research topic")
+    parser.add_argument("--cause", default="", help="Simple observation/question (e.g. 'Why did the apple fall?')")
     parser.add_argument("--domain", default="", help="Domain override (e.g. space_astronomy, physics)")
     parser.add_argument("--mode", default="full", choices=["quick", "standard", "full"], help="Pipeline depth")
     parser.add_argument("--iterate", action="store_true", help="Run twice: first pass, analyze weaknesses, second pass with refined context")
     args = parser.parse_args()
 
+    cause = args.cause
     topic = args.topic
     domain = args.domain
     mode = args.mode
+
+    # ── CAUSE MODE: Transform observation into research topic ──
+    cause_data = None
+    if cause:
+        print(f"{'='*70}")
+        print(f"RUMI CAUSE MODE — The Newton Step")
+        print(f"{'='*70}")
+        print(f"  Observation: {cause}")
+        print()
+
+        # Step 1: Use curious questioning to transform cause into topic
+        try:
+            from discovery.curious_questioning import CuriousQuestioning
+            from discovery.llm_client import call_json as llm_call
+            cq = CuriousQuestioning(llm_call=llm_call)
+            cause_data = cq.run(cause, domain, papers=[])
+
+            core_question = cause_data.get("reframed", "")
+            hypothesis = cause_data.get("question_hypothesis", "")
+            questions = cause_data.get("questions", [])
+
+            print(f"  [Curious Engine] Questions generated: {len(questions)}")
+            if core_question:
+                print(f"  [Curious Engine] Core Question: {core_question[:100]}")
+            if hypothesis:
+                print(f"  [Curious Engine] Hypothesis: {hypothesis[:100]}")
+            print()
+
+            # Step 2: Transform into a research topic
+            # Use the core question as the topic, or generate one from the cause
+            if core_question and len(core_question) > 20:
+                topic = core_question
+            elif hypothesis and len(hypothesis) > 20:
+                topic = hypothesis[:200]
+            else:
+                # Fallback: use the cause as the topic
+                topic = cause
+
+            # Auto-detect domain if not specified
+            if not domain:
+                from discovery.discovery_pipeline_v2 import detect_domain
+                domain = detect_domain(topic)
+                print(f"  [Auto-Detect] Domain: {domain}")
+
+            print(f"  [Topic Generated] {topic[:100]}")
+            print()
+
+        except Exception as e:
+            print(f"  [WARN] Curious engine failed: {e}")
+            topic = cause  # Use cause directly as topic
+
+    # Validate we have a topic
+    if not topic:
+        parser.error("Please provide a topic or --cause observation")
+
+    print(f"{'='*70}")
+    print(f"RUMI DISCOVERY — {topic}")
+    print(f"Domain: {domain or 'auto-detect'} | Mode: {mode}")
+    print(f"{'='*70}\n")
 
     print(f"{'='*70}")
     print(f"RUMI DISCOVERY — {topic}")
@@ -167,6 +228,18 @@ def main():
     # ── Stage 2: Refinement + Reflexion already run inside pipeline (Phase 13-14) ──
     # Skip duplicate refinement/reflexion — pipeline handles it internally
     print(f"\n  [Refinement + Reflexion already completed inside pipeline (Phase 13-14)]")
+
+    # ── Add cause mode data to report ──
+    if cause_data:
+        report["cause_mode"] = {
+            "original_cause": cause,
+            "core_question": cause_data.get("reframed", ""),
+            "question_hypothesis": cause_data.get("question_hypothesis", ""),
+            "why_it_matters": cause_data.get("why_it_matters", ""),
+            "observations": cause_data.get("observations", []),
+            "questions": cause_data.get("questions", []),
+            "generated_topic": topic,
+        }
 
     # ── Save Report ──
     total_time = time.time() - total_start

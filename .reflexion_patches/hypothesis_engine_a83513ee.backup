@@ -31,7 +31,8 @@ class HypothesisEngine:
 
     async def generate(self, graph, topic, domain, run_id, contradictions=None, latent_candidates=None):
         prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates)
-        prompt += f"\nDomain context: {domain if domain else 'N/A'}"
+        if domain:
+            prompt += f"\nDomain context: {domain}"
 
         # Use external LLM router if provided (preferred — has Cerebras primary)
         if self._llm_call:

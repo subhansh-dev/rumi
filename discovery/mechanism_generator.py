@@ -75,7 +75,7 @@ class MechanismGenerator:
         # Get existing causal relationships from graph
         causal_context = self._extract_causal_chains()
 
-        prompt = f"""You are a mechanistic scientist — you explain HOW things work, not just THAT they correlate.
+        prompt = f"""You are a mechanistic scientist — you DERIVE how things work from first principles.
 
 TOPIC: {topic}
 DOMAIN: {domain}
@@ -97,11 +97,9 @@ EXISTING CAUSAL CHAINS IN KNOWLEDGE GRAPH:
 PAPERS:
 {paper_context}
 
-Your task: generate CAUSAL MECHANISMS that explain the observations.
+Your task: DERIVE causal mechanisms from first principles. Do NOT just describe — DERIVE.
 
-A mechanism is NOT just "X causes Y." A mechanism is:
-  "X activates pathway P with rate constant k1, which produces intermediate I
-   at concentration [I] = k1[X]/k2, which converts to effect Y when [I] > threshold"
+A mechanism WITHOUT derivation is HAND-WAVING. A mechanism WITH derivation is SCIENCE.
 
 Before generating mechanisms, think through this structured reasoning:
 
@@ -114,44 +112,95 @@ Before generating mechanisms, think through this structured reasoning:
 6. WHAT WOULD FALSIFY EACH? — For each mechanism, state what observation would kill it.
 </discovery_reasoning>
 
-REQUIREMENTS — prefer quantitative, derive when possible:
-1. PREFER quantitative relationships (equations, rates, thresholds). If no equation exists
-   yet, provide the physical quantity and how it couples to observables.
-2. Ground in existing literature when possible. For novel mechanisms, state what known
-   physics it extends or combines.
-3. DERIVATION: If an equation can be derived from known physics, SHOW THE DERIVATION.
-   Don't just state the result — show the steps. Example:
-     "From Newton's second law and the gravitational force law:
-      F = ma = GMm/r² → a = GM/r² → for M = 10³⁰ kg, r = 7×10⁸ m: a ≈ 0.006 m/s²"
-   A derived value is stronger than an estimated one.
-4. PREFER predictions with MAGNITUDE. If no magnitude is possible, state the direction
-   and what measurement would constrain it.
-5. Identify the KEY PARAMETER that controls the mechanism and its expected range.
-6. Distinguish: is this a KNOWN mechanism applied in new context, or genuinely NOVEL?
-   Also classify: is this NEW synthesis of existing data, or NEW physics?
-7. EPISTEMIC LABELING: For every key_parameter, label its source:
-   - "cited": the value/range comes from a specific paper (cite it)
-   - "derived": the value is CALCULATED from other parameters — show the derivation
-   - "estimated": your best physical estimate, NOT from literature — state reasoning
-   NEVER present an estimated value as cited. Transparency > confidence.
+CRITICAL REQUIREMENT — EVERY MECHANISM MUST HAVE A DERIVATION:
+
+For EACH mechanism, you MUST provide a step-by-step derivation that shows HOW you got from first principles to the result. A mechanism without derivation will be REJECTED.
+
+DERIVATION TEMPLATE (you MUST follow this structure):
+
+Step 1: STARTING ASSUMPTIONS
+  - State every assumption explicitly
+  - BAD: "Assume the viscosity is high" (vague = REJECTED)
+  - GOOD: "Assume DM self-interaction cross-section sigma/m = 0.1-10 cm2/g (PDG 2023)"
+
+Step 2: GOVERNING EQUATION
+  - Write the equation that governs the mechanism
+  - BAD: "The rate depends on temperature" (no equation = REJECTED)
+  - GOOD: "From Boltzmann transport theory: df/dt = C[f,f] where C is the collision operator"
+
+Step 3: DERIVATION STEPS
+  - Show each mathematical step from the governing equation to the result
+  - BAD: "Therefore viscosity = rho * v * l" (no derivation = REJECTED)
+  - GOOD: "Taking the Chapman-Enskog expansion of C[f,f]:
+    eta = (5/16) * sqrt(pi*m*k_B*T) / (pi*sigma^2*Omega^{2,2})
+    where Omega^{2,2} is the collision integral"
+
+Step 4: TRANSPORT COEFFICIENTS
+  - Derive or cite every coefficient — NEVER assume
+  - BAD: "eta_DM ~ 1e28 cm2/s" (assumed = REJECTED)
+  - GOOD: "From Step 3 with sigma/m = 1 cm2/g, T = 1 keV, n = 1e-3 cm^-3:
+    eta_DM = 5.2e27 cm2/s (derived)"
+
+Step 5: NUMERICAL CHECK
+  - Plug in numbers and verify the result is physically reasonable
+  - BAD: "The effect is significant" (no numbers = REJECTED)
+  - GOOD: "For rho_DM = 0.3 GeV/cm3, v = 200 km/s, l = 1 kpc:
+    eta_DM * |dv/dr| ~ 1e-30 g/cm/s2 (compare to gravity ~ 1e-8 g/cm/s2)"
+
+EXAMPLE OF A COMPLETE MECHANISM:
+
+Mechanism: Viscous Dark-Matter Halo Core Formation
+
+Step 1 (Assumptions):
+  - DM self-interaction cross-section: sigma/m = 1 cm2/g (consistent with Bullet Cluster)
+  - DM density in halo center: rho = 0.3 GeV/cm3
+  - DM velocity dispersion: v = 200 km/s
+
+Step 2 (Governing equation):
+  - From kinetic theory: eta = (1/3) * n * m * v * l_mean_free
+  - Mean free path: l = 1/(n * sigma) = m/(rho * sigma)
+
+Step 3 (Derivation):
+  - Substituting: eta = (1/3) * (rho/m) * m * v * m/(rho * sigma)
+  - Simplifying: eta = v * m / (3 * sigma)
+  - With sigma/m = 1 cm2/g: eta = v / (3 * (sigma/m)) = 200 km/s / (3 * 1 cm2/g)
+
+Step 4 (Transport coefficient):
+  - eta_DM = 2e5 cm/s / (3 * 1 cm2/g) = 6.7e4 g/(cm*s)
+  - This is ~10^10 times smaller than water viscosity — very fluid
+
+Step 5 (Numerical check):
+  - Core formation timescale: t_core = R^2 / (eta/rho) = (1 kpc)^2 / (6.7e4/0.3) ~ 10 Gyr
+  - This is comparable to the age of the universe — consistent with observed cores
+
+REQUIREMENTS:
+1. EVERY mechanism MUST have Steps 1-5 above. Missing any step = REJECTED.
+2. EVERY coefficient MUST be derived or cited — NEVER assumed.
+3. EVERY prediction MUST follow from the derivation — NOT from intuition.
+4. Distinguish: is this a KNOWN mechanism applied in new context, or genuinely NOVEL?
+5. EPISTEMIC LABELING: For every parameter:
+   - "cited": value from a specific paper (cite it)
+   - "derived": CALCULATED from other parameters — show derivation
+   - "estimated": physical estimate — state reasoning
+   NEVER present an estimated value as cited.
 
 For each mechanism, provide:
 1. A clear name (descriptive, not creative)
 2. Type (causal_pathway, feedback_loop, emergent_property, threshold_effect, cascade)
-3. Step-by-step causal chain (minimum 3 steps, each with quantitative content)
-4. Mathematical model: equations governing the mechanism, rate constants, thresholds
+3. Step-by-step derivation (Steps 1-5 above — REQUIRED)
+4. Mathematical model: equations from the derivation
 5. Literature grounding: what existing mechanisms is this based on?
-6. Inputs and outputs (with expected magnitudes)
+6. Inputs and outputs (with expected magnitudes from derivation)
 7. Which hidden variable it instantiates (if any)
-8. Quantitative predictions with expected magnitudes
+8. Quantitative predictions (derived from the math, not guessed)
 9. Key parameter to measure and its expected range
 10. Falsification: specific quantitative threshold
 
 CRITICAL REQUIREMENTS — FAILURE TO FOLLOW = REJECTION:
 
-1. EVERY mechanism MUST contain at least ONE equation in the description.
-   If you cannot write an equation, the mechanism is INCOMPLETE and will be REJECTED.
-   BAD: "The coupling coefficient quantifies how efficiently..." (no equation = REJECTED)
+1. EVERY mechanism MUST contain Steps 1-5 (assumptions, governing equation, derivation, transport coefficients, numerical check).
+   If you skip any step, the mechanism is INCOMPLETE and will be REJECTED.
+   BAD: "The coupling coefficient quantifies how efficiently..." (no derivation = REJECTED)
    GOOD: "mu_ec = sigma_s / (rho_B * v_A^2) where sigma_s ~ 10^15 dyn/cm^2"
    BAD: "The binding affinity is low" (no equation = REJECTED)
    GOOD: "Kd = k_off / k_on ~ 10 nM where k_on ~ 10^6 M^-1 s^-1"
