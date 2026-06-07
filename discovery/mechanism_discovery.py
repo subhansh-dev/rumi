@@ -96,6 +96,8 @@ For each mechanism candidate, provide:
 
 Generate 2-3 mechanism candidates for this correlation.
 
+CRITICAL: Output ONLY valid JSON. No prose, no explanation, no markdown.
+
 Output JSON:
 {{
   "correlation": "{entity_a} {relation} {entity_b}",
@@ -125,27 +127,30 @@ Output JSON:
                         if raw.startswith("```"):
                             raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                             raw = raw.rsplit("```", 1)[0].strip()
-                        try:
-                            result = extract_json(raw)
-                        except json.JSONDecodeError:
-                            import re
-                            match = re.search(r'\{.*\}', raw, re.DOTALL)
-                            if match:
-                                try:
-                                    result = json.loads(match.group())
-                                except json.JSONDecodeError:
-                                    result = None
-                            else:
-                                result = None
+                        # Use extract_json which has brace-counting parser
+                        result = extract_json(raw, expected_key="candidates")
+                        if result is None:
+                            result = extract_json(raw)  # try without expected_key
                     else:
                         result = raw
 
-                    if isinstance(result, dict) and "candidates" in result:
-                        # Validate candidates
+                    # Accept both "candidates" and "mechanisms" as the key
+                    candidates_key = None
+                    if isinstance(result, dict):
+                        if "candidates" in result:
+                            candidates_key = "candidates"
+                        elif "mechanisms" in result:
+                            candidates_key = "mechanisms"
+
+                    if candidates_key:
+                        # Validate candidates — require causal_chain, observables optional
                         valid_candidates = []
-                        for c in result["candidates"]:
-                            # Require at least causal_chain and observables
-                            if len(c.get("causal_chain", [])) >= 2 and c.get("observables"):
+                        for c in result[candidates_key]:
+                            chain = c.get("causal_chain") or c.get("steps") or []
+                            if len(chain) >= 2:
+                                # Ensure name exists
+                                if not c.get("name"):
+                                    c["name"] = f"Mechanism: {c.get('type', 'causal_pathway')}"
                                 valid_candidates.append(c)
                         result["candidates"] = valid_candidates
                         results.append(result)
@@ -169,8 +174,8 @@ Output JSON:
 
         # Look for entities that co-occur but lack causal explanation
         for r in relationships:
-            src = r.get("source", "")
-            tgt = r.get("target", "")
+            src_id = r.get("source", "")
+            tgt_id = r.get("target", "")
             rel = r.get("relation", "")
 
             # Check if this relationship has a causal explanation
@@ -178,12 +183,15 @@ Output JSON:
                 "causes", "leads to", "produces", "generates", "triggers", "mediates"
             ])
 
-            if not has_causal and src and tgt:
+            if not has_causal and src_id and tgt_id:
+                # Use human-readable names instead of entity IDs
+                src_name = entities.get(src_id, {}).get("name", src_id)
+                tgt_name = entities.get(tgt_id, {}).get("name", tgt_id)
                 correlations.append({
-                    "entity_a": src,
-                    "entity_b": tgt,
+                    "entity_a": src_name,
+                    "entity_b": tgt_name,
                     "relation": rel,
-                    "evidence": f"Graph relationship: {src} --[{rel}]--> {tgt}",
+                    "evidence": f"Graph relationship: {src_name} --[{rel}]--> {tgt_name}",
                 })
 
         if not correlations:

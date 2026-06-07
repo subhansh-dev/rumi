@@ -104,14 +104,16 @@ Output JSON:
             # Ensure top_theory is a dict
             if isinstance(top_theory, str):
                 top_theory = {"name": top_theory, "type": "proposed", "description": top_theory}
-            novelty_result = novelty_checker.check_novelty(top_theory, papers, topic, domain)
+            novelty_result = novelty_checker.check_novelty(top_theory, papers or [], topic, domain)
             enhancement["novelty_check"] = novelty_result
             print(f"  Verdict: {novelty_result.get('novelty_verdict', '?')} "
                   f"(score: {novelty_result.get('novelty_score', 0):.2f})")
             print(f"  Novel: {novelty_result.get('what_is_novel', '?')[:80]}")
             print(f"  Known: {novelty_result.get('what_is_known', '?')[:80]}")
     except Exception as e:
+        import traceback
         print(f"  [ERROR] Novelty check failed: {e}")
+        print(f"  [DEBUG] {traceback.format_exc()[-300:]}", flush=True)
         errors.append(f"Enhancement novelty: {e}")
 
     # ══════════════════════════════════════════════════════════════
@@ -127,7 +129,7 @@ Output JSON:
 
         if theories:
             t = theories[0] if isinstance(theories[0], dict) else {"name": str(theories[0]), "type": "proposed", "description": str(theories[0])}
-            falsification_result = falsifier.falsify(t, papers, domain)
+            falsification_result = falsifier.falsify(t, papers or [], domain)
             enhancement["falsification"] = falsification_result
             print(f"  Constraints checked: {len(falsification_result.get('constraints_checked', []))}")
             print(f"  Counterfactuals: {len(falsification_result.get('counterfactual_tests', []))}")
@@ -136,7 +138,9 @@ Output JSON:
             print(f"  Verdict: {falsification_result.get('falsification_verdict', '?')}")
             print(f"  Weakest point: {falsification_result.get('weakest_point', '?')[:80]}")
     except Exception as e:
+        import traceback
         print(f"  [ERROR] Falsification failed: {e}")
+        print(f"  [DEBUG] {traceback.format_exc()[-300:]}", flush=True)
         errors.append(f"Enhancement falsification: {e}")
 
     # ══════════════════════════════════════════════════════════════
@@ -233,7 +237,22 @@ Output JSON:
         resilient = ResilientLLM()
         tournament = DiscoveryTournament(llm_call=resilient.call_json)
 
-        seed_hypotheses = [t if isinstance(t, dict) else {"name": str(t), "type": "proposed", "description": str(t)} for t in theories] if theories else []
+        # Normalize theory format for tournament
+        seed_hypotheses = []
+        for t in (theories or []):
+            if not isinstance(t, dict):
+                t = {"name": str(t), "type": "proposed", "description": str(t)}
+            # Ensure required fields exist
+            t.setdefault("name", t.get("title", "Unnamed"))
+            t.setdefault("description", t.get("mechanistic_rationale", t.get("mechanism", "")))
+            t.setdefault("type", t.get("pattern_type", "proposed"))
+            t.setdefault("predictions", [])
+            t.setdefault("steps", t.get("causal_chain", []))
+            t.setdefault("explains", t.get("supporting_evidence", []))
+            t.setdefault("fails_to_explain", t.get("contradictory_evidence", []))
+            t.setdefault("key_assumptions", [])
+            if t.get("name") and t.get("description"):
+                seed_hypotheses.append(t)
         if seed_hypotheses:
             tournament_result = tournament.run(
                 seed_hypotheses, topic, domain,
@@ -263,17 +282,36 @@ Output JSON:
 
 def _extract_theories_from_report(result: dict) -> list:
     """Extract theory data from pipeline result."""
-    # Try to get from theory competition phase
+    # Try to get all theories from theory competition phase
     comp = result.get("phases", {}).get("theory_competition", {})
+    theories = comp.get("theories", [])
+    if theories:
+        # Normalize each theory
+        normalized = []
+        for t in theories:
+            if not isinstance(t, dict):
+                continue
+            t.setdefault("name", t.get("title", "Unnamed"))
+            t.setdefault("description", t.get("mechanistic_rationale", t.get("mechanism", "")))
+            t.setdefault("type", t.get("pattern_type", "proposed"))
+            t.setdefault("predictions", [])
+            t.setdefault("key_parameters", [])
+            t.setdefault("steps", t.get("causal_chain", []))
+            t.setdefault("explains", t.get("supporting_evidence", []))
+            t.setdefault("fails_to_explain", t.get("contradictory_evidence", []))
+            t.setdefault("key_assumptions", [])
+            normalized.append(t)
+        return normalized
+
+    # Try winner only
     winner = comp.get("winner")
-    if winner:
+    if winner and isinstance(winner, dict):
         return [winner]
 
     # Try to get from mechanism generation
     mech = result.get("phases", {}).get("mechanism_generation", {})
     mechanisms = mech.get("mechanisms_generated", 0)
     if mechanisms > 0:
-        # Reconstruct a theory from what we have
         return [{
             "name": "Primary theory",
             "type": "proposed",

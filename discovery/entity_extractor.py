@@ -19,19 +19,17 @@ from typing import List, Dict, Tuple
 # Entity type patterns
 ENTITY_PATTERNS = {
     "phenomenon": [
-        r'\b(?:tension|anomaly|discrepancy|puzzle|problem|crisis)\b',
-        r'\b(?:expansion|acceleration|dimming|flaring|eruption)\b',
-        r'\b(?:radiation|emission|absorption|scattering|dispersion)\b',
-        r'\b(?:oscillation|vibration|resonance|fluctuation)\b',
+        r'\b(?:tension|anomaly|discrepancy|puzzle|crisis)\b',
+        r'\b(?:acceleration|dimming|flaring|eruption)\b',
+        r'\b(?:oscillation|resonance|fluctuation)\b',
     ],
     "theory": [
-        r'\b(?:theory|model|hypothesis|framework|paradigm|scenario)\b',
         r'\b(?:relativity|quantum|thermodynamics|electrodynamics)\b',
         r'\b(?:inflation|nucleosynthesis|recombination|decoupling)\b',
     ],
     "measurement": [
-        r'\b(?:measurement|observation|constraint|limit|bound|detection)\b',
-        r'\b(?:survey|catalog|dataset|experiment|telescope)\b',
+        r'\b(?:constraint|limit|bound)\b',
+        r'\b(?:survey|catalog|dataset|telescope)\b',
         r'\b(?:photometry|spectroscopy|polarimetry|interferometry)\b',
     ],
     "entity": [
@@ -62,6 +60,35 @@ ENTITY_PATTERNS = {
         r'\b(?:Planck|DESI|ACT|SPT|SDSS|JWST|Hubble|Keck)\b',
         r'\b(?:NANOGrav|EPTA|PPTA|LIGO|Virgo|KAGRA)\b',
         r'\b(?:SH0ES|Pantheon\+|Carnegie-Chicago)\b',
+    ],
+    # Drug discovery / biology / chemistry patterns
+    "drug": [
+        r'\b\w+(?:mab|nib|lib|zumab|ximab)\b',  # antibody/inhibitor suffixes
+        r'\b\w+(?:azole|mycin|cillin|oxacin|pril|sartan)\b',  # drug class suffixes
+        r'\b(?:sotorasib|adagrasib|osimertinib|erlotinib|gefitinib|crizotinib)\b',
+        r'\b(?:ibrutinib|venetoclax|venetoclax|palbociclib|ribociclib)\b',
+    ],
+    "protein": [
+        r'\b(?:KRAS|BRAF|EGFR|HER2|ALK|ROS1|PI3K|AKT|mTOR|MAPK|ERK)\b',
+        r'\b(?:TP53|BRCA1|BRCA2|MYC|RAS|RAF|MEK|CDK4|CDK6|PD-1|PD-L1)\b',
+        r'\b(?:VEGF|EGF|FGF|PDGF|TGF|IL-\d+|TNF|IFN)\b',
+        r'\b(?:p53|Rb|Bcl-2|caspase|caspase-\d+|PARP)\b',
+    ],
+    "gene": [
+        r'\b(?:KRAS|BRAF|EGFR|TP53|BRCA1|BRCA2|MYC|APC|PTEN|RB1)\b',
+        r'\b(?:ALK|ROS1|RET|MET|FGFR\d*|PIK3CA|PTPN11|NF1|NF2)\b',
+        r'\b(?:COMT|BDNF|DRD\d|5-HT\d[A-Z]?\d?|SLC6A\d+)\b',
+    ],
+    "chemical": [
+        r'\b\w+(?:amine|acid|oxide|hydroxide|sulfate|phosphate|chloride)\b',
+        r'\b(?:ATP|GTP|ADP|GDP|NADH|FADH|CoA|SAM)\b',
+        r'\b(?:acetylcholine|dopamine|serotonin|glutamate|GABA|glycine)\b',
+        r'\b(?:perovskite|graphene|silicene|MoS2|WS2|TiO2|ZnO)\b',
+    ],
+    "disease": [
+        r'\b(?:cancer|carcinoma|sarcoma|lymphoma|leukemia|melanoma)\b',
+        r'\b(?:diabetes|hypertension|atherosclerosis|Alzheimer|Parkinson)\b',
+        r'\b(?:COVID|SARS|MERS|influenza|HIV|tuberculosis|malaria)\b',
     ],
 }
 

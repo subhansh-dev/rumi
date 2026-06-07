@@ -237,6 +237,8 @@ class FalsificationEngine:
         """
         theory_desc = theory.get("description", theory.get("mechanism", ""))[:500]
         predictions = theory.get("predictions", [])
+        if not isinstance(predictions, list):
+            predictions = []
         pred_text = "\n".join(f"- {p}" if isinstance(p, str) else f"- {p.get('statement', '')}"
                               for p in predictions[:5])
 
@@ -325,9 +327,11 @@ Output JSON:
 
     def _adversarial_attack(self, theory: dict, domain: str) -> list:
         """LLM-based adversarial attack: find every reason the theory could be wrong."""
-        theory_desc = theory.get("description", theory.get("mechanism", ""))[:500]
-        params = json.dumps(theory.get("key_parameters", [])[:3])
-        predictions = json.dumps(theory.get("predictions", [])[:3])
+        theory_desc = str(theory.get("description", theory.get("mechanism", "")))[:500]
+        kp = theory.get("key_parameters")
+        params = json.dumps((kp if isinstance(kp, list) else [])[:3])
+        preds = theory.get("predictions")
+        predictions = json.dumps((preds if isinstance(preds, list) else [])[:3])
 
         prompt = f"""You are an adversarial scientist trying to DESTROY this theory.
 Find every reason it could be wrong.

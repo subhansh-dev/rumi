@@ -72,8 +72,26 @@ class ScientificSimulator:
             "tools_used": [],
         }
 
-        # Extract equations from mechanisms
+        # Extract equations from mechanisms AND predictions
         all_equations = self._extract_equations(mechanisms, hidden_variables)
+
+        # Also extract from predictions (they often contain quantitative claims)
+        if predictions:
+            for p in predictions:
+                if isinstance(p, dict):
+                    stmt = p.get("statement", p.get("description", ""))
+                    if stmt and any(c.isdigit() for c in stmt):
+                        all_equations.append({
+                            "variable": "prediction",
+                            "expression": stmt[:100],
+                            "source": "prediction",
+                        })
+                elif isinstance(p, str) and any(c.isdigit() for c in p):
+                    all_equations.append({
+                        "variable": "prediction",
+                        "expression": p[:100],
+                        "source": "prediction",
+                    })
 
         # 1. Parse and solve equations
         if HAS_SYMPY and all_equations:
@@ -133,9 +151,9 @@ class ScientificSimulator:
             if isinstance(m, dict):
                 all_text.append(m.get("description", ""))
                 all_text.append(m.get("mathematical_model", ""))
-                for step in m.get("steps", []):
-                    all_text.append(step)
-                for param in m.get("key_parameters", []):
+                for step in (m.get("steps") or []):
+                    all_text.append(str(step))
+                for param in (m.get("key_parameters") or []):
                     if isinstance(param, dict):
                         name = param.get("name", "")
                         value = param.get("expected_value", "")
@@ -179,7 +197,8 @@ class ScientificSimulator:
         return unique[:15]
 
     def _solve_equations(self, equations: list) -> list:
-        """Try to solve/parsing equations with SymPy."""
+        """Try to solve/parse equations with SymPy."""
+        import re
         results = []
         for eq in equations:
             expr = eq.get("expression", "")
@@ -200,11 +219,40 @@ class ScientificSimulator:
             except (ValueError, TypeError):
                 pass
 
+            # Try to evaluate as a numeric expression
+            if expr:
+                try:
+                    # Replace common notation
+                    clean = expr.replace("^", "**").replace("×", "*").replace("·", "*")
+                    clean = clean.replace("≈", "").replace("~", "").strip()
+                    # Remove unit suffixes
+                    clean = re.sub(r'\s*[a-zA-Z_/]+$', '', clean)
+                    # Try eval with math functions
+                    import math as _math
+                    result = eval(clean, {"__builtins__": {}}, {
+                        "abs": abs, "sqrt": _math.sqrt, "log": _math.log,
+                        "pi": _math.pi, "e": _math.e, "exp": _math.exp,
+                    })
+                    if isinstance(result, (int, float)):
+                        results.append({
+                            "variable": var,
+                            "value": float(result),
+                            "expression": expr,
+                            "status": "computed",
+                            "source": eq.get("source", ""),
+                        })
+                        continue
+                except Exception:
+                    pass
+
             # Try to parse with SymPy
             if HAS_SYMPY and expr:
                 try:
-                    # Clean expression
                     clean = expr.replace("^", "**").replace("×", "*").replace("·", "*")
+                    # Remove Unicode subscripts/superscripts
+                    clean = clean.replace("₀", "0").replace("₁", "1").replace("₂", "2")
+                    clean = clean.replace("⁻", "-").replace("⁰", "0").replace("¹", "1")
+                    clean = clean.replace("²", "2").replace("³", "3")
                     parsed = sp.sympify(clean)
                     simplified = sp.simplify(parsed)
                     results.append({
@@ -234,7 +282,7 @@ class ScientificSimulator:
         for m in mechanisms:
             if not isinstance(m, dict):
                 continue
-            params = m.get("key_parameters", [])
+            params = m.get("key_parameters") or []
             for param in params:
                 if not isinstance(param, dict):
                     continue

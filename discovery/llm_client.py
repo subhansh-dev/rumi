@@ -51,7 +51,7 @@ def _load_config() -> dict:
 def _get_groq_keys() -> list[str]:
     cfg = _load_config()
     keys = []
-    for k in ["groq_api_key", "groq_api_key2"]:
+    for k in ["groq_api_key", "groq_api_key2", "groq_api_key3"]:
         v = cfg.get(k, "")
         if v:
             keys.append(v)
@@ -235,7 +235,7 @@ CEREBRAS_MODEL = "gpt-oss-120b"
 def _get_cerebras_keys() -> list[str]:
     cfg = _load_config()
     keys = []
-    for k in ["cerebras_api_key", "cerebras_api_key2"]:
+    for k in ["cerebras_api_key", "cerebras_api_key2", "cerebras_api_key3"]:
         v = cfg.get(k, "")
         if v:
             keys.append(v)
@@ -284,11 +284,16 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
                 data = resp.json()
                 choice = data.get("choices", [{}])[0].get("message", {})
                 content = choice.get("content", "")
-                if not content or len(content) < 3:
-                    content = choice.get("reasoning", "")
-                if content and len(content) > 2:
+                reasoning = choice.get("reasoning", "")
+                # gpt-oss-120b is a reasoning model: content=answer, reasoning=thinking
+                # Always prefer content (the actual answer), even if short
+                if content and content.strip():
                     _cerebras_key_idx = (_cerebras_key_idx + key_attempt) % len(keys)
                     return content.strip()
+                # Only fall back to reasoning when content is truly empty
+                if reasoning and len(reasoning) > 2:
+                    _cerebras_key_idx = (_cerebras_key_idx + key_attempt) % len(keys)
+                    return reasoning.strip()
             elif resp.status_code == 429:
                 time.sleep(5)  # wait before rotating to next key
                 continue  # rotate to next key
@@ -305,10 +310,11 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
                     data = resp2.json()
                     choice = data.get("choices", [{}])[0].get("message", {})
                     content = choice.get("content", "")
-                    if not content or len(content) < 3:
-                        content = choice.get("reasoning", "")
-                    if content and len(content) > 2:
+                    reasoning = choice.get("reasoning", "")
+                    if content and content.strip():
                         return content.strip()
+                    if reasoning and len(reasoning) > 2:
+                        return reasoning.strip()
             else:
                 print(f"    [LLM] Cerebras {resp.status_code}: {resp.text[:100]}", flush=True)
                 return None

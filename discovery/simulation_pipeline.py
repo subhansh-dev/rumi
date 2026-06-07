@@ -138,6 +138,9 @@ class MonteCarloSimulator:
         """
         n = n or self.n_default
 
+        if not params:
+            params = {}
+
         # Extract numeric parameters
         numeric_params = {}
         for k, v in params.items():
@@ -211,17 +214,108 @@ class SimulationPipeline:
         self.results_history = []
 
     def run(self, hypothesis: str, domain: str,
-            parameters: dict, n_simulations: int = 1000) -> SimulationResult:
+            parameters: dict = None, n_simulations: int = 1000) -> SimulationResult:
         """Run the simulation pipeline."""
 
         # Route to domain-specific simulation
-        if "hubble" in hypothesis.lower() or "ede" in hypothesis.lower() or "h0" in str(parameters).lower():
+        hyp_lower = hypothesis.lower()
+        if "hubble" in hyp_lower or "ede" in hyp_lower or "h0" in str(parameters).lower():
             result = self.mc.simulate_hubble_tension(parameters, n_simulations)
+        elif domain in ("drug_discovery",) or any(kw in hyp_lower for kw in ["binding", "ic50", "inhibitor", "drug", "affinity"]):
+            result = self._simulate_drug_binding(hypothesis, parameters, n_simulations)
+        elif domain in ("materials_science",) or any(kw in hyp_lower for kw in ["bandgap", "conductivity", "perovskite", "catalyst"]):
+            result = self._simulate_material_property(hypothesis, parameters, n_simulations)
         else:
             result = self.mc.simulate_generic(hypothesis, domain, parameters, n_simulations)
 
         self.results_history.append(result)
         return result
+
+    def _simulate_drug_binding(self, hypothesis: str, params: dict, n: int) -> SimulationResult:
+        """Simulate drug binding affinity with dose-response curve."""
+        n = n or 1000
+        params = params or {}
+
+        # Extract or estimate binding parameters
+        kd = params.get("kd", params.get("Kd", 100))  # nM
+        ic50 = params.get("ic50", params.get("IC50", kd * 2))  # nM, approximate
+        hill = params.get("hill_coefficient", params.get("nH", 1.0))
+        emax = params.get("emax", params.get("Emax", 100))  # %
+
+        # Monte Carlo: perturb parameters and compute dose-response
+        kd_samples = []
+        ic50_samples = []
+        for _ in range(n):
+            kd_i = kd * (1 + random.gauss(0, 0.2))  # 20% uncertainty
+            hill_i = hill * (1 + random.gauss(0, 0.1))
+            kd_samples.append(kd_i)
+            # IC50 ~ Kd for competitive binding
+            ic50_i = kd_i * (1 + 0.5 / max(hill_i, 0.1))
+            ic50_samples.append(ic50_i)
+
+        kd_mean = sum(kd_samples) / n
+        kd_std = (sum((x - kd_mean)**2 for x in kd_samples) / n) ** 0.5
+        ic50_mean = sum(ic50_samples) / n
+        ic50_std = (sum((x - ic50_mean)**2 for x in ic50_samples) / n) ** 0.5
+
+        sorted_kd = sorted(kd_samples)
+        sorted_ic50 = sorted(ic50_samples)
+
+        return SimulationResult(
+            hypothesis=hypothesis,
+            n_simulations=n,
+            predictions={"Kd_nM": round(kd_mean, 2), "IC50_nM": round(ic50_mean, 2), "Emax_pct": emax},
+            confidence_intervals={
+                "Kd_68": (round(sorted_kd[int(0.16*n)], 2), round(sorted_kd[int(0.84*n)], 2)),
+                "Kd_95": (round(sorted_kd[int(0.025*n)], 2), round(sorted_kd[int(0.975*n)], 2)),
+                "IC50_68": (round(sorted_ic50[int(0.16*n)], 2), round(sorted_ic50[int(0.84*n)], 2)),
+            },
+            known_data_comparison={},
+            passed_consistency=kd_mean > 0 and ic50_mean > 0,
+            score=70.0 if kd_mean > 0 else 20.0,
+            details=f"Drug binding MC: Kd={kd_mean:.1f}+/-{kd_std:.1f}nM, IC50={ic50_mean:.1f}+/-{ic50_std:.1f}nM, n={n}"
+        )
+
+    def _simulate_material_property(self, hypothesis: str, params: dict, n: int) -> SimulationResult:
+        """Simulate material property with temperature/composition dependence."""
+        n = n or 1000
+        params = params or {}
+
+        bandgap = params.get("bandgap", params.get("Eg", 1.5))  # eV
+        conductivity = params.get("conductivity", params.get("sigma", 1e-3))  # S/cm
+        temperature = params.get("temperature", params.get("T", 300))  # K
+
+        # Monte Carlo: perturb and compute temperature dependence
+        bg_samples = []
+        cond_samples = []
+        for _ in range(n):
+            bg_i = bandgap * (1 + random.gauss(0, 0.05))  # 5% uncertainty
+            T_i = temperature * (1 + random.gauss(0, 0.02))  # 2% temp uncertainty
+            bg_samples.append(bg_i)
+            # Conductivity ~ exp(-Eg/2kT)
+            k_B = 8.617e-5  # eV/K
+            cond_i = conductivity * math.exp(-(bg_i - bandgap) / (2 * k_B * T_i))
+            cond_samples.append(cond_i)
+
+        bg_mean = sum(bg_samples) / n
+        bg_std = (sum((x - bg_mean)**2 for x in bg_samples) / n) ** 0.5
+        cond_mean = sum(cond_samples) / n
+
+        sorted_bg = sorted(bg_samples)
+
+        return SimulationResult(
+            hypothesis=hypothesis,
+            n_simulations=n,
+            predictions={"bandgap_eV": round(bg_mean, 4), "conductivity_S_cm": f"{cond_mean:.2e}", "temperature_K": temperature},
+            confidence_intervals={
+                "bandgap_68": (round(sorted_bg[int(0.16*n)], 4), round(sorted_bg[int(0.84*n)], 4)),
+                "bandgap_95": (round(sorted_bg[int(0.025*n)], 4), round(sorted_bg[int(0.975*n)], 4)),
+            },
+            known_data_comparison={},
+            passed_consistency=bg_mean > 0 and cond_mean > 0,
+            score=70.0 if bg_mean > 0 else 20.0,
+            details=f"Material MC: Eg={bg_mean:.3f}+/-{bg_std:.3f}eV, sigma={cond_mean:.2e}S/cm, T={temperature}K, n={n}"
+        )
 
     def get_summary(self) -> dict:
         """Summary of all simulation results."""

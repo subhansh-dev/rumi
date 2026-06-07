@@ -15,6 +15,13 @@ import os
 import re
 import struct
 import sys
+# Fix Unicode encoding on Windows (cp1252 can't handle scientific symbols)
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 import threading
 import time
 import traceback
@@ -4006,30 +4013,32 @@ Output ONLY valid JSON as a list of objects with this structure:
             return []
 
     async def _call_llm(self, prompt: str, json_mode: bool = False, provider: str = "auto", max_tokens: int = 16384) -> str:
-        """Call LLM. provider: 'auto' (Groq→Gemini fallback), 'groq', 'gemini'."""
-        from discovery.groq_client import call as groq_call, is_available as groq_available
-        cfg = json.loads(API_CONFIG_PATH.read_text(encoding="utf-8-sig"))
+        """Call LLM. provider: 'auto' (Cerebras→Groq→Gemini fallback), 'groq', 'gemini', 'cerebras'."""
+        try:
+            from discovery.llm_client import call as llm_call
+            result = llm_call(prompt, json_mode=json_mode, max_tokens=max_tokens, provider=provider)
+            if result:
+                return result
+        except Exception as e:
+            print(f"[LLM] discovery client error: {e}", flush=True)
 
-        if provider in ("auto", "groq"):
-            if groq_available():
-                result = groq_call(prompt, json_mode=json_mode, max_tokens=max_tokens)
-                if result is not None:
-                    return result
-                if provider == "groq":
-                    return ""
-            elif provider == "groq":
-                return ""
-
-        # Fallback to Gemini
-        client = genai.Client(api_key=cfg.get("gemini_api_key", ""))
-        kwargs = dict(temperature=0.3, max_output_tokens=min(max_tokens, 32768))
-        if json_mode:
-            kwargs["response_mime_type"] = "application/json"
-        response = client.models.generate_content(
-            model="gemini-2.5-flash", contents=prompt,
-            config=types.GenerateContentConfig(**kwargs),
-        )
-        return response.text
+        # Absolute fallback: try Gemini directly
+        try:
+            from google import genai
+            from google.genai import types
+            cfg = json.loads(API_CONFIG_PATH.read_text(encoding="utf-8-sig"))
+            client = genai.Client(api_key=cfg.get("gemini_api_key", ""))
+            kwargs = dict(temperature=0.3, max_output_tokens=min(max_tokens, 32768))
+            if json_mode:
+                kwargs["response_mime_type"] = "application/json"
+            response = client.models.generate_content(
+                model="gemini-2.5-flash", contents=prompt,
+                config=types.GenerateContentConfig(**kwargs),
+            )
+            return response.text
+        except Exception as e:
+            print(f"[LLM] Gemini fallback error: {e}", flush=True)
+            return ""
 
     def _on_idle_scan(self):
         """Handle idle scan callback from UI."""
@@ -4934,7 +4943,7 @@ Output ONLY valid JSON as a list of objects with this structure:
             domain_cfg = get_domain("general")
         label = domain_cfg["label"]
         gen_type = domain_cfg.get("generation", "hypothesis")
-        from discovery.groq_client import call as groq_call
+        from discovery.llm_client import call as llm_call
 
         def _save_output(data: list, folder: str, filename: str = "active.json"):
             out_dir = Path(__file__).resolve().parent / "discovery" / folder
@@ -4966,7 +4975,7 @@ For EACH candidate, provide:
 5. Why it is novel compared to existing materials
 
 Output ONLY valid JSON as a list of objects with keys: name, composition, structure, properties, synthesis, novelty"""
-            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
             candidates = json.loads(result) if result else []
             if not candidates:
                 self._post_output("No materials generated. Try a different target.")
@@ -4992,7 +5001,7 @@ For EACH experiment, provide:
 5. Potential confounds and how to control them
 
 Output ONLY valid JSON as a list of objects with keys: title, hypothesis, design, outcomes, confounds"""
-            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
             experiments = json.loads(result) if result else []
             if not experiments:
                 self._post_output("No experiments generated. Try a different target.")
@@ -5015,7 +5024,7 @@ For EACH design, provide:
 5. Validation approach
 
 Output ONLY valid JSON as a list of objects with keys: title, components, rationale, results, validation"""
-            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
             designs = json.loads(result) if result else []
             if not designs:
                 self._post_output("No designs generated. Try a different target.")
@@ -5038,7 +5047,7 @@ For EACH proposal, provide:
 5. Data sources or instruments needed
 
 Output ONLY valid JSON as a list of objects with keys: title, objective, methodology, outcomes, data_sources"""
-            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
             proposals = json.loads(result) if result else []
             if not proposals:
                 self._post_output("No proposals generated. Try a different target.")
@@ -5061,7 +5070,7 @@ For EACH proposal, provide:
 5. Conservation implications
 
 Output ONLY valid JSON as a list of objects with keys: title, question, methodology, outcomes, conservation_impact"""
-            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
             proposals = json.loads(result) if result else []
             if not proposals:
                 self._post_output("No proposals generated. Try a different target.")
@@ -5084,7 +5093,7 @@ For EACH proposal, provide:
 5. Required resources or apparatus
 
 Output ONLY valid JSON as a list of objects with keys: title, question, framework, predictions, resources"""
-            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
             proposals = json.loads(result) if result else []
             if not proposals:
                 self._post_output("No proposals generated. Try a different target.")
@@ -5107,7 +5116,7 @@ For EACH proposal, provide:
 5. Implementation roadmap
 
 Output ONLY valid JSON as a list of objects with keys: title, problem, solution, impact, roadmap"""
-            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
             proposals = json.loads(result) if result else []
             if not proposals:
                 self._post_output("No proposals generated. Try a different target.")
@@ -5131,7 +5140,7 @@ For EACH proposal, provide:
 5. Required resources
 
 Output ONLY valid JSON as a list of objects with keys: title, question, methodology, outcomes, resources"""
-            result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+            result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
             proposals = json.loads(result) if result else []
             if not proposals:
                 self._post_output("No proposals generated. Try a different target.")

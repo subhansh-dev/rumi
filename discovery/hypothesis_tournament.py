@@ -14,10 +14,11 @@ from discovery.hypothesis_memory import HypothesisMemory
 
 
 class HypothesisTournament:
-    def __init__(self, memory=None):
+    def __init__(self, memory=None, llm_call=None):
         self.memory = memory or HypothesisMemory()
-        self.evolve_stage = LLMStage("tournament_evolution", max_retries=2, providers=["groq", "gemini"])
-        self.crossover_stage = LLMStage("tournament_crossover", max_retries=2, providers=["groq", "gemini"])
+        self._llm_call = llm_call
+        self.evolve_stage = LLMStage("tournament_evolution", max_retries=2, providers=["cerebras", "groq", "gemini"])
+        self.crossover_stage = LLMStage("tournament_crossover", max_retries=2, providers=["cerebras", "groq", "gemini"])
         self.skeptic = SkepticAgent()
         self.novelty = NoveltyDetector(memory)
 
@@ -58,6 +59,11 @@ class HypothesisTournament:
         final = await self._score_population(population, graph, generations)
         ranked = sorted(final, key=lambda h: h.get("_fitness", 0), reverse=True)
         for i, h in enumerate(ranked):
+            # Preserve fitness as scores.overall before removing internal fields
+            fitness = h.get("_fitness", 0)
+            if "scores" not in h:
+                h["scores"] = {}
+            h["scores"]["overall"] = fitness
             h.pop("_fitness", None)
             h.pop("_skeptic_result", None)
             if "skeptic_review" in h.get("critique", ""):
@@ -167,7 +173,11 @@ EVOLUTION RULES:
 OUTPUT JSON with these 12 fields:
 {{"title": "string", "mechanistic_rationale": "string", "pattern_type": "bridge_node|contradiction|low_cooccurrence|novel_mechanism|latent_link", "nodes": [{{"name": "string", "type": "string", "definition": "string", "conditions": "string"}}], "edges": [{{"source": "string", "relation": "string", "target": "string", "definition": "string", "papers": ["PMID..."]}}], "supporting_evidence": ["string"], "contradictory_evidence": ["string"], "alternative_explanations": ["string"], "papers": ["PMIDs"], "environmental_constraints": "string", "failure_conditions": ["string"], "experimental_validation": "string", "observational_requirements": "string", "source_traceability": [{{"claim": "string", "source": "PMID"}}], "novelty": "low|medium|high", "confidence": 0.0}}"""
 
-        raw, provider = await self.crossover_stage.call_with_retry(prompt, json_mode=True)
+        if self._llm_call:
+            raw = self._llm_call(prompt, max_tokens=8192)
+            provider = "external"
+        else:
+            raw, provider = await self.crossover_stage.call_with_retry(prompt, json_mode=True)
         if not raw:
             return None
 

@@ -2,18 +2,44 @@
 
 import json
 import math
+import sys
+import os
 from pathlib import Path
 
-from rdkit import Chem
-from rdkit.Chem import Descriptors, Lipinski, QED, Crippen, rdMolDescriptors
-from rdkit.Chem.Lipinski import NumHDonors, NumHAcceptors, NumRotatableBonds
+# Suppress RDKit/NumPy compatibility warnings (prints to stderr during import)
+# RDKit works despite NumPy 2.x warnings — the warnings are noise, not errors
+_HAS_RDKIT = False
+_stderr = sys.stderr
+try:
+    sys.stderr = open(os.devnull, 'w')
+    from rdkit import Chem
+    from rdkit.Chem import Descriptors, Lipinski, QED, Crippen, rdMolDescriptors
+    from rdkit.Chem.Lipinski import NumHDonors, NumHAcceptors, NumRotatableBonds
+    _HAS_RDKIT = True
+except ImportError:
+    pass
+except Exception:
+    # RDKit may raise AttributeError due to NumPy incompatibility but still work
+    try:
+        from rdkit import Chem
+        _HAS_RDKIT = Chem is not None
+    except Exception:
+        pass
+finally:
+    try:
+        sys.stderr.close()
+    except Exception:
+        pass
+    sys.stderr = _stderr
+
+HAS_RDKIT = _HAS_RDKIT
 
 API_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
 
 
 def generate_smiles(target: str, num_candidates: int = 8) -> list[dict]:
     """Use Groq to generate candidate SMILES for a given target."""
-    from discovery.groq_client import call as groq_call
+    from discovery.llm_client import call as llm_call
 
     prompt = f"""You are a medicinal chemist designing small molecules that target: {target}
 
@@ -30,7 +56,7 @@ Output ONLY a JSON array of objects with keys: smiles, name (if known or 'Novel'
 
 Example: [{{"smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C", "name": "Caffeine", "rationale": "Adenosine receptor antagonist"}}]"""
 
-    result = groq_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
+    result = llm_call(prompt, json_mode=True, temperature=0.7, max_tokens=4096)
     if not result:
         return []
     try:
@@ -42,6 +68,8 @@ Example: [{{"smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C", "name": "Caffeine", "ratio
 
 def validate_smiles(entry: dict) -> dict | None:
     """Validate a SMILES with RDKit and compute drug-likeness metrics."""
+    if not HAS_RDKIT:
+        return None
     smiles = entry.get("smiles", "")
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:

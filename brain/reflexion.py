@@ -137,7 +137,11 @@ class PostDiscoveryAnalyzer:
         if hypotheses:
             valid_hyps = [h for h in hypotheses if isinstance(h, dict)]
             if valid_hyps:
-                avg_conf = sum(h.get("confidence", 0) for h in valid_hyps) / len(valid_hyps)
+                # Check both 'confidence' and 'scores.overall' (tournament theories use the latter)
+                avg_conf = sum(
+                    h.get("confidence", 0) or h.get("scores", {}).get("overall", 0)
+                    for h in valid_hyps
+                ) / len(valid_hyps)
                 if avg_conf < 0.4:
                     weaknesses.append({
                         "type": "low_confidence",
@@ -225,6 +229,41 @@ class PostDiscoveryAnalyzer:
                         "module": "refinement_pipeline",
                         "suggestion": f"Improve scoring logic for {', '.join(low_scoring[:3])}",
                     })
+
+        # === Weakness 8: Low novelty on theories ===
+        known_science = [h for h in hypotheses
+                         if h.get("is_novel_vs_known") in ("well_known", "rediscovery")]
+        if hypotheses and len(known_science) / len(hypotheses) > 0.3:
+            weaknesses.append({
+                "type": "known_science_dominates",
+                "severity": "high",
+                "detail": f"{len(known_science)}/{len(hypotheses)} theories are known science",
+                "module": "novelty_checker",
+                "suggestion": "Improve What-If engine and hypothesis prompt to generate more novel ideas",
+            })
+
+        # === Weakness 9: Low mathematical rigor ===
+        low_math = [h for h in hypotheses
+                    if h.get("scores", {}).get("mathematical_rigor", 100) < 30]
+        if hypotheses and len(low_math) / len(hypotheses) > 0.5:
+            weaknesses.append({
+                "type": "low_math_rigor",
+                "severity": "medium",
+                "detail": f"{len(low_math)}/{len(hypotheses)} theories have low mathematical rigor",
+                "module": "math_engine",
+                "suggestion": "Include more equations and quantitative predictions in theory descriptions",
+            })
+
+        # === Weakness 10: Pipeline errors ===
+        for err in errors:
+            if isinstance(err, str) and err:
+                weaknesses.append({
+                    "type": "pipeline_error",
+                    "severity": "critical",
+                    "detail": str(err)[:200],
+                    "module": "pipeline",
+                    "suggestion": "Fix the error condition",
+                })
 
         # === Pattern detection ===
         # Repeated failure patterns across runs
@@ -335,8 +374,33 @@ Respond in JSON:
 }}"""
 
         try:
-            response = await self._llm(prompt, json_mode=True, max_tokens=2048)
-            patch = json.loads(response) if isinstance(response, str) else response
+            # Handle both sync and async LLM functions
+            import asyncio
+            if asyncio.iscoroutinefunction(self._llm):
+                response = await self._llm(prompt, json_mode=True, max_tokens=2048)
+            else:
+                # Sync LLM — call directly (wrap in executor if needed)
+                response = self._llm(prompt, max_tokens=2048)
+
+            if not response:
+                return None
+
+            # Parse response
+            if isinstance(response, str):
+                response = response.strip()
+                if response.startswith("```"):
+                    response = response.split("\n", 1)[1] if "\n" in response else response[3:]
+                    response = response.rsplit("```", 1)[0].strip()
+                try:
+                    from discovery.json_extract import extract_json
+                    patch = extract_json(response)
+                except Exception:
+                    patch = json.loads(response)
+            else:
+                patch = response
+
+            if not isinstance(patch, dict):
+                return None
 
             # Validate the patch
             if not all(k in patch for k in ("old_code", "new_code")):
@@ -698,6 +762,10 @@ class RecursiveImprover:
 
     def reflect_and_improve_sync(self, run_result, llm_fn=None, post_output_fn=None):
         """Synchronous wrapper for reflect_and_improve."""
+        # Update patcher with llm_fn if provided
+        if llm_fn:
+            self._patcher = CodePatchGenerator(llm_fn=llm_fn)
+
         import asyncio
         try:
             loop = asyncio.get_event_loop()

@@ -115,7 +115,7 @@ class DiscoveryTournament:
                 "generations_run": generations,
                 "initial_population": len(seed_hypotheses),
                 "final_population": len(final_scored),
-                "winner_score": winner.get("confidence", 0) if winner else 0,
+                "winner_score": winner.get("_tournament_score", winner.get("confidence", 0)) if winner else 0,
                 "winner_name": winner.get("name", "?") if winner else "?",
             },
         }
@@ -187,52 +187,66 @@ Output JSON:
                           graph=None) -> list:
         """Score all hypotheses in the population."""
         for h in population:
-            score = 0.0
+            score = 10.0  # base score — every hypothesis starts with something
 
             # Factor 1: Explanatory power
-            explains = h.get("explains", [])
-            fails = h.get("fails_to_explain", [])
+            explains = h.get("explains") or h.get("supporting_evidence") or []
+            fails = h.get("fails_to_explain") or h.get("contradictory_evidence") or []
             total = len(explains) + len(fails)
             if total > 0:
-                score += (len(explains) / total) * 30
+                score += (len(explains) / total) * 25
+            elif h.get("description"):
+                score += 10  # has description = has some explanatory content
 
             # Factor 2: Predictions (more = better, quantitative = better)
-            predictions = h.get("predictions", [])
+            predictions = h.get("predictions") or []
             quant_preds = sum(1 for p in predictions
                               if isinstance(p, (str, dict)) and
                               any(c.isdigit() for c in str(p)))
             score += min(20, quant_preds * 5)
+            if predictions:
+                score += 5  # bonus for having any predictions
 
             # Factor 3: Mathematical formalism
             model = h.get("mathematical_model", h.get("mathematical_formalism", ""))
-            if model and any(c.isdigit() for c in model):
+            if model and any(c.isdigit() for c in str(model)):
                 score += 15
 
             # Factor 4: Key parameters with values
-            params = h.get("key_parameters", [])
-            if params:
+            params = h.get("key_parameters") or []
+            if isinstance(params, list) and params:
+                score += min(10, len(params) * 3)
+            elif isinstance(params, dict) and params:
                 score += min(10, len(params) * 3)
 
             # Factor 5: Literature grounding
-            lit = h.get("literature_basis", h.get("literature_grounding", []))
+            lit = h.get("literature_basis", h.get("literature_grounding", h.get("papers", [])))
             if isinstance(lit, list) and lit:
                 score += min(10, len(lit) * 3)
 
             # Factor 6: Simplicity (penalize excessive complexity)
-            assumptions = h.get("key_assumptions", [])
+            assumptions = h.get("key_assumptions") or []
             if isinstance(assumptions, list) and len(assumptions) > 5:
                 score -= 5
 
             # Factor 7: Type bonus
             type_bonus = {
-                "null": 5,  # null hypotheses are important
+                "null": 5,
                 "conventional": 3,
                 "alternative": 8,
                 "proposed": 10,
+                "counterfactual": 12,
             }
             score += type_bonus.get(h.get("type", ""), 5)
 
-            h["_tournament_score"] = round(score, 2)
+            # Factor 8: Description quality (longer = more detailed)
+            desc = h.get("description", h.get("mechanistic_rationale", ""))
+            if len(desc) > 200:
+                score += 5
+            if len(desc) > 500:
+                score += 5
+
+            h["_tournament_score"] = round(max(0, score), 2)
 
         return population
 

@@ -31,6 +31,12 @@ class LiteratureContradictionScorer:
         """
         Score a theory's literature alignment.
 
+        Scoring philosophy:
+        - Papers that share topic keywords = IMPLICIT support (they study the same thing)
+        - Papers with explicit support signals = STRONG support
+        - Papers with explicit contradiction signals = CONTRADICTION
+        - A theory with 0 explicit support but 20 topic-relevant papers is NOT unsupported
+
         Returns:
             {
                 "supporting_papers": [...],
@@ -54,19 +60,22 @@ class LiteratureContradictionScorer:
         # Algorithmic check: match theory keywords against paper abstracts
         support_hits = []
         contradict_hits = []
+        topic_relevant_hits = []  # papers that share topic keywords (implicit support)
 
-        theory_text = self._extract_theory_keywords(theory)
+        theory_keywords = self._extract_theory_keywords(theory)
 
         for p in papers:
             abstract = (p.get("abstract", "") + " " + p.get("title", "")).lower()
             if not abstract.strip():
                 continue
 
-            # Check for support signals
+            # Check for explicit support signals
             support_signals = [
                 "consistent with", "supports", "confirms", "validates",
                 "in agreement", "corroborates", "consistent", "agrees",
                 "successfully explains", "accounts for", "reproduces",
+                "demonstrates", "shows that", "we find", "we report",
+                "our results suggest", "evidence for", "observation of",
             ]
             # Check for contradiction signals
             contradict_signals = [
@@ -74,15 +83,24 @@ class LiteratureContradictionScorer:
                 "incompatible", "challenges", "refutes", "disproves",
                 "fails to explain", "cannot account", "at odds with",
                 "tension with", "discrepancy", "disagreement",
+                "however,", "but", "nevertheless", "in contrast",
             ]
 
             support_count = sum(1 for s in support_signals if s in abstract)
             contradict_count = sum(1 for s in contradict_signals if s in abstract)
 
             # Check if any theory keywords appear in the paper
-            keyword_hits = sum(1 for kw in theory_text if kw in abstract)
+            keyword_hits = sum(1 for kw in theory_keywords if kw in abstract)
 
-            if keyword_hits > 0:
+            if keyword_hits >= 3:
+                # Strong topic relevance — this paper studies the same area
+                topic_relevant_hits.append({
+                    "title": p.get("title", "?")[:80],
+                    "source": p.get("source", "?"),
+                    "keyword_hits": keyword_hits,
+                    "citation_count": p.get("citation_count", 0),
+                })
+
                 if support_count > contradict_count:
                     support_hits.append({
                         "title": p.get("title", "?")[:80],
@@ -102,25 +120,34 @@ class LiteratureContradictionScorer:
         graph_contradictions = self._check_graph_contradictions(theory)
 
         total_papers = len(papers)
-        support_score = len(support_hits) / max(1, total_papers)
+
+        # Support score: explicit support + implicit topic relevance
+        # Topic-relevant papers count as 0.3 support each (they study the same thing)
+        explicit_support = len(support_hits) / max(1, total_papers)
+        implicit_support = min(0.4, len(topic_relevant_hits) * 0.05)  # cap at 0.4
+        support_score = min(1.0, explicit_support + implicit_support)
+
         contradiction_score = (len(contradict_hits) + len(graph_contradictions)) / max(1, total_papers)
 
         # Net alignment: positive = supported, negative = contradicted
         net = support_score - contradiction_score
 
         # Verdict
-        if net > 0.3:
+        if net > 0.2:
             verdict = "supported"
-        elif net < -0.3:
+        elif net < -0.2:
             verdict = "contradicted"
         elif abs(net) < 0.1 and (support_hits or contradict_hits):
             verdict = "mixed"
+        elif topic_relevant_hits:
+            verdict = "topic_relevant"  # papers exist on this topic
         else:
             verdict = "unknown"
 
         return {
             "supporting_papers": support_hits,
             "contradicting_papers": contradict_hits,
+            "topic_relevant_papers": topic_relevant_hits[:10],
             "graph_contradictions": graph_contradictions,
             "support_score": round(support_score, 3),
             "contradiction_score": round(contradiction_score, 3),
@@ -132,27 +159,34 @@ class LiteratureContradictionScorer:
     def _extract_theory_keywords(self, theory: dict) -> list:
         """Extract searchable keywords from a theory."""
         keywords = set()
+        stopwords = {"the", "and", "for", "with", "that", "this", "from", "are", "has",
+                     "was", "were", "been", "have", "will", "would", "could", "should",
+                     "into", "over", "such", "than", "them", "then", "they", "this",
+                     "very", "when", "what", "which", "while", "who", "whom", "why"}
 
         # From name
         name = theory.get("name", "")
         for word in name.lower().split():
-            if len(word) > 3 and word not in ("the", "and", "for", "with", "that", "this"):
-                keywords.add(word)
+            clean = word.strip("()[]{},.:;")
+            if len(clean) > 3 and clean not in stopwords and clean.isalpha():
+                keywords.add(clean)
 
         # From description
         desc = theory.get("description", theory.get("mechanism", ""))
         for word in desc.lower().split():
-            if len(word) > 5 and word.isalpha():
-                keywords.add(word)
+            clean = word.strip("()[]{},.:;")
+            if len(clean) > 3 and clean not in stopwords and clean.isalpha():
+                keywords.add(clean)
 
         # From hidden variables
         for hv in theory.get("hidden_variables", []):
             if isinstance(hv, str):
                 for word in hv.lower().split():
-                    if len(word) > 4:
-                        keywords.add(word)
+                    clean = word.strip("()[]{},.:;")
+                    if len(clean) > 3 and clean not in stopwords:
+                        keywords.add(clean)
 
-        return list(keywords)[:20]
+        return list(keywords)[:30]
 
     def _check_graph_contradictions(self, theory: dict) -> list:
         """Check if the theory contradicts relationships in the knowledge graph."""

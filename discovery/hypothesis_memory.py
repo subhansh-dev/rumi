@@ -98,13 +98,15 @@ class HypothesisMemory:
                  hypothesis.get("created_at", now), now)
             )
 
-            for n in hypothesis.get("nodes", []):
+            for n in (hypothesis.get("nodes") or []):
+                if not isinstance(n, dict):
+                    continue
                 conn.execute(
                     "INSERT INTO hypothesis_nodes (hypothesis_id, name, type, definition, conditions) VALUES (?,?,?,?,?)",
                     (hid, n.get("name"), n.get("type"), n.get("definition"), n.get("conditions"))
                 )
 
-            for e in hypothesis.get("edges", []):
+            for e in (hypothesis.get("edges") or []):
                 conn.execute(
                     "INSERT INTO hypothesis_edges (hypothesis_id, source, relation, target, definition, papers) VALUES (?,?,?,?,?,?)",
                     (hid, e.get("source"), e.get("relation"), e.get("target"),
@@ -149,6 +151,8 @@ class HypothesisMemory:
             candidates = conn.execute("SELECT id, title FROM hypotheses").fetchall()
             similar = []
             for row in candidates:
+                if not row["title"]:
+                    continue
                 other_words = set(row["title"].lower().split())
                 if not other_words:
                     continue

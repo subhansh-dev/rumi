@@ -18,6 +18,14 @@ import json
 import time
 from pathlib import Path
 
+# Fix Unicode encoding on Windows (cp1252 can't handle scientific symbols)
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -137,24 +145,24 @@ def main():
         print("="*70)
         print("STAGE 1: DISCOVERY PIPELINE v2 (16 phases)")
         print("="*70)
-    t0 = time.time()
-    try:
-        from discovery.discovery_pipeline_v2 import run_discovery_pipeline
-        report = run_discovery_pipeline(topic, domain=domain, mode=mode)
-        phases = report.get("phases", {})
-        print(f"\n  Pipeline complete in {time.time()-t0:.0f}s")
-        print(f"  Papers: {phases.get('literature', {}).get('papers_found', 0)}")
-        print(f"  Entities: {phases.get('knowledge_graph', {}).get('entities', 0)}")
-        print(f"  Theories: {phases.get('theory_competition', {}).get('theories_compared', 0)}")
-        score = phases.get('discovery_scoring', {}).get('discovery_score', 0)
-        grade = phases.get('discovery_scoring', {}).get('grade', 'F')
-        print(f"  Score: {score:.0f}/100 ({grade})")
-    except Exception as e:
-        print(f"  Pipeline FAILED: {e}")
-        import traceback; traceback.print_exc()
-        # Save what we have and exit
-        _save_report(report, topic)
-        return
+        t0 = time.time()
+        try:
+            from discovery.discovery_pipeline_v2 import run_discovery_pipeline
+            report = run_discovery_pipeline(topic, domain=domain, mode=mode)
+            phases = report.get("phases", {})
+            print(f"\n  Pipeline complete in {time.time()-t0:.0f}s")
+            print(f"  Papers: {phases.get('literature', {}).get('papers_found', 0)}")
+            print(f"  Entities: {phases.get('knowledge_graph', {}).get('entities', 0)}")
+            print(f"  Theories: {phases.get('theory_competition', {}).get('theories_compared', 0)}")
+            score = phases.get('discovery_scoring', {}).get('discovery_score', 0)
+            grade = phases.get('discovery_scoring', {}).get('grade', 'F')
+            print(f"  Score: {score:.0f}/100 ({grade})")
+        except Exception as e:
+            print(f"  Pipeline FAILED: {e}")
+            import traceback; traceback.print_exc()
+            # Save what we have and exit
+            _save_report(report, topic)
+            return
 
     # ── Stage 2: Refinement + Reflexion already run inside pipeline (Phase 13-14) ──
     # Skip duplicate refinement/reflexion — pipeline handles it internally

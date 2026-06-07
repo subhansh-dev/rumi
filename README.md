@@ -5,17 +5,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/subhansh-dev/Rumi/stargazers">
-    <img src="https://img.shields.io/github/stars/subhansh-dev/Rumi?style=flat" alt="Stars" />
+  <a href="https://github.com/subhansh-dev/rumi/stargazers">
+    <img src="https://img.shields.io/github/stars/subhansh-dev/rumi?style=flat&cacheSeconds=3600" alt="Stars" />
   </a>
-  <a href="https://github.com/subhansh-dev/Rumi/forks">
-    <img src="https://img.shields.io/github/forks/subhansh-dev/Rumi?style=flat" alt="Forks" />
+  <a href="https://github.com/subhansh-dev/rumi/forks">
+    <img src="https://img.shields.io/github/forks/subhansh-dev/rumi?style=flat" alt="Forks" />
   </a>
-  <a href="https://github.com/subhansh-dev/Rumi/issues">
-    <img src="https://img.shields.io/github/issues/subhansh-dev/Rumi" alt="Issues" />
+  <a href="https://github.com/subhansh-dev/rumi/issues">
+    <img src="https://img.shields.io/github/issues/subhansh-dev/rumi" alt="Issues" />
   </a>
-  <a href="https://github.com/subhansh-dev/Rumi/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/subhansh-dev/Rumi" alt="License" />
+  <a href="https://github.com/subhansh-dev/rumi/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/subhansh-dev/rumi" alt="License" />
   </a>
   <a href="https://python.org/versions/3.11">
     <img src="https://img.shields.io/badge/Python-3.11+-blue" alt="Python" />
@@ -35,7 +35,7 @@
 
 ## What is RUMI?
 
-**RUMI** (Research & Unified Machine Intelligence) is an autonomous scientific discovery engine. Give it a topic and it reads papers, builds knowledge graphs, finds gaps and anomalies, generates hypotheses with mechanisms and equations, runs a tournament of 20 competing theories, attacks every discovery with adversarial testing, evaluates through critical assessment, designs concrete experiments, fetches real datasets, and then improves itself afterward. Unlike conventional AI assistants that search and summarize, RUMI implements a 16-phase discovery engine backed by a 44-module cognitive architecture inspired by dual-process theory, the Free Energy Principle, and causal inference frameworks.
+**RUMI** (Research & Unified Machine Intelligence) is an autonomous scientific discovery engine. Give it a topic and it reads papers, builds knowledge graphs, finds gaps and anomalies, generates hypotheses with mechanisms and equations, runs a tournament of 20 competing theories, attacks every discovery with adversarial testing, evaluates through critical assessment, designs concrete experiments, fetches real datasets, and then improves itself afterward. Unlike conventional AI assistants that search and summarize, RUMI implements a 21-phase discovery engine that produces genuinely novel hypotheses. It uses 29 API enrichment sources, contradiction-driven hypothesis generation, GFlowNet-inspired diversity selection, and a 6-category math verification engine.
 
 RUMI addresses three fundamental limitations of current AI-assisted research:
 
@@ -80,7 +80,7 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 | **Self-awareness** | None | Self-model with confidence calibration, introspection engine, metacognitive monitoring |
 | **Learning** | No feedback loop | Error-driven updates, experience replay, dreaming-based consolidation, meta-learning |
 | **Discovery** | Search-and-summarize | 16-phase pipeline: literature → citation walk → graph → gaps → anomalies → hidden variables → mechanisms → predictions → competition → experimental design → data analysis → scoring |
-| **Theory Selection** | Generate 1, accept it | Tournament: 20 candidates, elimination rounds, head-to-head ranking |
+| **Theory Selection** | Generate 1, accept it | Tournament: 20 candidates, 3 rounds, GFlowNet-inspired diversity selection, winner override for known science |
 | **Quality Control** | None | Adversarial testing (attack every discovery), critical evaluation (6-dimension assessment), skeptic review, mathematical consistency checking |
 | **Literature** | Single search | Adaptive multi-round: analyze gaps, refine queries, targeted re-search |
 | **Self-Improvement** | None | Reflexion: analyzes weaknesses, generates patches, tests in sandbox, applies fixes |
@@ -89,41 +89,74 @@ RUMI addresses these limitations by implementing a cognitive architecture that m
 
 ## Discovery Pipeline v2
 
-RUMI's discovery engine is not a research assistant. It's a discovery engine. The v2 pipeline runs 16 phases, each with algorithmic fallbacks and LLM-powered analysis:
+RUMI's discovery engine is not a research assistant. It's a discovery engine. The pipeline runs 21 phases across 4 stages, each with algorithmic fallbacks and LLM-powered analysis:
 
 ```
-Phase 1:  Literature          arXiv + PubMed + Semantic Scholar (multi-query, snowball sampling)
+Phase 1:  Literature          6 sources: arXiv + PubMed + Semantic Scholar + CrossRef + INSPIRE HEP + CORE
 Phase 1.5 Citation Network    2-hop citation walk — follows references of top papers
-Phase 2:  Knowledge Graph     Algorithmic + LLM entity extraction, persistent across runs
+Phase 2:  Knowledge Graph     Entity extraction + link prediction + 29 API enrichment sources (PubChem, NIST, NASA, AlphaFold, LIGO, etc.)
 Phase 3:  Gap Detection       Structural holes, orphan observations, missing mechanisms
 Phase 3.5 Adaptive Literature Gap-targeted multi-round search (refines queries based on gaps)
 Phase 4:  Anomaly Detection   Conflicting evidence, outliers, prediction violations
-Phase 5:  Hidden Variables    Propose unseen entities/processes (dark matter style reasoning)
+Phase 5:  Hidden Variables    What-If engine + contradiction-driven + novelty filter (rejects known science)
 Phase 6:  Mechanisms          Causal pathways with equations, not just correlations
+Phase 6.5 Domain Calculations Domain-specific + general computations (SymPy/NumPy verification)
 Phase 7:  Predictions         Testable predictions with falsification criteria
-Phase 8:  Theory Tournament   20 candidates, elimination rounds, head-to-head ranking
-Phase 8.5 Adversarial Test    Attacks every discovery: existing theory? removable vars? falsification?
+Phase 7.5 Falsification Engine Try to destroy theories: constraints, counterfactuals, adversarial
+Phase 8:  Theory Tournament   20 candidates, 3 rounds, GFlowNet-inspired diversity selection, winner override for known science
+Phase 8.1 Discovery Tournament Evolutionary theory refinement — mutate, cross-validate, evolve
+Phase 8.3 Novelty Check       Are these discoveries genuinely new? Literature comparison
+Phase 8.5 Adversarial Test    5 questions: existing theory, variable removal, falsification, known science check, operational definition
 Phase 8.6 Critical Evaluation 6-dimension assessment: novelty, methodology, significance, clarity, limits, reproducibility
-Phase 9:  Computational       Real graph analysis, Monte Carlo, statistical testing
+Phase 9:  Computational       SymPy equation verification + domain calculations + math engine (6 categories: equations, dimensions, derivations, simulation, Monte Carlo, cross-equation)
+Phase 9.2 Scientific Simulator Mechanism simulation: equation extraction, parameter sweeps, consistency checks
 Phase 9.5 Experimental Design Concrete validation plans: variables, controls, timeline, cost
-Phase 9.7 Data Analysis       Fetch & analyze real public datasets (NASA Exoplanet Archive, etc.)
-Phase 10: Contradictions      Scientific tension analysis, competing theory detection
-Phase 11: Skeptic Review      Adversarial critique with strengths/weaknesses/failure conditions
-Phase 12: Discovery Scoring   Domain-weighted quality gate (0-100) with grade assignment
+Phase 9.7 Data Analysis       Domain-specific datasets (NASA Exoplanets, NIST CODATA, GBIF, WHO, etc.)
+Phase 10: Contradictions      Deep LLM-based + algorithmic contradiction detection (finds claims that cannot both be true)
+Phase 10.5 Literature Contradiction Scoring — score contradictions against published literature
+Phase 11: Skeptic Review      Adversarial critique via SkepticAgent with strengths/weaknesses/failure conditions
+Phase 11.5 Literature Validation — ground predictions in real papers, compare RUMI's numbers vs published data
+Phase 11.6 Cross-Validation   Statistical rigor assessment, multi-theory consistency check
+Phase 12: Discovery Scoring   7 dimensions + adversarial penalties + known-science penalties + domain weighting
+Post:     Claim Labeling      Epistemic status labels (cited/derived/estimated/speculative)
+Post:     Provenance Tracking Trace every claim back to its source paper
 ```
 
 ### Intelligence Features
 
-| Feature | Description |
+|| Feature | Description |
 |---------|-------------|
 | **Hypothesis Memory** | SQLite-backed cross-run persistence — remembers past hypotheses, builds on them |
 | **Phase-Specific LLM Routing** | Cerebras (fast) for extraction, Gemini (best reasoning) for mechanisms/theories |
+| **Resilient LLM Fallback** | 4-layer LLM fallback: phase provider → auto → cooldown wait → ResilientLLM |
 | **Citation Network Traversal** | 2-hop citation walk via Semantic Scholar — finds foundational papers |
 | **Experimental Validation** | Concrete experiment plans with variables, controls, timeline, cost |
 | **Knowledge Graph Persistence** | Graph accumulates across runs with staleness pruning |
-| **Data Analysis Integration** | Fetches real public datasets and runs statistical analysis |
+| **Data Analysis Integration** | 17 domain-specific APIs: NASA, PubChem, NIST, PDB, GBIF, NOAA, WHO, etc. |
 | **Quality-Weighted Scoring** | Papers scored by citations, recency, network centrality — not just count |
-| **Domain Templates** | 6 domain-specific templates with methodology preferences and scoring weights |
+| **Domain Templates** | 17 domain-specific templates with methodology preferences and scoring weights |
+| **Literature Validation** | Grounds predictions in real papers — compares RUMI's numbers vs published data |
+| **Bayesian Scoring** | Prior/likelihood/posterior scoring alongside discovery scoring |
+| **Novelty Checking** | Verifies discoveries are genuinely new against existing literature |
+| **Falsification Engine** | Generates specific falsification conditions for every theory |
+| **Evolutionary Tournament** | Discovery tournament: mutate, cross-validate, evolve theory populations |
+| **Claim Provenance** | Traces every claim in the report back to its source paper |
+| **Epistemic Labeling** | Labels every claim as cited/derived/estimated/speculative |
+| **Scientific Simulator** | Extracts equations, runs parameter sweeps, checks consistency |
+| **Literature Contradiction** | Scores contradictions against published literature |
+| **Cross-Validation** | Statistical rigor assessment across multiple theories |
+| **Contradiction-Driven Discovery** | Generates hypotheses that resolve contradictions between papers |
+| **What-If Counterfactual Engine** | Asks what would surprise domain experts to generate novel hypotheses |
+| **Novelty Enforcement** | 5-layer filter: literature check, known science, exotic soup penalty, operational definitions, winner override |
+| **GFlowNet Diversity Selection** | Theory selection rewards diversity, not just quality |
+| **Abstraction Compression** | Finds simplest unifying principle (100 observations to 1 principle) |
+| **Math Engine (6 categories)** | Equation solving, dimensional analysis, derivation verification, simulation, Monte Carlo, cross-equation |
+| **Physical Reasonableness** | Catches values above speed of light, below Planck length |
+| **29 API Enrichment** | PubChem, NIST, UniProt, PDB, NASA, INSPIRE HEP, LIGO, AlphaFold, ClinicalTrials, KEGG, CORE |
+| **Constructed Variable Bonus** | Rewards hypotheses that introduce NEW named parameters |
+| **Exotic Physics Penalty** | Penalizes combining popular speculative ideas without new insight |
+| **Operational Definition Check** | Every new variable must specify how to measure it |
+| **Reflexion** | Recursive self-improvement after every run |
 
 ### Post-Processing Pipeline
 
@@ -155,7 +188,7 @@ After the 12-phase discovery engine, RUMI runs two additional processing layers:
 
 ```
 Topic: Dark energy decay signatures in the cosmic microwave background
-Domain: physics | Mode: full | Provider: CEREBRAS | Duration: 200s
+Domain: physics | Mode: full | Provider: CEREBRAS | Duration: ~40 min
 
 Phase 1:  48 papers from 3 sources (arXiv + PubMed + Semantic Scholar)
 Phase 2:  68 entities, 53 relationships (LLM-enhanced knowledge graph)
@@ -192,14 +225,14 @@ Classification: extension
 
 ### 17 Supported Domains
 
-| Domain | Key | Enrichment APIs |
+|| Domain | Key | Enrichment APIs |
 |--------|-----|-----------------|
 | Drug Discovery | `drug_discovery` | PubChem + OpenFDA + PDB |
 | Materials Science | `materials_science` | PubChem + Materials Project |
 | Neuroscience | `neuroscience` | UniProt + PDB |
 | Molecular Biology | `molecular_biology` | UniProt + PDB |
 | Climate & Energy | `climate_energy` | NASA POWER |
-| Space & Astronomy | `space_astronomy` | NASA API + arXiv |
+| Space & Astronomy | `space_astronomy` | NASA Exoplanet Archive + NASA Images + arXiv |
 | Computer Science | `computer_science` | GitHub |
 | Earth Science | `earth_science` | USGS |
 | Oceanography | `oceanography` | NOAA |
@@ -209,12 +242,12 @@ Classification: extension
 | Social Sciences | `social_science` | OpenAlex |
 | Chemistry | `chemistry` | CIR + PubChem |
 | Ecology | `ecology` | GBIF |
-| Physics | `physics` | arXiv |
+| Physics | `physics` | NIST WebBook + NIST ASD + arXiv |
 | General Science | `general` | Semantic Scholar |
 
 ### Key Discovery Modules
 
-| Module | Purpose |
+|| Module | Purpose |
 |--------|---------|
 | `knowledge_gap_detector` | Find structural holes, orphan observations, missing mechanisms |
 | `anomaly_detector` | Find conflicting evidence, outliers, prediction violations |
@@ -222,11 +255,21 @@ Classification: extension
 | `mechanism_generator` | Generate causal pathways with equations |
 | `mechanism_discovery` | Search for conservation laws, intermediate variables, energy flow |
 | `prediction_engine` | Generate testable predictions with falsification criteria |
-| `theory_competition` | Tournament: 20 candidates, elimination rounds, head-to-head ranking |
-| `test_stage` | Adversarial attack: existing theory? removable variables? falsification? |
+| `falsification_engine` | Try to destroy theories: constraints, counterfactuals, adversarial |
+| `theory_competition` | Tournament: 20 candidates, 3 rounds, GFlowNet-inspired diversity selection, winner override for known science |
+| `discovery_tournament` | Evolutionary theory refinement — mutate, cross-validate, evolve |
+| `novelty_checker` | Verify discoveries are genuinely new against existing literature |
+| `test_stage` | Adversarial challenge: existing theory? removable variables? falsification? |
 | `peer_review` | Critical evaluation: 6-dimension assessment with recommendation |
+| `skeptic_agent` | Structured adversarial critique with evidence ratings |
 | `discovery_scorer` | 7-dimension quality gate with mathematical rigor |
-| `computational_verification` | Real graph analysis, Monte Carlo, statistics |
+| `bayesian_scorer` | Prior/likelihood/posterior scoring for theory comparison |
+| `computational_verification` | Real graph analysis, Monte Carlo, parameter sweeps, statistics |
+| `scientific_simulator` | Equation extraction, parameter sweeps, consistency checks |
+| `computation_engine` | SymPy/NumPy verification of mechanism numbers and derivation chains |
+| `prediction_literature_validator` | Ground predictions in real papers — compare numbers vs published data |
+| `literature_contradiction_scorer` | Score contradictions against published literature |
+| `cross_validator` | Statistical rigor assessment, multi-theory consistency check |
 | `domain_ontologies` | Real physics for 17 domains: equations, mechanisms, constraints |
 | `math_consistency_checker` | Verify theories: equation parsing, parameter ranges, unit checking |
 | `simulation_pipeline` | Monte Carlo testing: 1000 runs, confidence intervals |
@@ -234,9 +277,10 @@ Classification: extension
 | `cross_domain_transfer` | 7 built-in analogies + LLM-powered new analogy discovery |
 | `continuous_operation` | Autonomous loop: curiosity-driven topic selection |
 | `refinement_pipeline` | 13-stage post-processing: audit → formalization → scoring |
-| `falsification_engine` | Try to destroy theories: constraints, counterfactuals, adversarial |
 | `claim_provenance` | Trace every claim back to its source paper |
-| `contradiction_miner` | Scientific tension analysis, competing theory detection |
+| `claim_labeler` | Epistemic status labels (cited/derived/estimated/speculative) |
+| `contradiction_miner` | Deep LLM-based + algorithmic contradiction detection (finds claims that cannot both be true) |
+| `resilient_llm` | Independent LLM wrapper with its own retry/cooldown state |
 | `reflexion` | Recursive self-improvement: analyze, patch, test, apply |
 
 ---
@@ -326,7 +370,7 @@ Every discovery gets attacked with three questions:
 - What existing theory already explains this?
 - Can any new variable be removed?
 - What observation would falsify it?
-Each gets a verdict: survived / weakened / killed
+Each gets a verdict: validated / challenged / superseded
 
 ### 11. Critical Evaluation (Phase 8.6)
 Formal 6-dimension assessment of the top discovery:
@@ -535,7 +579,7 @@ RUMI's architecture is grounded in peer-reviewed research:
 ### Quick Start
 
 ```bash
-git clone https://github.com/subhansh-dev/Rumi
+git clone https://github.com/subhansh-dev/rumi
 cd rumi
 pip install -e .
 playwright install chromium
@@ -861,7 +905,7 @@ experiments = result["phases"].get("experimental_validation", {}).get("plans", [
 Contributions welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ```bash
-git clone https://github.com/subhansh-dev/Rumi.git
+git clone https://github.com/subhansh-dev/rumi.git
 cd rumi
 pip install -r requirements.txt
 python main.py

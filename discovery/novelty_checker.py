@@ -44,11 +44,14 @@ class NoveltyChecker:
                 "recommendation": "..."
             }
         """
+        # Guard against None inputs
+        papers = papers or []
+
         # 1. Extract key claims from the theory
-        claims = self._extract_claims(theory)
+        claims = self._extract_claims(theory) or []
 
         # 2. Search for similar work in existing papers
-        similar_work = self._find_similar_work(claims, papers)
+        similar_work = self._find_similar_work(claims, papers) or []
 
         # 3. LLM-based novelty assessment
         llm_assessment = None
@@ -58,12 +61,12 @@ class NoveltyChecker:
         # 4. Compute novelty score
         novelty_score = self._compute_novelty_score(theory, similar_work, llm_assessment)
 
-        # 5. Determine verdict
-        if novelty_score > 0.7:
+        # 5. Determine verdict (adjusted thresholds — less harsh)
+        if novelty_score > 0.65:
             verdict = "novel"
-        elif novelty_score > 0.4:
+        elif novelty_score > 0.45:
             verdict = "refinement"
-        elif novelty_score > 0.2:
+        elif novelty_score > 0.25:
             verdict = "rediscovery"
         else:
             verdict = "well_known"
@@ -104,14 +107,14 @@ class NoveltyChecker:
                 claims.append(var)
 
         # From hidden variables
-        for hv in theory.get("hidden_variables", []):
+        for hv in (theory.get("hidden_variables") or []):
             if isinstance(hv, str):
                 claims.append(hv)
             elif isinstance(hv, dict):
                 claims.append(hv.get("name", ""))
 
         # From steps
-        for step in theory.get("steps", []):
+        for step in (theory.get("steps") or []):
             if isinstance(step, str):
                 # Extract key concepts
                 for word in step.split():
@@ -174,14 +177,16 @@ class NoveltyChecker:
         theory_summary = f"""
 Name: {theory.get('name', '?')}
 Type: {theory.get('type', '?')}
-Description: {theory.get('description', theory.get('mechanism', ''))[:500]}
-Key Parameters: {json.dumps(theory.get('key_parameters', [])[:3])}
-Predictions: {json.dumps(theory.get('predictions', [])[:3])}
+Description: {str(theory.get('description', theory.get('mechanism', '')))[:500]}
+Key Parameters: {json.dumps((theory.get("key_parameters") if isinstance(theory.get("key_parameters"), list) else [])[:3])}
+Predictions: {json.dumps((theory.get("predictions") if isinstance(theory.get("predictions"), list) else [])[:3])}
 """
 
         similar_text = ""
-        for s in similar_work[:5]:
-            similar_text += f"\n- {s['title']} (matches: {', '.join(s['matching_claims'][:3])})"
+        for s in (similar_work or [])[:5]:
+            claims = s.get('matching_claims') or []
+            title = s.get('title', '?')
+            similar_text += f"\n- {title} (matches: {', '.join(str(c) for c in claims[:3])})"
 
         prompt = f"""You are a research novelty assessor. Determine if this proposed theory
 is genuinely NEW or already well-known in the literature.
@@ -226,32 +231,58 @@ Output JSON:
 
     def _compute_novelty_score(self, theory: dict, similar_work: list,
                                 llm_assessment: dict = None) -> float:
-        """Compute a 0-1 novelty score."""
-        score = 0.5  # default: uncertain
+        """Compute a 0-1 novelty score.
 
-        # Factor 1: Similar work penalty
+        Scoring philosophy:
+        - Start at 0.7 (optimistic — assume novel until proven otherwise)
+        - Penalize only for STRONG evidence of prior work
+        - Reward for new mechanisms, new predictions, new math
+        - Distinguish "refinement" (minor tweak) from "novel synthesis" (new combination)
+        """
+        score = 0.7  # optimistic default — assume novel until proven otherwise
+
+        # Factor 1: Similar work penalty (only for STRONG matches)
         if similar_work:
             max_match = max(s["match_strength"] for s in similar_work)
-            score -= max_match * 0.4  # up to -0.4 for strong matches
+            # Only penalize significantly if >50% of claims match existing work
+            if max_match > 0.5:
+                score -= (max_match - 0.5) * 0.6  # penalty only above 50% match
+            elif max_match > 0.3:
+                score -= (max_match - 0.3) * 0.2  # mild penalty for moderate matches
+            # Weak matches (< 30%) don't penalize — that's normal for novel work
 
         # Factor 2: LLM assessment
         if llm_assessment:
             level = llm_assessment.get("novelty_level", "")
             level_scores = {
                 "genuinely_novel": 0.9,
-                "incremental_refinement": 0.5,
-                "well_known": 0.1,
+                "incremental_refinement": 0.6,  # was 0.5 — refinements can still be novel
+                "well_known": 0.2,
                 "rediscovery": 0.05,
             }
-            llm_score = level_scores.get(level, 0.5)
-            score = score * 0.4 + llm_score * 0.6  # weight LLM heavily
+            llm_score = level_scores.get(level, 0.7)
+            score = score * 0.4 + llm_score * 0.6
 
         # Factor 3: Theory type
         is_novel = theory.get("is_novel_vs_known", theory.get("is_novel_vs_extension", ""))
         if is_novel == "novel":
-            score += 0.1
+            score += 0.15
         elif is_novel in ("extension_of_known", "modification_of_known"):
-            score -= 0.1
+            score -= 0.05  # mild penalty — extensions can still be novel
+
+        # Factor 4: Novel components bonus
+        has_new_mechanism = theory.get("has_new_mechanism", False)
+        has_new_prediction = theory.get("has_new_prediction", False)
+        has_new_math = theory.get("has_new_math", False)
+        novel_components = sum([has_new_mechanism, has_new_prediction, has_new_math])
+        if novel_components >= 2:
+            score += 0.1  # bonus for multiple novel components
+        elif novel_components == 1:
+            score += 0.05
+
+        # Factor 5: No similar work found = likely novel
+        if not similar_work:
+            score += 0.1
 
         return max(0.0, min(1.0, score))
 
@@ -259,11 +290,12 @@ Output JSON:
         """Separate what's novel from what's known."""
         novel_parts = []
         known_parts = []
+        similar_work = similar_work or []
 
         # Check which claims have matches
         matched_claims = set()
         for s in similar_work:
-            matched_claims.update(s.get("matching_claims", []))
+            matched_claims.update(s.get("matching_claims") or [])
 
         claims = self._extract_claims(theory)
         for claim in claims:

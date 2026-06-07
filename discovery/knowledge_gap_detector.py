@@ -85,6 +85,49 @@ class KnowledgeGapDetector:
         for gap in all_gaps:
             gap["gap_score"] = self._score_gap(gap, entities, relationships)
 
+        # Filter out trivial gaps — generic words AND overly common scientific terms
+        TRIVIAL_NAMES = {
+            "model", "models", "data", "result", "results", "method", "methods",
+            "analysis", "approach", "study", "system", "parameter", "value",
+            "type", "form", "level", "way", "part", "case", "group", "point",
+            "term", "work", "problem", "question", "information", "research",
+            "field", "paper", "figure", "table", "section", "review",
+            "et al", "abstract", "introduction", "conclusion", "discussion",
+            "supplementary", "appendix", "reference", "author", "journal",
+            # Generic scientific terms that appear in EVERY paper
+            "emission", "radiation", "absorption", "scattering", "expansion",
+            "observation", "detection", "measurement", "experiment",
+            "theory", "model", "hypothesis", "framework", "dynamics",
+            "interaction", "process", "mechanism", "effect", "phenomenon",
+            "signal", "spectrum", "flux", "intensity", "luminosity",
+        }
+        filtered_gaps = []
+        for gap in all_gaps:
+            # Get the gap identifier — check multiple possible field names
+            name = gap.get("entity_name", gap.get("name", gap.get("entity", "")))
+            if not name:
+                # Use reason/description as fallback
+                name = gap.get("reason", gap.get("description", ""))
+            name = name.lower().strip()
+
+            # Skip trivial names (only if the name IS a trivial word, not if it CONTAINS one)
+            if name in TRIVIAL_NAMES:
+                continue
+            # Skip very short names (likely abbreviations or noise)
+            if len(name) < 3:
+                continue
+            # Skip gaps about entities with many papers (well-studied = not a gap)
+            entity_papers = gap.get("papers", gap.get("supporting_papers", 0))
+            if isinstance(entity_papers, str):
+                try:
+                    entity_papers = int(entity_papers)
+                except ValueError:
+                    entity_papers = 0
+            if isinstance(entity_papers, int) and entity_papers > 10:
+                gap["gap_score"] *= 0.3  # heavily penalize well-studied entities
+            filtered_gaps.append(gap)
+        all_gaps = filtered_gaps
+
         all_gaps.sort(key=lambda g: g["gap_score"], reverse=True)
 
         summary = {

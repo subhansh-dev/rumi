@@ -57,22 +57,29 @@ class ConfidenceScorer:
         }
 
     def _score_paper_count(self, hypothesis):
-        papers = hypothesis.get("papers", [])
+        papers = hypothesis.get("papers") or []
         supporting = hypothesis.get("supporting_evidence", hypothesis.get("evidence", []))
-        edges = hypothesis.get("edges", [])
+        edges = hypothesis.get("edges") or []
         edge_papers = set()
-        for e in edges:
+        for e in (edges if isinstance(edges, list) else []):
             ps = e.get("papers", [])
             if isinstance(ps, list):
                 edge_papers.update(ps)
-        all_papers = set(papers) | edge_papers
+        all_papers = set(papers if isinstance(papers, list) else []) | edge_papers
         n = len(all_papers)
         if n == 0:
             # Use evidence items count as proxy
-            ev = len(supporting)
-            if ev == 0:
-                return 0.05
-            return min(0.3, ev * 0.05)
+            ev = len(supporting) if isinstance(supporting, list) else 0
+            # Also count predictions and hidden variables as evidence
+            preds = len(hypothesis.get("predictions") or [])
+            hvs = len(hypothesis.get("hidden_variables") or [])
+            desc_len = len(hypothesis.get("description", ""))
+            if ev == 0 and preds == 0 and hvs == 0:
+                # Give credit for having a detailed description
+                if desc_len > 200:
+                    return 0.25
+                return 0.1
+            return min(0.4, (ev + preds + hvs) * 0.05)
         return min(1.0, log2(n + 1) / 5.0)
 
     def _score_citation_impact(self, hypothesis, graph):

@@ -83,8 +83,8 @@ def generate_hypotheses_algorithmic(graph, gaps, anomalies, topic, domain):
 
     # Extract domain-grounded context
     context = _extract_topic_entities(graph, [], topic)
-    entity_list = context["entities"]
-    top_entities = [e["name"] for e in entity_list[:10]]
+    entity_list = context.get("entities", [])
+    top_entities = [e.get("name", "") for e in entity_list[:10]]
 
     # 1. From gaps: propose hidden variables for orphan observations
     for gap in gaps[:5]:
@@ -230,7 +230,7 @@ def _get_connected_entities(entity_name, relationships, entity_list):
         elif entity_name.lower() in tgt.lower():
             connected.append(src)
     # Resolve IDs to names
-    name_map = {e["id"]: e["name"] for e in entity_list}
+    name_map = {e.get("id", ""): e.get("name", "") for e in entity_list}
     resolved = []
     seen = set()
     for c in connected:
@@ -249,14 +249,14 @@ def _generate_entity_grounded_hypotheses(graph, entity_list, relationships, topi
     hypotheses = []
 
     # Get process-type and object-type entities
-    processes = [e for e in entity_list if e["type"] in ("process", "measurement", "phenomenon")]
-    objects = [e for e in entity_list if e["type"] in ("object", "instrument", "material")]
-    properties = [e for e in entity_list if e["type"] in ("property", "measurement")]
+    processes = [e for e in entity_list if e.get("type") in ("process", "measurement", "phenomenon")]
+    objects = [e for e in entity_list if e.get("type") in ("object", "instrument", "material")]
+    properties = [e for e in entity_list if e.get("type") in ("property", "measurement")]
 
     # Strategy 1: Propose that a process affects an object
     if processes and objects:
-        proc = processes[0]["name"]
-        obj = objects[0]["name"]
+        proc = processes[0].get("name", "")
+        obj = objects[0].get("name", "")
         hypotheses.append({
             "name": f"{proc} modulates {obj}",
             "type": "alternative",
@@ -280,7 +280,7 @@ def _generate_entity_grounded_hypotheses(graph, entity_list, relationships, topi
 
     # Strategy 2: Propose that two unconnected processes share a common cause
     if len(processes) >= 2:
-        p1, p2 = processes[0]["name"], processes[1]["name"]
+        p1, p2 = processes[0].get("name", ""), processes[1].get("name", "")
         hypotheses.append({
             "name": f"Common cause: {p1} ↔ {p2}",
             "type": "alternative",
@@ -304,7 +304,7 @@ def _generate_entity_grounded_hypotheses(graph, entity_list, relationships, topi
 
     # Strategy 3: Propose that a measurement anomaly reveals new physics
     if properties:
-        prop = properties[0]["name"]
+        prop = properties[0].get("name", "")
         hypotheses.append({
             "name": f"Novel interpretation of {prop}",
             "type": "alternative",
@@ -496,8 +496,11 @@ def _find_missing_links(graph):
 
     adj = defaultdict(set)
     for rel in relationships:
-        adj[rel["source"]].add(rel["target"])
-        adj[rel["target"]].add(rel["source"])
+        src = rel.get("source")
+        tgt = rel.get("target")
+        if src and tgt:
+            adj[src].add(tgt)
+            adj[tgt].add(src)
 
     missing = []
     entity_ids = list(entities.keys())

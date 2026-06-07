@@ -56,7 +56,7 @@ class ContradictionMiner:
     def __init__(self, graph=None):
         self.graph = graph
 
-    def mine(self, graph=None):
+    def mine(self, graph=None, papers=None, llm_call=None):
         g = graph or self.graph
         if not g:
             return {"contradictions": [], "severity_scores": {}, "summary": "No graph provided"}
@@ -78,10 +78,83 @@ class ContradictionMiner:
         tensions = self._find_scientific_tensions(g, entities, rels)
         contradictions.extend(tensions)
 
+        # LLM-based deep contradiction detection
+        if llm_call and papers:
+            deep_contradictions = self._find_deep_contradictions(papers, llm_call)
+            contradictions.extend(deep_contradictions)
+
         scores = {c["id"]: c["severity"] for c in contradictions}
         summary = self._summarize(contradictions)
 
         return {"contradictions": contradictions, "severity_scores": scores, "summary": summary}
+
+    def _find_deep_contradictions(self, papers, llm_call):
+        """Use LLM to find deep scientific contradictions between papers.
+
+        These are not just opposite relations — they're claims that can't both be true.
+        Example: "Paper A says KRAS resistance is pathway-dependent, Paper B says it's universal"
+        """
+        deep_contradictions = []
+
+        # Build paper context
+        paper_text = ""
+        for p in papers[:10]:
+            title = p.get("title", "")
+            abstract = p.get("abstract", "")[:200]
+            paper_text += f"- {title}: {abstract}\n"
+
+        if not paper_text.strip():
+            return deep_contradictions
+
+        prompt = f"""You are a scientific contradiction finder. Your job is to find claims that CANNOT both be true.
+
+PAPERS:
+{paper_text}
+
+Find SPECIFIC contradictions between these papers. A contradiction is when:
+1. Paper A says X, Paper B says Y, and X and Y cannot both be true
+2. A well-established result contradicts a new finding
+3. Two observations are inconsistent with each other
+
+DO NOT report:
+- Different opinions or interpretations (that's normal science)
+- Different methods applied to different systems (that's not a contradiction)
+- Vague disagreements ("some say X, others say Y")
+
+DO report:
+- Specific quantitative claims that conflict ("Paper A says rate = 10, Paper B says rate = 100")
+- Mechanistic claims that are mutually exclusive ("A activates B" vs "A inhibits B")
+- Observations that violate established theory
+
+Output JSON:
+{{"contradictions": [{{"claim_a": "specific claim from paper A", "claim_b": "specific claim from paper B", "why_contradictory": "why these can't both be true", "resolution_hint": "what would resolve this", "severity": "high|medium|low"}}]}}"""
+
+        try:
+            raw = llm_call(prompt, max_tokens=2048)
+            if raw:
+                from discovery.json_extract import extract_json
+                result = extract_json(raw)
+                if result and "contradictions" in result:
+                    for i, c in enumerate(result["contradictions"][:5]):
+                        deep_contradictions.append({
+                            "id": f"deep_contradiction_{i}",
+                            "type": "deep_contradiction",
+                            "entity_a": c.get("claim_a", "")[:100],
+                            "entity_b": c.get("claim_b", "")[:100],
+                            "relation_a": "claims",
+                            "relation_b": "contradicts",
+                            "papers_a": [],
+                            "papers_b": [],
+                            "severity": {"high": 0.9, "medium": 0.6, "low": 0.3}.get(c.get("severity", "medium"), 0.6),
+                            "summary": f"CONTRADICTION: {c.get('claim_a', '')[:80]} vs {c.get('claim_b', '')[:80]}",
+                            "why_contradictory": c.get("why_contrictory", c.get("why_contradictory", "")),
+                            "resolution_hint": c.get("resolution_hint", ""),
+                            "tension_type": "deep_contradiction",
+                        })
+        except Exception:
+            pass
+
+        return deep_contradictions
 
     def _find_scientific_tensions(self, graph, entities, rels):
         """Find scientific tensions — competing theories, conflicting evidence."""

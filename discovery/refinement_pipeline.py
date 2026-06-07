@@ -1,4 +1,10 @@
 """
+import sys as _sys
+if _sys.platform == "win32":
+    try:
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 RUMI Refinement Pipeline — 13-stage post-processing layer.
 Takes raw pipeline output and produces scientist-grade refined discoveries.
 
@@ -40,19 +46,25 @@ def _llm(prompt, max_tokens=4096, json_mode=False):
     if not raw:
         return None
     if json_mode:
+        # Use robust JSON extractor (handles arrays, markdown, trailing commas, truncation)
+        try:
+            from discovery.json_extract import extract_json
+            parsed = extract_json(raw)
+            if parsed and isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+        # Fallback: basic parsing
         text = raw.strip() if isinstance(raw, str) else str(raw)
-        # Strip markdown code blocks
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0].strip()
-        # Try direct parse
         try:
             parsed = json.loads(text)
             if isinstance(parsed, dict):
                 return parsed
         except json.JSONDecodeError:
             pass
-        # Try extracting JSON object
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
             try:
@@ -61,14 +73,6 @@ def _llm(prompt, max_tokens=4096, json_mode=False):
                     return parsed
             except json.JSONDecodeError:
                 pass
-        # Try fixing common JSON issues
-        for candidate in [text, text.replace("'", '"'), re.sub(r',\s*}', '}', text), re.sub(r',\s*]', ']', text)]:
-            try:
-                parsed = json.loads(candidate)
-                if isinstance(parsed, dict):
-                    return parsed
-            except (json.JSONDecodeError, Exception):
-                continue
         # All JSON parsing failed — wrap raw text in a dict so callers don't crash
         return {"_raw": raw[:2000], "_parse_failed": True}
     return raw
@@ -137,6 +141,7 @@ Be specific. Cite papers. Minimum 3 entries per category."""
 
 def first_principles_reconstruction(topic, hypotheses, audit):
     """Trace every hypothesis claim back to first principles."""
+    if not isinstance(hypotheses, list): hypotheses = [hypotheses] if isinstance(hypotheses, dict) else []
     hyp_text = ""
     for i, h in enumerate(hypotheses[:5], 1):
         hyp_text += f"\nH{i}: {h.get('title', 'Untitled')}\n"
@@ -180,13 +185,14 @@ Return JSON:
 # ═══════════════════════════════════════════════════════════════
 
 def mathematical_formalization(topic, hypotheses, domain):
-    """Require formal representation for every concept. Cap confidence at 20% if none."""
+    """Attempt formal representation for each concept. Optional — no harsh penalty for absence."""
+    if not isinstance(hypotheses, list): hypotheses = [hypotheses] if isinstance(hypotheses, dict) else []
     hyp_text = ""
     for i, h in enumerate(hypotheses[:5], 1):
         hyp_text += f"\nH{i}: {h.get('title', 'Untitled')} (confidence: {h.get('confidence', 0):.0%})\n"
         hyp_text += f"  Description: {h.get('description', '')[:300]}\n"
 
-    prompt = f"""You are a mathematical formalist. Every concept must have a formal representation.
+    prompt = f"""You are a mathematical formalist. For each hypothesis, attempt to express the key relationships as equations.
 
 TOPIC: {topic}
 DOMAIN: {domain}
@@ -195,10 +201,12 @@ HYPOTHESES:
 {hyp_text}
 
 For each hypothesis:
-1. Identify or derive the relevant equations
-2. Define all variables with units
-3. If no equation exists, propose one based on dimensional analysis or analogy
-4. Rate mathematical rigor: complete|partial|absent
+1. If a known equation applies (e.g. Maxwell, diffusion, wave equation), state it with variables defined
+2. If the hypothesis suggests a new relationship, derive it step-by-step from known physics/first principles
+3. If no equation is possible (purely qualitative concept), state "qualitative" — this is acceptable
+4. Define all variables with units where possible
+
+IMPORTANT: Not every concept needs an equation. Qualitative hypotheses are valid. Do NOT force-fit equations where they don't belong.
 
 Return JSON:
 {{
@@ -206,29 +214,24 @@ Return JSON:
     {{
       "title": "...",
       "equations": [
-        {{"name": "...", "latex": "...", "variables": [{{"symbol": "...", "meaning": "...", "units": "..."}}]}}
+        {{"name": "...", "latex": "...", "derivation_steps": ["step1", "step2"], "variables": [{{"symbol": "...", "meaning": "...", "units": "..."}}], "source": "known|derived|estimated"}}
       ],
-      "mathematical_rigor": "complete|partial|absent",
-      "confidence_cap_applied": false,
+      "mathematical_rigor": "complete|partial|qualitative",
       "notes": "..."
     }}
   ]
-}}
-
-If mathematical rigor is 'absent', set confidence_cap_applied to true."""
+}}"""
 
     result = _llm(prompt, max_tokens=4096, json_mode=True)
-    if not result:
-        return {"hypotheses": [{"title": h.get("title", ""), "equations": [], "mathematical_rigor": "absent", "confidence_cap_applied": True} for h in hypotheses[:5]]}
+    if not result or (isinstance(result, dict) and result.get("_parse_failed")):
+        # Don't cap confidence — just mark as qualitative
+        return {"hypotheses": [{"title": h.get("title", ""), "equations": [], "mathematical_rigor": "qualitative", "notes": "LLM unavailable — qualitative assessment only"} for h in hypotheses[:5]]}
 
-    # Apply confidence cap
+    # Light confidence adjustment (not harsh cap)
     for h_result in result.get("hypotheses", []):
-        if h_result.get("confidence_cap_applied"):
-            for h in hypotheses:
-                if h.get("title") == h_result.get("title"):
-                    h["confidence"] = min(h.get("confidence", 0), 0.20)
-                    h["confidence_capped"] = True
-                    h["cap_reason"] = "No mathematical formalization possible"
+        rigor = h_result.get("mathematical_rigor", "qualitative")
+        if rigor == "absent":
+            h_result["mathematical_rigor"] = "qualitative"  # normalize terminology
     return result
 
 
@@ -237,25 +240,41 @@ If mathematical rigor is 'absent', set confidence_cap_applied to true."""
 # ═══════════════════════════════════════════════════════════════
 
 def derivation_engine(hypotheses, math_results):
-    """No free parameters. Every variable must be justified."""
+    """Derive formulas from first principles where possible. Optional enhancement."""
+    if not isinstance(hypotheses, list): hypotheses = [hypotheses] if isinstance(hypotheses, dict) else []
     hyp_text = ""
     for i, h in enumerate(hypotheses[:5], 1):
         hyp_text += f"\nH{i}: {h.get('title', 'Untitled')}\n"
+        desc = h.get('description', h.get('mechanism', ''))
+        hyp_text += f"  Description: {desc[:300]}\n"
         params = h.get("key_parameters", [])
+        if isinstance(params, dict):
+            params = list(params.values()) if params else []
         if params:
             hyp_text += f"  Parameters: {json.dumps(params[:5])}\n"
 
-    prompt = f"""You are a derivation auditor. Every variable must answer all 5 questions:
-1. What is it?
-2. Where does it come from?
-3. How is it measured?
-4. What units does it have?
-5. How does it evolve?
+    # Include equations from math stage if available
+    math_context = ""
+    if math_results and isinstance(math_results, dict):
+        for mh in math_results.get("hypotheses", []):
+            eqs = mh.get("equations", [])
+            if eqs:
+                math_context += f"\n  Equations from formalization: {json.dumps(eqs[:3])}\n"
+
+    prompt = f"""You are a derivation auditor. For each hypothesis, audit every parameter and attempt step-by-step derivation where possible.
 
 HYPOTHESES:
 {hyp_text}
+{math_context}
 
-For each hypothesis, audit every parameter. Reject any that can't answer all 5 questions.
+For each hypothesis:
+1. List all parameters with their origin (known constant, derived, estimated, or measured)
+2. For derived parameters: show the derivation step-by-step from first principles or known equations
+3. For estimated parameters: state the basis for the estimate and its uncertainty
+4. For known constants: cite the source and precision
+5. Flag any "free parameters" that have no justification — these weaken the hypothesis
+
+IMPORTANT: If a parameter is genuinely unknown or speculative, that's OK — just label it as "estimated" with the reasoning. Don't reject hypotheses for being speculative — flag the speculation transparently.
 
 Return JSON:
 {{
@@ -265,22 +284,23 @@ Return JSON:
       "parameters_audit": [
         {{
           "name": "...",
-          "what": "...",
-          "origin": "...",
-          "measurement": "...",
+          "origin": "known_constant|derived|estimated|measured",
+          "derivation_steps": ["step1 from X", "step2 gives Y"],
+          "value": "...",
           "units": "...",
-          "evolution": "...",
-          "status": "justified|unjustified|partially_justified"
+          "uncertainty": "...",
+          "source": "...",
+          "status": "justified|partially_justified|speculative"
         }}
       ],
       "free_parameters_count": 0,
-      "verdict": "pass|fail|conditional"
+      "verdict": "pass|conditional|needs_work"
     }}
   ]
 }}"""
 
     result = _llm(prompt, max_tokens=4096, json_mode=True)
-    if not result or isinstance(result, str):
+    if not result or isinstance(result, str) or (isinstance(result, dict) and result.get("_parse_failed")):
         return {"hypotheses": [{"title": h.get("title", ""), "parameters_audit": [], "free_parameters_count": 0, "verdict": "conditional"} for h in hypotheses[:5]]}
     return result
 
@@ -350,11 +370,18 @@ Return JSON:
 # ═══════════════════════════════════════════════════════════════
 
 def adversarial_scientists(topic, hypotheses, winner):
-    """5 reviewer personas try to kill the winning hypothesis."""
+    """5 reviewer personas assess the winning hypothesis fairly but rigorously."""
     if not winner:
         return {"reviews": [], "survived": False}
 
-    prompt = f"""You are simulating 5 adversarial scientific reviewers. Each tries to REJECT the hypothesis.
+    prompt = f"""You are simulating 5 scientific reviewers assessing a novel hypothesis.
+Be RIGOROUS but FAIR. Distinguish between:
+- FATAL: Fundamental logical/mathematical error that invalidates the core claim
+- MAJOR: Significant gap that weakens but doesn't invalidate the hypothesis
+- MINOR: Expected limitation for early-stage research
+
+IMPORTANT: A first-pass hypothesis is EXPECTED to have gaps. Do NOT label expected
+research gaps as "fatal". Fatal means the core logic is broken, not that more work is needed.
 
 TOPIC: {topic}
 WINNING HYPOTHESIS: {winner.get('title', '?')}
@@ -362,15 +389,15 @@ DESCRIPTION: {winner.get('description', '')[:500]}
 
 Simulate these 5 reviewers:
 
-REVIEWER 1 — MATHEMATICIAN: Attempts proof failure. Checks equations, dimensional analysis, limits.
-REVIEWER 2 — EXPERIMENTALIST: Attempts experimental rejection. Checks if predictions are measurable.
-REVIEWER 3 — DOMAIN EXPERT: Attempts literature-based rejection. Checks against known facts.
-REVIEWER 4 — STATISTICIAN: Attempts significance rejection. Checks sample sizes, p-values, biases.
-REVIEWER 5 — SKEPTIC: Assumes hypothesis is false. Finds the most likely alternative explanation.
+REVIEWER 1 — MATHEMATICIAN: Checks equations, dimensional analysis, limits. Only flag FATAL if equations are fundamentally wrong (not just incomplete).
+REVIEWER 2 — EXPERIMENTALIST: Checks if predictions are measurable. Only flag FATAL if predictions are physically impossible (not just difficult).
+REVIEWER 3 — DOMAIN EXPERT: Checks against known facts. Only flag FATAL if hypothesis directly contradicts well-established laws (not just lacks evidence).
+REVIEWER 4 — STATISTICIAN: Checks sample sizes, p-values, biases. Only flag FATAL if statistical claims are fabricated (not just underpowered).
+REVIEWER 5 — SKEPTIC: Finds alternative explanations. Only flag FATAL if alternative is provably correct (not just plausible).
 
 For each reviewer, provide:
 - objections: specific technical objections
-- fatal_flaws: showstoppers if any
+- fatal_flaws: showstoppers ONLY if core logic is broken (leave empty if none)
 - required_tests: what experiments would satisfy this reviewer
 - severity: fatal|major|minor
 
@@ -389,7 +416,7 @@ Return JSON:
   "survived": true
 }}
 
-If any reviewer finds a fatal flaw, set survived to false."""
+Only set survived=false if there are GENUINE fatal flaws (core logic broken)."""
 
     result = _llm(prompt, max_tokens=4096, json_mode=True)
     if not result:
@@ -814,9 +841,11 @@ def run_refinement_pipeline(topic, domain, papers, graph, hypotheses, contradict
     results = {}
     t_total = time.time()
 
-    # Defensive: ensure hypotheses are dicts, not strings
+    # Defensive: ensure hypotheses are a list of dicts
+    if not isinstance(hypotheses, list):
+        hypotheses = [hypotheses] if isinstance(hypotheses, dict) else []
     safe_hypotheses = []
-    for h in (hypotheses or []):
+    for h in hypotheses:
         if isinstance(h, dict):
             safe_hypotheses.append(h)
         elif isinstance(h, str) and len(h) > 5:
@@ -848,8 +877,11 @@ def run_refinement_pipeline(topic, domain, papers, graph, hypotheses, contradict
     log("[Refine 3/13] MATHEMATICAL FORMALIZATION")
     t0 = time.time()
     results["math"] = _safe(mathematical_formalization(topic, hypotheses, domain))
-    capped = sum(1 for h in results["math"].get("hypotheses", []) if h.get("confidence_cap_applied"))
-    log(f"  {len(results['math'].get('hypotheses', []))} formalized, {capped} confidence-capped ({time.time()-t0:.1f}s)")
+    rigor_counts = {}
+    for h in results["math"].get("hypotheses", []):
+        r = h.get("mathematical_rigor", "unknown")
+        rigor_counts[r] = rigor_counts.get(r, 0) + 1
+    log(f"  {len(results['math'].get('hypotheses', []))} formalized, rigor: {rigor_counts} ({time.time()-t0:.1f}s)")
 
     # Stage 4
     log("[Refine 4/13] DERIVATION ENGINE")

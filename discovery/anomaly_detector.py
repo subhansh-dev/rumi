@@ -84,6 +84,37 @@ class AnomalyDetector:
         for a in all_anomalies:
             a["anomaly_score"] = self._score_anomaly(a)
 
+        # Filter out trivial anomalies — common words, not scientific concepts
+        # Only filter truly generic words AND overly common scientific terms
+        TRIVIAL_NAMES = {
+            "model", "models", "data", "result", "results", "method", "methods",
+            "analysis", "approach", "study", "system", "parameter", "value",
+            "type", "form", "level", "way", "part", "case", "group", "point",
+            "term", "work", "problem", "question", "information", "research",
+            "field", "paper", "figure", "table", "section", "review",
+            "et al", "abstract", "introduction", "conclusion", "discussion",
+            "supplementary", "appendix", "reference", "author", "journal",
+            # Generic scientific terms
+            "emission", "radiation", "absorption", "scattering", "expansion",
+            "observation", "detection", "measurement", "experiment",
+            "theory", "model", "hypothesis", "framework", "dynamics",
+            "interaction", "process", "mechanism", "effect", "phenomenon",
+            "signal", "spectrum", "flux", "intensity", "luminosity",
+        }
+        filtered = []
+        for a in all_anomalies:
+            # Get the anomaly identifier — check multiple possible field names
+            name = a.get("entity_name", a.get("name", a.get("entity", "")))
+            if not name:
+                name = a.get("reason", a.get("description", ""))
+            name = name.lower().strip()
+            if name in TRIVIAL_NAMES:
+                continue
+            if len(name) < 3:
+                continue
+            filtered.append(a)
+        all_anomalies = filtered
+
         all_anomalies.sort(key=lambda x: x["anomaly_score"], reverse=True)
 
         summary = {
@@ -129,8 +160,10 @@ class AnomalyDetector:
         # Group relationships by (source, target)
         pair_rels = defaultdict(list)
         for rel in relationships:
-            key = (rel["source"], rel["target"])
-            pair_rels[key].append(rel)
+            src = rel.get("source")
+            tgt = rel.get("target")
+            if src and tgt:
+                pair_rels[(src, tgt)].append(rel)
 
         conflicts = []
         for (src, tgt), rels in pair_rels.items():
@@ -181,8 +214,12 @@ class AnomalyDetector:
         # Compute degrees
         degrees = defaultdict(int)
         for rel in relationships:
-            degrees[rel["source"]] += 1
-            degrees[rel["target"]] += 1
+            src = rel.get("source")
+            tgt = rel.get("target")
+            if src:
+                degrees[src] += 1
+            if tgt:
+                degrees[tgt] += 1
 
         # Compute z-scores
         all_degrees = [degrees.get(eid, 0) for eid in entities]
@@ -252,8 +289,12 @@ class AnomalyDetector:
         # Build type relationship expectations
         type_rel_counts = defaultdict(lambda: defaultdict(int))
         for rel in relationships:
-            src_type = entities.get(rel["source"], {}).get("type", "unknown")
-            tgt_type = entities.get(rel["target"], {}).get("type", "unknown")
+            src = rel.get("source")
+            tgt = rel.get("target")
+            if not src or not tgt:
+                continue
+            src_type = entities.get(src, {}).get("type", "unknown")
+            tgt_type = entities.get(tgt, {}).get("type", "unknown")
             type_rel_counts[(src_type, tgt_type)][rel.get("relation", "unknown")] += 1
 
         # For each entity pair connected by a path of length 2,
@@ -261,8 +302,11 @@ class AnomalyDetector:
         adj = defaultdict(set)
         rel_map = {}
         for rel in relationships:
-            adj[rel["source"]].add(rel["target"])
-            rel_map[(rel["source"], rel["target"])] = rel
+            src = rel.get("source")
+            tgt = rel.get("target")
+            if src and tgt:
+                adj[src].add(tgt)
+                rel_map[(src, tgt)] = rel
 
         # Find transitive gaps (A→B→C but no A→C)
         checked = set()
@@ -302,7 +346,7 @@ class AnomalyDetector:
                 seen.add(key)
                 unique.append(v)
 
-        unique.sort(key=lambda x: x["confidence"], reverse=True)
+        unique.sort(key=lambda x: x.get("confidence", 0), reverse=True)
         return unique[:5]
 
     def _detect_category_anomalies(self, entities: dict,
@@ -318,8 +362,12 @@ class AnomalyDetector:
         # Build type profiles
         type_profiles = defaultdict(lambda: {"relation_types": Counter(), "neighbor_types": Counter()})
         for rel in relationships:
-            src = entities.get(rel["source"], {})
-            tgt = entities.get(rel["target"], {})
+            rel_src = rel.get("source")
+            rel_tgt = rel.get("target")
+            if not rel_src or not rel_tgt:
+                continue
+            src = entities.get(rel_src, {})
+            tgt = entities.get(rel_tgt, {})
             src_type = src.get("type", "unknown")
             tgt_type = tgt.get("type", "unknown")
             relation = rel.get("relation", "unknown")
@@ -339,12 +387,14 @@ class AnomalyDetector:
             entity_relations = Counter()
             entity_neighbors = Counter()
             for rel in relationships:
-                if rel["source"] == eid:
+                rel_src = rel.get("source")
+                rel_tgt = rel.get("target")
+                if rel_src == eid:
                     entity_relations[rel.get("relation", "?")] += 1
-                    entity_neighbors[entities.get(rel["target"], {}).get("type", "?")] += 1
-                elif rel["target"] == eid:
+                    entity_neighbors[entities.get(rel_tgt, {}).get("type", "?")] += 1
+                elif rel_tgt == eid:
                     entity_relations[rel.get("relation", "?")] += 1
-                    entity_neighbors[entities.get(rel["source"], {}).get("type", "?")] += 1
+                    entity_neighbors[entities.get(rel_src, {}).get("type", "?")] += 1
 
             if not entity_relations:
                 continue
@@ -366,7 +416,7 @@ class AnomalyDetector:
                               f"This may indicate a novel role or misclassification.",
                 })
 
-        anomalies.sort(key=lambda x: x["confidence"], reverse=True)
+        anomalies.sort(key=lambda x: x.get("confidence", 0), reverse=True)
         return anomalies[:4]
 
     def _detect_semantic_anomalies(self, entities: dict, relationships: list,

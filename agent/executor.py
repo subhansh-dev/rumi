@@ -266,22 +266,15 @@ def _call_tool(
     """Dispatch a tool call to the appropriate action module."""
 
     # Map tool names to (module_path, function_name, needs_speak)
+    # Only include modules that actually exist in actions/
     TOOL_MAP = {
-        "open_app":           ("actions.open_app",          "open_app",          False),
         "web_search":         ("actions.web_search",        "web_search",        False),
         "browser_control":    ("actions.browser_control",   "browser_control",   False),
         "file_controller":    ("actions.file_controller",   "file_controller",   False),
-        "code_helper":        ("actions.code_helper",       "code_helper",       True),
         "dev_agent":          ("actions.dev_agent",         "dev_agent",         True),
-        "send_message":       ("actions.send_message",      "send_message",      False),
-        "reminder":           ("actions.reminder",          "reminder",          False),
-        "youtube_video":      ("actions.youtube_video",     "youtube_video",     False),
-        "weather_report":     ("actions.weather_report",    "weather_action",    False),
-        "computer_settings":  ("actions.computer_settings", "computer_settings", False),
         "desktop_control":    ("actions.desktop",           "desktop_control",   False),
         "computer_control":   ("actions.computer_control",  "computer_control",  False),
         "web_research":       ("actions.web_research",      "web_research",      False),
-        "security_tools":     ("actions.security_tools",    "security_tools",    False),
     }
 
     # Special case: generated_code (runs model-written code)

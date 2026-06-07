@@ -6,6 +6,9 @@ to validate or challenge theories. Not LLM-generated — real computations.
 
 Supported data sources:
 - NASA Open APIs (exoplanets, solar activity, NEOs)
+- NIST Physical Reference Data (constants, atomic spectra)
+- PubChem (chemical compounds, bioassays)
+- NASA POWER (climate/energy parameters)
 - World Bank (economic indicators)
 - WHO (health statistics)
 - Generic CSV/JSON data from URLs
@@ -48,7 +51,16 @@ class DataAnalyzer:
     def fetch_nasa_neo(self, days: int = 7) -> dict:
         """Fetch Near-Earth Object data from NASA NEO API."""
         try:
-            url = f"https://api.nasa.gov/neo/rest/v1/feed?api_key=DEMO_KEY&detailed=true"
+            # Use configured API key if available, fallback to DEMO_KEY
+            try:
+                from pathlib import Path
+                import json as _json
+                cfg_path = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
+                cfg = _json.loads(cfg_path.read_text(encoding="utf-8-sig"))
+                nasa_key = cfg.get("nasa_api_key", "DEMO_KEY") or "DEMO_KEY"
+            except Exception:
+                nasa_key = "DEMO_KEY"
+            url = f"https://api.nasa.gov/neo/rest/v1/feed?api_key={nasa_key}&detailed=true"
             req = urllib.request.Request(url, headers={"User-Agent": "RUMI/1.0"})
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode())

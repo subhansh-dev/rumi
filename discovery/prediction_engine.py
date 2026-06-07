@@ -1,4 +1,10 @@
 """
+import sys as _sys
+if _sys.platform == "win32":
+    try:
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 prediction_engine.py — Every hypothesis MUST produce testable predictions.
 
 A hypothesis without predictions is not science — it's speculation.
@@ -57,10 +63,18 @@ class PredictionEngine:
         if not self.llm_call:
             return {"predictions": [], "prediction_chains": [], "coverage_score": 0.0}
 
-        mech_text = self._format_mechanisms(mechanisms[:5] if isinstance(mechanisms, list) else
-                                            mechanisms.get("mechanisms", [])[:5])
-        hv_text = self._format_hidden_variables(hidden_variables[:5] if isinstance(hidden_variables, list) else
-                                                 hidden_variables.get("hidden_variables", [])[:5])
+        # Normalize inputs — handle None, dict, list
+        if mechanisms is None:
+            mechanisms = []
+        elif isinstance(mechanisms, dict):
+            mechanisms = mechanisms.get("mechanisms") or []
+        if hidden_variables is None:
+            hidden_variables = []
+        elif isinstance(hidden_variables, dict):
+            hidden_variables = hidden_variables.get("hidden_variables") or []
+
+        mech_text = self._format_mechanisms(mechanisms[:5])
+        hv_text = self._format_hidden_variables(hidden_variables[:5])
         anomaly_text = self._format_anomalies(anomalies[:4] if anomalies else [])
 
         prompt = f"""You are a rigorous scientist. Your job is to generate TESTABLE PREDICTIONS

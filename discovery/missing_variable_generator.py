@@ -1,4 +1,10 @@
 """
+import sys as _sys
+if _sys.platform == "win32":
+    try:
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 missing_variable_generator.py — Propose HIDDEN VARIABLES that explain gaps.
 
 This is the core of abductive reasoning: "What unseen factor could explain this?"
@@ -160,6 +166,9 @@ For each hidden variable, provide:
 8. How to distinguish this from existing known mechanisms
 9. What experiment would measure the key parameter
 
+CRITICAL: Output ONLY the JSON object below. No markdown, no headers, no prose, no tables, no explanation.
+Start your response with {{ and end with }}. Nothing else.
+
 Output JSON:
 {{
   "hidden_variables": [
@@ -197,17 +206,46 @@ quantitative predictions. Reject any proposal that is just a fancy name without 
 
         try:
             raw = self.llm_call(prompt, max_tokens=8192)
+            if raw:
+                print(f"    [DEBUG] hidden_variables: LLM returned {len(raw)} chars", flush=True)
             if not raw:
                 try:
                     from discovery.llm_client import call_json
                     raw = call_json(prompt, max_tokens=8192, provider="auto")
+                    if raw:
+                        print(f"    [DEBUG] hidden_variables: call_json returned {len(raw)} chars", flush=True)
                 except Exception:
                     pass
+            if not raw:
+                print(f"    [WARN] hidden_variables: LLM returned None on all providers", flush=True)
             if raw:
                 from discovery.json_extract import extract_json
                 result = extract_json(raw, expected_key="hidden_variables")
                 if result is None and isinstance(raw, str):
                     print(f"    [WARN] hidden_variables: JSON extraction failed ({len(raw)} chars)", flush=True)
+                    # Retry with explicit JSON-only instruction
+                    try:
+                        retry_prompt = (
+                            "You returned markdown/prose instead of JSON. "
+                            "Return ONLY valid JSON. No markdown, no headers, no prose, no tables.\n"
+                            "Start with { and end with }. Nothing else.\n\n"
+                            f"Topic: {topic}\nDomain: {domain}\n"
+                            'Return: {"hidden_variables": [{"name": "...", "type": "...", "description": "...", "confidence": 0.5}]}'
+                        )
+                        raw2 = self.llm_call(retry_prompt, max_tokens=4096)
+                        if raw2:
+                            result = extract_json(raw2, expected_key="hidden_variables")
+                            if result:
+                                print(f"    [RETRY] hidden_variables: extraction succeeded on retry", flush=True)
+                    except Exception:
+                        pass
+                    if result is None:
+                        print(f"    [DEBUG] raw[:500]: {repr(raw[:500])}", flush=True)
+                elif result:
+                    hvs = result.get("hidden_variables", [])
+                    print(f"    [DEBUG] hidden_variables: extracted {len(hvs)} items, keys={list(result.keys())}", flush=True)
+                    if not hvs:
+                        print(f"    [DEBUG] raw[:500]: {repr(raw[:500])}", flush=True)
 
                 if isinstance(result, dict):
                     # Validate and enrich
@@ -268,6 +306,9 @@ Propose hidden variables that could fill these structural gaps."""
 {context}
 
 For each structural gap, propose a hidden variable that could bridge it.
+
+CRITICAL: Output ONLY the JSON object below. No markdown, no headers, no prose, no tables, no explanation.
+Start your response with {{ and end with }}. Nothing else.
 
 Output JSON:
 {{

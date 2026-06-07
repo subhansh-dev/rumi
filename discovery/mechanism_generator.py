@@ -1,4 +1,10 @@
 """
+import sys as _sys
+if _sys.platform == "win32":
+    try:
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 mechanism_generator.py — Generate CAUSAL MECHANISMS, not just correlations.
 
 The difference between a research assistant and a discovery engine:
@@ -141,6 +147,24 @@ For each mechanism, provide:
 9. Key parameter to measure and its expected range
 10. Falsification: specific quantitative threshold
 
+CRITICAL REQUIREMENTS — FAILURE TO FOLLOW = REJECTION:
+
+1. EVERY mechanism MUST contain at least ONE equation in the description.
+   If you cannot write an equation, the mechanism is INCOMPLETE and will be REJECTED.
+   BAD: "The coupling coefficient quantifies how efficiently..." (no equation = REJECTED)
+   GOOD: "mu_ec = sigma_s / (rho_B * v_A^2) where sigma_s ~ 10^15 dyn/cm^2"
+   BAD: "The binding affinity is low" (no equation = REJECTED)
+   GOOD: "Kd = k_off / k_on ~ 10 nM where k_on ~ 10^6 M^-1 s^-1"
+
+2. EVERY step in the causal chain MUST include a quantitative value (number with units).
+   BAD: "The temperature increases" (no value = REJECTED)
+   GOOD: "The temperature increases from T1 = 300K to T2 = 1500K"
+
+3. EVERY mechanism MUST be a PHYSICAL, CHEMICAL, or BIOLOGICAL process.
+   BAD: "Funding-driven organizational activation" (not science = REJECTED)
+   BAD: "Market-driven resource allocation" (not science = REJECTED)
+   GOOD: "Photon-graviton conversion via kinetic mixing"
+
 Output JSON:
 {{
   "mechanisms": [
@@ -157,7 +181,7 @@ Output JSON:
       "derivation": "If the equation can be derived from known physics, show the derivation steps here. Otherwise state 'not derivable — estimated from [reasoning]'",
       "classification": "new_synthesis|new_physics|new_context_for_known|replication",
       "key_parameters": [
-        {{"name": "parameter_name", "expected_value": "order of magnitude or range", "units": "units", "source": "cited|derived|estimated", "source_detail": "paper citation or derivation basis or estimation rationale"}}
+        {{"name": "parameter_name", "expected_value": "order of magnitude or range", "units": "units", "source": "cited|derived|estimated", "source_detail": "paper citation or derivation basis or estimation rationale", "derivation_chain": ["step 1: start from equation X", "step 2: substitute values", "step 3: result = Z — leave empty if source is not derived"]}}
       ],
       "literature_basis": ["cite 2-3 related known mechanisms or papers"],
       "is_novel_vs_known": "novel|extension_of_known|new_context_for_known",
@@ -182,22 +206,57 @@ Prefer mechanisms that make counterfactual predictions (most powerful causal lev
 
         try:
             raw = self.llm_call(prompt, max_tokens=8192)
+            if raw:
+                print(f"    [DEBUG] mechanisms: LLM returned {len(raw)} chars", flush=True)
             # Fallback: if primary provider fails, try the other
             if not raw:
                 try:
                     from discovery.llm_client import call_json
                     raw = call_json(prompt, max_tokens=8192, provider="auto")
+                    if raw:
+                        print(f"    [DEBUG] mechanisms: call_json returned {len(raw)} chars", flush=True)
                 except Exception:
                     pass
+            if not raw:
+                print(f"    [WARN] mechanisms: LLM returned None on all providers", flush=True)
             if raw:
                 from discovery.json_extract import extract_json
                 result = extract_json(raw, expected_key="mechanisms")
                 if result is None and isinstance(raw, str):
                     print(f"    [WARN] mechanisms: JSON extraction failed ({len(raw)} chars)", flush=True)
+                    print(f"    [DEBUG] raw[:500]: {repr(raw[:500])}", flush=True)
+                elif result:
+                    mechs = result.get("mechanisms", [])
+                    print(f"    [DEBUG] mechanisms: extracted {len(mechs)} items, keys={list(result.keys())}", flush=True)
+                    if not mechs:
+                        print(f"    [DEBUG] raw[:500]: {repr(raw[:500])}", flush=True)
 
                 if isinstance(result, dict):
+                    valid_mechanisms = []
                     for m in result.get("mechanisms", []):
-                        m.setdefault("name", "Unnamed Mechanism")
+                        # Skip schema-like objects (type: "object" with no real content)
+                        if m.get("type") == "object" and not m.get("description") and not m.get("steps"):
+                            continue
+                        # Extract name from multiple possible fields
+                        if not m.get("name") or m.get("name") in ("Unnamed Mechanism", "", "object"):
+                            m["name"] = (
+                                m.get("mechanism_name") or
+                                m.get("correlation") or
+                                m.get("description", "")[:60] or
+                                m.get("type", "causal_pathway")
+                            )
+                        # Skip if name is still generic
+                        if m.get("name") in ("object", "causal_pathway", ""):
+                            continue
+                        # Reject non-scientific mechanisms
+                        desc_lower = (m.get("description", "") + " " + m.get("name", "")).lower()
+                        non_scientific = [
+                            "funding", "organizational", "market", "economic", "political",
+                            "social", "management", "administrative", "bureaucratic",
+                            "funding-driven", "market-driven", "resource allocation",
+                        ]
+                        if any(term in desc_lower for term in non_scientific):
+                            continue
                         m.setdefault("type", "causal_pathway")
                         m.setdefault("steps", [])
                         m.setdefault("confidence", 0.5)
@@ -205,9 +264,12 @@ Prefer mechanisms that make counterfactual predictions (most powerful causal lev
                         m.setdefault("predictions", [])
                         # Ensure minimum 2 steps
                         if len(m["steps"]) < 2:
-                            m["steps"] = [m.get("description", "Unknown mechanism")]
+                            desc = m.get("description", m.get("mechanism", ""))
+                            m["steps"] = [desc] if desc else ["Mechanism to be determined"]
                         # Validate epistemic labels on key_parameters
                         self._validate_parameter_sources(m, papers or [])
+                        valid_mechanisms.append(m)
+                    result["mechanisms"] = valid_mechanisms
                     return result
 
         except Exception as e:
@@ -283,10 +345,13 @@ Output JSON:
 
         adj = defaultdict(list)
         for rel in relationships:
-            adj[rel["source"]].append({
-                "target": rel["target"],
-                "relation": rel.get("relation", "related_to")
-            })
+            src = rel.get("source")
+            tgt = rel.get("target")
+            if src and tgt:
+                adj[src].append({
+                    "target": tgt,
+                    "relation": rel.get("relation", "related_to")
+                })
 
         incomplete = []
         checked = set()

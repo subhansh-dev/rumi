@@ -58,7 +58,7 @@ TESTABLE PREDICTIONS:
 {pred_text or 'None specified'}
 
 FAILURE CONDITIONS: {json.dumps(failure_conditions[:3])}
-KEY ASSUMPTIONS: {json.dumps(theory.get('key_assumptions', [])[:3])}
+KEY ASSUMPTIONS: {json.dumps((theory.get('key_assumptions') if isinstance(theory.get('key_assumptions'), list) else [])[:3])}
 
 Design a concrete experimental validation plan. Include:
 

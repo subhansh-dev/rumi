@@ -42,13 +42,16 @@ class DiscoveryScorer:
     """
 
     # Default weights (sum to 1.0)
+    # Novelty is weighted highest — a discovery engine must produce NEW knowledge
+    # Mathematical rigor is lower — not all discoveries need equations (theoretical work is valid)
     DEFAULT_WEIGHTS = {
-        "novelty": 0.20,
-        "explanatory_power": 0.25,
-        "predictive_power": 0.20,
-        "falsifiability": 0.15,
-        "simplicity": 0.10,
-        "evidence_strength": 0.10,
+        "novelty": 0.25,
+        "explanatory_power": 0.20,
+        "predictive_power": 0.15,
+        "falsifiability": 0.12,
+        "simplicity": 0.08,
+        "evidence_strength": 0.12,
+        "mathematical_rigor": 0.08,
     }
 
     def __init__(self, weights: dict = None):
@@ -56,7 +59,10 @@ class DiscoveryScorer:
 
     def score(self, theory: dict, gaps: list = None, anomalies: list = None,
               predictions: list = None, papers: list = None,
-              graph=None) -> dict:
+              graph=None,
+              adversarial_results: dict = None,
+              skeptic_result: dict = None,
+              critical_eval: dict = None) -> dict:
         """
         Score a theory/hypothesis on all discovery dimensions.
 
@@ -67,6 +73,9 @@ class DiscoveryScorer:
             predictions: Testable predictions generated
             papers: Supporting papers
             graph: Knowledge graph for evidence analysis
+            adversarial_results: Results from Phase 8.5 adversarial test
+            skeptic_result: Results from Phase 11 skeptic review
+            critical_eval: Results from Phase 8.6 critical evaluation
 
         Returns:
             {
@@ -86,6 +95,12 @@ class DiscoveryScorer:
                 "weaknesses": [...]
             }
         """
+        # Guard against None inputs
+        gaps = gaps or []
+        anomalies = anomalies or []
+        predictions = predictions or []
+        papers = papers or []
+
         # Extract theory components
         explains = theory.get("explains", [])
         fails = theory.get("fails_to_explain", [])
@@ -124,6 +139,14 @@ class DiscoveryScorer:
         # 7. MATHEMATICAL RIGOR — penalize theories without equations
         math_rigor = self._score_mathematical_rigor(theory, mechanism_steps)
 
+        # Cap dimensions for known science — old theories shouldn't score high
+        novelty_verdict = theory.get("is_novel_vs_known", theory.get("novelty_verdict", ""))
+        if novelty_verdict in ("well_known", "rediscovery"):
+            # Known theories have predictions because they're OLD, not because they're good
+            predictive = min(predictive, 40)
+            falsifiability = min(falsifiability, 40)
+            explanatory = min(explanatory, 50)
+
         scores = {
             "novelty": round(novelty, 1),
             "explanatory_power": round(explanatory, 1),
@@ -142,6 +165,69 @@ class DiscoveryScorer:
 
         # Final discovery score (0-100)
         discovery_score = sum(weighted.values()) * 100.0
+
+        # ── Adversarial penalty — reduce score based on adversarial results ──
+        adversarial_penalty = 0
+        adversarial_details = []
+
+        # Evidence strength floor — cap score if evidence is too weak
+        if evidence < 20:
+            discovery_score = min(discovery_score, 50)
+            adversarial_details.append(f"Evidence floor: {evidence:.0f}/100 -> capped at 50")
+
+        # Known science penalty — if novelty verdict says well_known/rediscovery, penalize
+        novelty_verdict = theory.get("is_novel_vs_known", theory.get("novelty_verdict", ""))
+        if novelty_verdict in ("well_known", "rediscovery"):
+            adversarial_penalty += 20
+            adversarial_details.append(f"Known science penalty: {novelty_verdict} (-20)")
+        elif novelty_verdict == "refinement":
+            adversarial_penalty += 5
+            adversarial_details.append(f"Refinement penalty: not fully novel (-5)")
+
+        # Adversarial test results (Phase 8.5)
+        if adversarial_results:
+            summary = adversarial_results.get("survival_summary", {})
+            for category in ["theories", "mechanisms", "hidden_variables"]:
+                cat_summary = summary.get(category, {})
+                killed = cat_summary.get("killed", 0)
+                started = cat_summary.get("started", 0)
+                if started > 0 and killed > 0:
+                    kill_ratio = killed / started
+                    penalty = kill_ratio * 20  # up to 20 points for all killed
+                    adversarial_penalty += penalty
+                    adversarial_details.append(f"Adversarial {category}: {killed}/{started} killed (-{penalty:.0f})")
+
+        # Skeptic review results (Phase 11)
+        if skeptic_result:
+            rec = skeptic_result.get("recommendation", "unknown")
+            conf = skeptic_result.get("revised_confidence", 0)
+            if rec == "reject":
+                adversarial_penalty += 15
+                adversarial_details.append(f"Skeptic: reject (-15)")
+            elif rec == "revise":
+                adversarial_penalty += 2
+                adversarial_details.append(f"Skeptic: revise (-2)")
+            if conf < 0.2:
+                discovery_score = min(discovery_score, 65)
+                adversarial_details.append(f"Skeptic confidence {conf:.0%} -> capped at 65")
+
+        # Critical evaluation results (Phase 8.6)
+        if critical_eval:
+            eval_score = critical_eval.get("overall_score", 10)
+            if eval_score < 3:
+                adversarial_penalty += 5
+                adversarial_details.append(f"Critical eval {eval_score}/10 (-5)")
+            elif eval_score < 5:
+                adversarial_penalty += 2
+                adversarial_details.append(f"Critical eval {eval_score}/10 (-2)")
+
+        # Tournament reliability — penalize algorithmic fallback
+        if theory.get("tournament_status") == "algorithmic_fallback":
+            adversarial_penalty += 10
+            adversarial_details.append("Tournament algorithmic fallback (-10)")
+
+        # Apply penalty
+        discovery_score = max(0, discovery_score - adversarial_penalty)
 
         # Grade
         if discovery_score >= 80:
@@ -175,6 +261,8 @@ class DiscoveryScorer:
             "strengths": strengths,
             "weaknesses": weaknesses,
             "weights_used": self.weights,
+            "adversarial_penalty": round(adversarial_penalty, 1),
+            "adversarial_details": adversarial_details,
         }
 
     def rank_theories(self, theories: list, gaps: list = None,
@@ -197,55 +285,112 @@ class DiscoveryScorer:
         return scored
 
     def _score_novelty(self, theory: dict, theory_scores: dict) -> float:
-        """Score how novel this theory is."""
+        """Score novelty at COMPONENT level — a theory can be novel in parts.
+
+        A theory that builds on known work but introduces a new mechanism,
+        new prediction, or new variable IS novel in those components.
+        We reward novelty where it exists, not penalize for building on foundations.
+        """
         # Use competition scores if available
         if "novelty" in theory_scores:
             return theory_scores["novelty"] * 100
 
-        # Heuristic: check theory type
-        theory_type = theory.get("type", "unknown")
-        type_novelty = {
-            "proposed": 70,
-            "alternative": 60,
-            "conventional": 30,
-            "null": 10,
-            "unknown": 50,
-        }
-        base = type_novelty.get(theory_type, 50)
+        novelty_verdict = theory.get("is_novel_vs_known", theory.get("novelty_verdict", ""))
+        novelty_score = theory.get("novelty_score", 0)
 
-        # Boost for hidden variables (novel entities)
-        hvs = theory.get("hidden_variables", [])
-        if hvs:
-            base += min(15, len(hvs) * 5)
+        # Component-level scoring
+        score = 40  # base — every theory starts with some novelty potential
 
-        # Boost for novel predictions
-        predictions = theory.get("predictions", [])
+        # Component 1: Novel hidden variables (+5 each, max +20)
+        hvs = theory.get("hidden_variables") or []
+        novel_hvs = sum(1 for h in hvs if isinstance(h, dict) and h.get("type") not in ("known", "established"))
+        score += min(20, novel_hvs * 5)
+
+        # Component 2: Novel predictions (+8 each, max +25)
+        predictions = theory.get("predictions") or []
         novel_preds = sum(1 for p in predictions
                           if isinstance(p, dict) and p.get("novelty") == "novel")
-        base += min(15, novel_preds * 5)
+        score += min(25, novel_preds * 8)
 
-        return min(100.0, base)
+        # Component 3: New mechanism type
+        theory_type = theory.get("type", "")
+        if theory_type in ("counterfactual", "novel_mechanism"):
+            score += 15
+        elif theory_type in ("proposed", "alternative"):
+            score += 10
+
+        # Component 4: Theory has description with novel content indicators
+        desc = theory.get("description", theory.get("mechanism", ""))
+        novel_indicators = ["novel", "new mechanism", "proposed", "unexplored", "unprecedented",
+                           "first time", "never before", "not yet", "unknown"]
+        if any(kw in desc.lower() for kw in novel_indicators):
+            score += 10
+
+        # Component 5: Penalize "exotic physics soup" — combining popular speculative ideas
+        soup_indicators = [
+            "dark photon", "sterile neutrino", "dark energy coupling", "dark matter decay",
+            "primordial black hole", "axion", "wimp", "kaluza-klein", "string theory",
+            "supersymmetry", "extra dimension", "brane", "moduli"
+        ]
+        soup_count = sum(1 for kw in soup_indicators if kw in desc.lower())
+        if soup_count >= 3:
+            score -= 15  # penalty for combining 3+ popular speculative ideas
+        elif soup_count >= 2:
+            score -= 8   # penalty for combining 2 popular speculative ideas
+
+        # Component 5: Mathematical novelty
+        math_model = theory.get("mathematical_model", "")
+        if math_model:
+            score += 10
+
+        # Component 6: Constructed variable bonus — theory introduces NEW named parameters
+        # Look for Greek letters or invented variable names (not standard symbols)
+        import re
+        custom_vars = re.findall(r'[A-Z][a-z]*_[A-Z][a-z]*|[a-z]{2,}_[a-z]{2,}', desc)
+        if custom_vars:
+            score += min(10, len(custom_vars) * 3)  # bonus for constructed variables
+
+        # Apply verdict as modifier (not as hard score)
+        if novelty_verdict == "well_known":
+            score = min(score, 30)  # cap but don't zero out
+        elif novelty_verdict == "rediscovery":
+            score = min(score, 40)
+        elif novelty_verdict == "refinement":
+            score = min(score, 85)  # refinement with novel parts can score high
+        elif novelty_verdict == "novel":
+            score = max(score, 70)  # ensure novel theories score high
+
+        # Blend with numeric novelty score if available
+        if novelty_score > 0:
+            score = (score + novelty_score * 100) / 2
+
+        return min(100.0, max(10.0, score))
 
     def _score_explanatory(self, theory: dict, gaps: list, anomalies: list,
                            explains: list, fails: list) -> float:
         """Score how many observations this theory explains."""
-        # Count what it explains
+        # Count what it explicitly explains
         num_explains = len(explains)
 
+        # Also count predictions and hidden variables as implicit explanations
+        # A theory with predictions IS explaining what should be observed
+        predictions = theory.get("predictions") or []
+        hidden_vars = theory.get("hidden_variables") or []
+        mechanisms = theory.get("steps") or theory.get("causal_chain") or []
+        implicit_explains = len(predictions) + len(hidden_vars) + len(mechanisms)
+
         # Bonus for explaining gaps and anomalies
-        gap_bonus = 0
-        if gaps:
-            gap_bonus = min(20, len(gaps) * 4)
-        anomaly_bonus = 0
-        if anomalies:
-            anomaly_bonus = min(25, len(anomalies) * 5)
+        gap_bonus = min(20, len(gaps) * 4) if gaps else 0
+        anomaly_bonus = min(25, len(anomalies) * 5) if anomalies else 0
 
-        # Penalty for failures to explain — halved
-        # Honest acknowledgment of limits is good science, not a flaw
-        fail_penalty = len(fails) * 5
+        # Penalty for failures to explain — reduced
+        fail_penalty = len(fails) * 3
 
-        base = 30 + num_explains * 8 + gap_bonus + anomaly_bonus - fail_penalty
-        return max(5.0, min(100.0, base))
+        # Combine explicit + implicit explanations
+        total_explains = num_explains + min(implicit_explains, 5)  # cap implicit at 5
+
+        base = 40 + total_explains * 6 + gap_bonus + anomaly_bonus - fail_penalty
+        return max(15.0, min(100.0, base))
 
     def _score_predictive(self, predictions: list) -> float:
         """Score predictive power."""
@@ -317,31 +462,46 @@ class DiscoveryScorer:
 
     def _score_evidence(self, theory: dict, papers: list, graph,
                         theory_scores: dict) -> float:
-        """Score evidence strength — quality-weighted."""
+        """Score evidence strength — quality-weighted, includes predictions."""
         # Use competition scores if available
         if "evidence_support" in theory_scores:
             return theory_scores["evidence_support"] * 100
 
-        base = 30
+        base = 25
 
-        # Quality-weighted paper scoring (not just count)
+        # Quality-weighted paper scoring
         if papers:
             paper_quality = self._score_literature_quality(papers)
-            # Quality score contributes up to 40 points (up from 30)
-            base += min(40, paper_quality * 40)
+            base += min(35, paper_quality * 35)
 
-        # Graph evidence
+        # Graph evidence — density and connectivity
         if graph:
             entities = graph.entities if hasattr(graph, 'entities') else {}
             relationships = graph.relationships if hasattr(graph, 'relationships') else {}
-            # More graph connections = more evidence
             if entities:
                 density = len(relationships) / max(1, len(entities))
-                base += min(20, density * 10)
+                base += min(15, density * 8)
+                # Bonus for well-connected theory entities
+                theory_name = theory.get("name", "").lower()
+                for eid, ent in entities.items():
+                    if theory_name and theory_name[:20] in ent.get("name", "").lower():
+                        paper_count = len(ent.get("papers", []))
+                        base += min(5, paper_count * 2)
+                        break
 
-        # Mechanism steps (more steps with evidence = stronger)
-        steps = theory.get("steps", [])
+        # Prediction quality — more predictions with numbers = stronger evidence
+        predictions = theory.get("predictions") or []
+        quant_preds = sum(1 for p in predictions
+                          if isinstance(p, dict) and any(c.isdigit() for c in str(p.get("statement", ""))))
+        base += min(15, quant_preds * 5)
+
+        # Mechanism steps
+        steps = theory.get("steps") or theory.get("causal_chain") or []
         base += min(10, len(steps) * 2)
+
+        # Hidden variables with evidence
+        hvs = theory.get("hidden_variables") or []
+        base += min(5, len(hvs) * 2)
 
         return min(100.0, base)
 
@@ -408,37 +568,66 @@ class DiscoveryScorer:
         return sum(top_scores) / max(len(top_scores), 1)
 
     def _score_mathematical_rigor(self, theory: dict, mechanism_steps: list) -> float:
-        """Score mathematical rigor — penalize theories without equations."""
+        """Score mathematical rigor — domain-aware, uses math engine when available.
+
+        Some domains are inherently mathematical (physics, materials science).
+        Others are more observational/theoretical (ecology, neuroscience).
+        Purely theoretical discoveries shouldn't be penalized for lacking equations.
+        """
+        # Use math engine score if available (from Phase 9 verification)
+        math_engine_score = theory.get("math_engine_score", 0)
+        if math_engine_score > 0:
+            return min(100.0, max(10.0, float(math_engine_score)))
+
         desc = theory.get("description", theory.get("mechanism", ""))
         math_model = theory.get("mathematical_model", "")
+        theory_type = theory.get("type", "")
+
+        # Theoretical discoveries get a baseline — not penalized for lacking equations
+        if theory_type in ("theoretical", "conceptual", "framework", "hypothesis"):
+            base = 50  # theoretical work is valid without equations
+        else:
+            base = 30  # empirical/mechanistic work should have some math
 
         # Check for equations/formulas
         has_equation = any(kw in desc.lower() for kw in [
             "equation", "formula", "=", "derivation", "rate constant",
-            "threshold", "concentration", "flux", "amplitude"
+            "threshold", "concentration", "flux", "amplitude", "cross-section",
+            "sigma", "alpha", "beta", "gamma", "lambda", "omega",
         ]) or bool(math_model)
 
-        # Check for quantitative content
-        has_numbers = any(c.isdigit() for c in desc)
+        # Check for quantitative content (numbers with units)
+        import re
+        quantitative_matches = re.findall(r'\d+\.?\d*\s*[×x]?\s*10[\^⁰-⁹-]+\s*\w+|\d+\.?\d*\s*(?:eV|GeV|MeV|nm|Å|K|Mpc|km/s|cm|g|kg|mol|M|nM|μM)', desc)
+        has_quantitative = len(quantitative_matches) > 0 or any(c.isdigit() for c in desc)
 
         # Check for derivation
         has_derivation = any(kw in desc.lower() for kw in [
-            "derived from", "follows from", "based on", "framework"
+            "derived from", "follows from", "based on", "framework",
+            "by definition", "substituting", "solving for", "integrating"
         ])
 
         # Check for assumptions stated
         has_assumptions = any(kw in desc.lower() for kw in [
-            "assuming", "assumption", "given that", "under condition"
+            "assuming", "assumption", "given that", "under condition",
+            "in the limit", "approximation", "perturbative"
         ])
 
-        base = 20  # Start low
+        # Check for key parameters with values
+        params = theory.get("key_parameters") or []
+        has_params = isinstance(params, (list, dict)) and len(params) > 0
+
         if has_equation:
-            base += 30
-        if has_numbers:
-            base += 20
+            base += 25
+        if has_quantitative:
+            base += 15
         if has_derivation:
-            base += 20
+            base += 15
         if has_assumptions:
+            base += 5
+        if has_params:
+            base += 10
+        if math_model:
             base += 10
 
         return min(100.0, max(10.0, base))

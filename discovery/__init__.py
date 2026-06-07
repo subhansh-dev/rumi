@@ -1,4 +1,13 @@
 """
+# Fix Unicode encoding on Windows (cp1252 can't handle scientific symbols like ≥, →, ↔, ‑)
+import sys as _sys
+if _sys.platform == "win32":
+    try:
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        _sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 RUMI Discovery Engine — Autonomous Scientific Discovery Pipeline
 
 Modules:

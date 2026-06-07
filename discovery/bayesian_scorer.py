@@ -209,7 +209,20 @@ class BayesianScorer:
         return max(0.01, min(0.99, likelihood))
 
     def _compute_evidence(self, theory: dict, papers: list) -> dict:
-        """Compute evidence summary."""
+        """Compute evidence summary — actually match papers against theory."""
+        # Count papers that share topic keywords with the theory
+        topic_relevant = 0
+        if papers:
+            theory_keywords = self._extract_keywords(theory)
+            for p in papers:
+                abstract = (p.get("abstract", "") + " " + p.get("title", "")).lower()
+                if not abstract.strip():
+                    continue
+                hits = sum(1 for kw in theory_keywords if kw in abstract)
+                if hits >= 3:
+                    topic_relevant += 1
+
+        # Also count explicit literature references
         supporting = theory.get("literature_basis", theory.get("literature_grounding", []))
         if isinstance(supporting, str):
             supporting = [supporting]
@@ -217,13 +230,32 @@ class BayesianScorer:
         predictions = theory.get("predictions", [])
 
         return {
-            "supporting_papers": len(papers) if papers else 0,
+            "supporting_papers": topic_relevant,
             "literature_references": len(supporting),
             "predictions_generated": len(predictions),
             "quantitative_predictions": sum(1 for p in predictions
                                             if isinstance(p, (str, dict)) and
                                             any(c.isdigit() for c in str(p))),
         }
+
+    def _extract_keywords(self, theory: dict) -> list:
+        """Extract searchable keywords from a theory."""
+        keywords = set()
+        stopwords = {"the", "and", "for", "with", "that", "this", "from", "are", "has",
+                     "was", "were", "been", "have", "will", "would", "could", "should",
+                     "into", "over", "such", "than", "them", "then", "they", "this",
+                     "very", "when", "what", "which", "while", "who", "whom", "why"}
+        name = theory.get("name", theory.get("title", ""))
+        for word in name.lower().split():
+            clean = word.strip("()[]{},.:;")
+            if len(clean) > 3 and clean not in stopwords and clean.isalpha():
+                keywords.add(clean)
+        desc = theory.get("description", theory.get("mechanism", ""))
+        for word in desc.lower().split():
+            clean = word.strip("()[]{},.:;")
+            if len(clean) > 3 and clean not in stopwords and clean.isalpha():
+                keywords.add(clean)
+        return list(keywords)[:30]
 
     def _simplicity_score(self, theory: dict) -> float:
         """Simplicity: fewer assumptions and parameters = simpler."""
@@ -242,14 +274,25 @@ class BayesianScorer:
         return max(0.1, 1.0 / (1.0 + complexity * 0.1))
 
     def _literature_support(self, theory: dict, papers: list) -> float:
-        """How much literature supports this theory."""
+        """How much literature supports this theory — match papers against keywords."""
         refs = theory.get("literature_basis", theory.get("literature_grounding", []))
         if isinstance(refs, str):
             refs = [refs]
         n_refs = len(refs) if isinstance(refs, list) else 0
-        n_papers = len(papers) if papers else 0
 
-        return min(1.0, (n_refs * 0.2 + n_papers * 0.05))
+        # Count topic-relevant papers
+        topic_relevant = 0
+        if papers:
+            theory_keywords = self._extract_keywords(theory)
+            for p in papers:
+                abstract = (p.get("abstract", "") + " " + p.get("title", "")).lower()
+                if not abstract.strip():
+                    continue
+                hits = sum(1 for kw in theory_keywords if kw in abstract)
+                if hits >= 3:
+                    topic_relevant += 1
+
+        return min(1.0, (n_refs * 0.2 + topic_relevant * 0.08))
 
     def _explanatory_fit(self, theory: dict) -> float:
         """How well the theory explains observations."""

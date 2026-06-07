@@ -1,17 +1,24 @@
 import json
+import time
 from pathlib import Path
 from collections import Counter
 
 GRAPH_FILE = Path(__file__).resolve().parent.parent / "discovery" / "graph" / "knowledge_graph.json"
 
+# Maximum entities to load from persistent graph (prevents unbounded growth)
+MAX_PERSISTED_ENTITIES = 500
+# Maximum age in seconds for persisted entities (default: 7 days)
+ENTITY_MAX_AGE = 7 * 24 * 3600
+
 
 class KnowledgeGraph:
-    def __init__(self, persist=True):
+    def __init__(self, persist=True, domain: str = ""):
         self.entities: dict[str, dict] = {}
         self.relationships: list[dict] = []
         self.papers: dict[str, dict] = {}
-        self.domain: str = "drug_discovery"
+        self.domain: str = domain or "drug_discovery"
         self._session_count = 0
+        self._run_id = f"run_{int(time.time())}"
         if persist:
             self._merge_previous()
 
@@ -25,9 +32,14 @@ class KnowledgeGraph:
                     "name": ent["name"],
                     "aliases": ent.get("aliases", []),
                     "papers": [],
+                    "domain": self.domain,
+                    "source_run": self._run_id,
+                    "created_at": time.time(),
+                    "last_used": time.time(),
                 }
             if pmid not in self.entities[eid]["papers"]:
                 self.entities[eid]["papers"].append(pmid)
+            self.entities[eid]["last_used"] = time.time()
 
     def add_relationships(self, relationships: list[dict], pmid: str):
         for rel in relationships:
@@ -50,6 +62,30 @@ class KnowledgeGraph:
             "url": url,
         }
 
+    def add_entity(self, name: str, entity_type: str = "concept", aliases: list = None, papers: list = None):
+        """Add a single entity to the graph by name and type."""
+        eid = f"{entity_type}_{name.lower().replace(' ', '_')[:80]}"
+        if eid not in self.entities:
+            self.entities[eid] = {
+                "id": eid,
+                "type": entity_type,
+                "name": name,
+                "aliases": aliases or [],
+                "papers": papers or [],
+                "domain": self.domain,
+                "source_run": self._run_id,
+                "created_at": time.time(),
+                "last_used": time.time(),
+            }
+        else:
+            # Merge papers if entity already exists
+            existing_papers = set(self.entities[eid].get("papers", []))
+            for p in (papers or []):
+                if p not in existing_papers:
+                    self.entities[eid]["papers"].append(p)
+            self.entities[eid]["last_used"] = time.time()
+        return eid
+
     def stats(self) -> dict:
         entity_types = Counter(e["type"] for e in self.entities.values())
         relation_types = Counter(r["relation"] for r in self.relationships)
@@ -66,16 +102,78 @@ class KnowledgeGraph:
         }
 
     def _merge_previous(self):
-        """Merge entities/papers from the last saved graph so knowledge accumulates across sessions."""
+        """Merge entities/papers from the last saved graph with domain filtering and staleness pruning."""
         if GRAPH_FILE.exists():
             try:
                 prev = json.loads(GRAPH_FILE.read_text(encoding="utf-8"))
                 prev_entities = prev.get("entities", {})
                 prev_papers = prev.get("papers", {})
                 prev_rels = prev.get("relationships", [])
+                prev_domain = prev.get("domain", "")
+                now = time.time()
+
+                # One-time migration: reset last_used for entities without domain metadata
+                # (entities from before the provenance fix had last_used set to load time)
+                migrated = False
                 for eid, e in prev_entities.items():
+                    if not e.get("domain") and e.get("last_used", 0) > now - 86400:
+                        # Entity has no domain and was "used" within 24h — likely from old code
+                        # Reset last_used to 0 so staleness scoring works
+                        e["last_used"] = 0
+                        e["created_at"] = 0
+                        migrated = True
+                if migrated:
+                    print(f"  [Graph Migration] Reset timestamps for old entities (no domain metadata)", flush=True)
+
+                # Domain filtering: only load entities from same domain or cross-domain entities
+                domain_match = (prev_domain == self.domain) if prev_domain else True
+
+                # Score and filter entities by staleness + domain relevance
+                scored_entities = []
+                for eid, e in prev_entities.items():
+                    # Staleness scoring
+                    created = e.get("created_at", 0)
+                    last_used = e.get("last_used", created)
+                    age = now - last_used if last_used else now - created
+                    staleness = 1.0 / (1.0 + age / 3600)  # decays over hours
+
+                    # Domain relevance
+                    ent_domain = e.get("domain", "")
+                    if ent_domain == self.domain:
+                        domain_relevant = True  # Same domain — keep
+                    elif not ent_domain:
+                        domain_relevant = False  # No domain metadata — old entity, penalize
+                    elif not domain_match:
+                        domain_relevant = True  # Cross-domain run — allow all
+                    else:
+                        domain_relevant = False  # Different domain — penalize
+
+                    # Paper count (well-established entities have more papers)
+                    paper_count = len(e.get("papers", []))
+
+                    # Combined score
+                    score = staleness * 0.5 + (1.0 if domain_relevant else 0.2) * 0.3 + min(paper_count / 5, 1.0) * 0.2
+                    scored_entities.append((eid, e, score))
+
+                # Sort by score, take top N
+                scored_entities.sort(key=lambda x: -x[2])
+                loaded = 0
+                skipped_old = 0
+                for eid, e, score in scored_entities[:MAX_PERSISTED_ENTITIES]:
+                    # Skip migrated entities (old, no domain metadata, not recently used)
+                    if not e.get("domain") and e.get("created_at", 0) == 0 and e.get("last_used", 0) == 0:
+                        skipped_old += 1
+                        continue
+                    if score < 0.1:  # Skip very stale/irrelevant entities
+                        continue
                     if eid not in self.entities:
+                        # Do NOT update last_used on load — only update when entity is
+                        # actually referenced in the current run (add_paper_entities, add_entity)
                         self.entities[eid] = e
+                        loaded += 1
+                if skipped_old > 0:
+                    print(f"  [Graph] Filtered {skipped_old} old entities (no domain, no provenance)", flush=True)
+
                 for pmid, p in prev_papers.items():
                     if pmid not in self.papers:
                         self.papers[pmid] = p
@@ -115,9 +213,33 @@ class KnowledgeGraph:
         if session_id:
             data["last_session"] = session_id
             data["sessions"] = self._session_count + 1
+        data["domain"] = self.domain
+        data["last_save"] = time.time()
         GRAPH_FILE.write_text(
             json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
         )
+
+    def prune_stale(self, max_age_seconds: int = None):
+        """Remove entities that haven't been used recently."""
+        max_age = max_age_seconds or ENTITY_MAX_AGE
+        now = time.time()
+        stale = []
+        for eid, ent in self.entities.items():
+            last_used = ent.get("last_used", ent.get("created_at", 0))
+            if now - last_used > max_age:
+                # Only keep entities with many paper references (truly well-established)
+                if len(ent.get("papers", [])) >= 5:
+                    continue
+                stale.append(eid)
+        for eid in stale:
+            del self.entities[eid]
+        # Also prune relationships referencing deleted entities
+        entity_ids = set(self.entities.keys())
+        self.relationships = [
+            r for r in self.relationships
+            if r["source"] in entity_ids and r["target"] in entity_ids
+        ]
+        return len(stale)
 
     @classmethod
     def load(cls, persist=True) -> "KnowledgeGraph":
@@ -150,6 +272,34 @@ class KnowledgeGraph:
             if key not in existing:
                 self.relationships.append(r)
                 existing.add(key)
+
+    def filter_by_papers(self, paper_ids: set) -> "KnowledgeGraph":
+        """Return a new KnowledgeGraph containing only entities/relationships from given papers."""
+        filtered = KnowledgeGraph.__new__(KnowledgeGraph)
+        filtered.entities = {}
+        filtered.relationships = []
+        filtered.papers = {}
+        filtered.domain = self.domain
+        filtered._session_count = 0
+
+        # Filter entities — keep only those referenced in the given papers
+        for eid, ent in self.entities.items():
+            ent_papers = set(ent.get("papers", []))
+            if ent_papers & paper_ids:
+                filtered.entities[eid] = ent
+
+        # Filter papers
+        for pmid, p in self.papers.items():
+            if pmid in paper_ids:
+                filtered.papers[pmid] = p
+
+        # Filter relationships — keep only those between filtered entities
+        entity_ids = set(filtered.entities.keys())
+        for r in self.relationships:
+            if r["source"] in entity_ids and r["target"] in entity_ids:
+                filtered.relationships.append(r)
+
+        return filtered
 
     def detect_contradictions(self) -> list[dict]:
         """Detect contradictions in the knowledge graph:

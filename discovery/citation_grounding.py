@@ -121,6 +121,47 @@ def fetch_papers(query: str, max_arxiv: int = 20, max_pubmed: int = 20,
         except Exception as e:
             print(f"  [CrossRef] Error: {e}")
 
+    # ── INSPIRE HEP (fifth source — high-energy physics literature) ──
+    try:
+        from discovery.inspire_hep import search_papers as inspire_search
+        inspire_results = inspire_search(query, limit=10)
+        for p in inspire_results:
+            _add_paper(p)
+    except Exception as e:
+        print(f"  [INSPIRE HEP] Error: {e}")
+
+    # ── CORE (sixth source — open access papers) ──
+    try:
+        from discovery.core_api import search_papers as core_search
+        core_results = core_search(query, limit=10)
+        for p in core_results:
+            _add_paper(p)
+    except Exception as e:
+        print(f"  [CORE] Error: {e}")
+
+    # ── OpenAlex (seventh source — 250M+ scholarly works, free) ──
+    try:
+        from discovery.openalex_api import search_works as openalex_search
+        oa_results = openalex_search(query, limit=10)
+        for p in oa_results:
+            if not isinstance(p, dict):
+                continue
+            _add_paper({
+                "source": "openalex",
+                "id": p.get("doi", ""),
+                "title": p.get("title", "").strip(),
+                "abstract": "",  # OpenAlex search_works doesn't return abstracts
+                "authors": [],
+                "year": str(p.get("publication_year", "")),
+                "url": p.get("doi", ""),
+                "citation_key": f"OA:{p.get('doi', '')[:20]}",
+                "citation_count": p.get("cited_by_count", 0),
+                "open_access": p.get("open_access", False),
+                "concepts": p.get("concepts", []),
+            })
+    except Exception as e:
+        print(f"  [OpenAlex] Error: {e}")
+
     # Sort by year descending
     papers.sort(key=lambda p: p.get("year", "0000"), reverse=True)
     return papers
@@ -147,11 +188,11 @@ def build_citation_context(papers: list[dict], max_papers: int = 12) -> str:
         if len(p.get("authors", [])) > 3:
             authors += " et al."
         lines.append(
-            f"[{i}] {p['citation_key']}  ({p.get('year', 'n/a')})\n"
-            f"    Title: {p['title']}\n"
+            f"[{i}] {p.get('citation_key', '')}  ({p.get('year', 'n/a')})\n"
+            f"    Title: {p.get('title', '')}\n"
             f"    Authors: {authors}\n"
-            f"    Abstract: {p['abstract'][:300]}...\n"
-            f"    URL: {p['url']}\n"
+            f"    Abstract: {p.get('abstract', '')[:300]}...\n"
+            f"    URL: {p.get('url', '')}\n"
         )
 
     lines.append("=" * 60)
@@ -330,10 +371,10 @@ def ground_claims(text: str, papers: list[dict]) -> dict:
         "cited_papers": cited_papers,
         "uncited_claims": uncited_claims[:20],  # Cap output
         "citation_map": {str(k): {
-            "citation_key": v["citation_key"],
-            "title": v["title"],
-            "url": v["url"],
-            "source": v["source"],
+            "citation_key": v.get("citation_key", ""),
+            "title": v.get("title", ""),
+            "url": v.get("url", ""),
+            "source": v.get("source", ""),
         } for k, v in citation_map.items()},
         "total_citations": len(citation_nums),
         "total_papers_available": len(papers),
@@ -388,6 +429,8 @@ def traverse_citation_network(papers: list, hop_depth: int = 2,
         except Exception:
             continue
 
+    # Filter hop1 papers by topic relevance (prevent citation drift)
+    hop1_papers = _filter_by_relevance(hop1_papers, papers)
     all_papers.extend(hop1_papers)
     print(f"  [Citation Walk] Hop 1: +{len(hop1_papers)} papers from {min(top_n, len(scored_papers))} seeds")
 
@@ -417,6 +460,8 @@ def traverse_citation_network(papers: list, hop_depth: int = 2,
             except Exception:
                 continue
 
+        # Filter hop2 papers by topic relevance (even more important — higher drift risk)
+        hop2_papers = _filter_by_relevance(hop2_papers, papers)
         all_papers.extend(hop2_papers)
         print(f"  [Citation Walk] Hop 2: +{len(hop2_papers)} papers")
 
@@ -439,3 +484,43 @@ def traverse_citation_network(papers: list, hop_depth: int = 2,
 
     print(f"  [Citation Walk] Total: {len(quality_papers)} papers ({len(all_papers) - len(quality_papers)} filtered for quality)")
     return quality_papers
+
+
+def _filter_by_relevance(new_papers: list, original_papers: list, min_overlap: int = 1) -> list:
+    """Filter cited papers by topic relevance to the original search.
+    
+    Extracts key terms from original papers' titles and checks if new papers
+    share at least min_overlap terms. Prevents citation drift.
+    """
+    if not new_papers or not original_papers:
+        return new_papers
+    
+    # Extract key terms from original papers (words > 4 chars, not stopwords)
+    stopwords = {"these", "their", "there", "which", "about", "would", "could",
+                 "should", "between", "through", "having", "being", "other",
+                 "this", "that", "with", "from", "were", "been", "have", "will",
+                 "also", "more", "some", "than", "them", "into", "just", "each"}
+    original_terms = set()
+    for p in original_papers[:10]:
+        title = (p.get("title", "") or "").lower()
+        abstract = (p.get("abstract", "") or "").lower()[:200]
+        words = set(w for w in title.split() + abstract.split() 
+                    if len(w) > 4 and w.isalpha() and w not in stopwords)
+        original_terms.update(words)
+    
+    if not original_terms:
+        return new_papers
+    
+    # Filter new papers — require at least min_overlap key term matches
+    filtered = []
+    for p in new_papers:
+        title = (p.get("title", "") or "").lower()
+        abstract = (p.get("abstract", "") or "").lower()[:200]
+        words = set(w for w in title.split() + abstract.split()
+                    if len(w) > 4 and w.isalpha() and w not in stopwords)
+        overlap = len(words & original_terms)
+        if overlap >= min_overlap:
+            p["topic_relevance"] = overlap
+            filtered.append(p)
+    
+    return filtered

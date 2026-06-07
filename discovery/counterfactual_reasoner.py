@@ -109,11 +109,25 @@ class CounterfactualReasoner:
         }
 
     def _extract_equations(self, theory: dict) -> list:
-        """Extract equations from theory."""
+        """Extract equations from theory — also scan predictions and mechanisms."""
         equations = []
         text = theory.get("description", "") + " " + theory.get("mathematical_model", "")
         for step in theory.get("steps", []):
             text += " " + str(step)
+
+        # Also scan predictions for quantitative content
+        for p in (theory.get("predictions") or []):
+            if isinstance(p, dict):
+                text += " " + p.get("statement", p.get("description", ""))
+            elif isinstance(p, str):
+                text += " " + p
+
+        # Also scan mechanisms
+        for m in (theory.get("mechanisms") or []):
+            if isinstance(m, dict):
+                text += " " + m.get("description", m.get("mechanism", ""))
+            elif isinstance(m, str):
+                text += " " + m
 
         # Match equations like X = Y(1 + αz)
         for match in re.findall(r'([A-Za-z_][\w]*)\s*=\s*([^,.;\n]{5,80})', text):
@@ -124,10 +138,10 @@ class CounterfactualReasoner:
         return equations[:10]
 
     def _extract_parameters(self, theory: dict) -> dict:
-        """Extract parameter values from theory."""
+        """Extract parameter values from theory — also scan predictions."""
         params = {}
 
-        for p in theory.get("key_parameters", []):
+        for p in (theory.get("key_parameters") or []):
             if isinstance(p, dict):
                 name = p.get("name", "")
                 value = p.get("expected_value", "")
@@ -147,6 +161,29 @@ class CounterfactualReasoner:
                 params[match[0]] = float(match[1])
             except ValueError:
                 pass
+
+        # Also from predictions (they often contain quantitative values)
+        for p in (theory.get("predictions") or []):
+            pred_text = ""
+            if isinstance(p, dict):
+                pred_text = p.get("statement", p.get("description", ""))
+            elif isinstance(p, str):
+                pred_text = p
+            # Extract numbers with units from predictions
+            for match in re.findall(r'(\w+)\s*[≈~=<>]\s*([\d.]+(?:e[+-]?\d+)?)', pred_text):
+                try:
+                    params[match[0]] = float(match[1])
+                except ValueError:
+                    pass
+            # Also extract bare numbers with context
+            for match in re.findall(r'([\d.]+(?:e[+-]?\d+)?)\s*([a-zA-Z_]+)', pred_text):
+                try:
+                    val = float(match[0])
+                    unit = match[1]
+                    if unit not in params and val > 0:
+                        params[unit] = val
+                except ValueError:
+                    pass
 
         return params
 
@@ -264,9 +301,9 @@ class CounterfactualReasoner:
 
     def _llm_counterfactuals(self, theory: dict, domain: str) -> list:
         """Use LLM to derive additional counterfactual consequences."""
-        theory_desc = theory.get("description", "")[:500]
-        params = json.dumps(theory.get("key_parameters", [])[:5])
-        predictions = json.dumps(theory.get("predictions", [])[:5])
+        theory_desc = str(theory.get("description", ""))[:500]
+        params = json.dumps((theory.get("key_parameters") if isinstance(theory.get("key_parameters"), list) else [])[:5])
+        predictions = json.dumps((theory.get("predictions") if isinstance(theory.get("predictions"), list) else [])[:5])
 
         prompt = f"""You are deriving counterfactual consequences of a scientific theory.
 

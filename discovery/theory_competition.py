@@ -1,4 +1,10 @@
 """
+import sys as _sys
+if _sys.platform == "win32":
+    try:
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 theory_competition.py — Tournament-style theory competition.
 
 Real science is hypothesis SELECTION, not hypothesis generation.
@@ -52,9 +58,18 @@ class TheoryCompetition:
         if not self.llm_call:
             return {"theories": [], "winner": None, "error": "No LLM client"}
 
-        # Format inputs
-        mech_list = mechanisms[:5] if isinstance(mechanisms, list) else mechanisms.get("mechanisms", [])[:5]
-        hv_list = hidden_variables[:5] if isinstance(hidden_variables, list) else hidden_variables.get("hidden_variables", [])[:5]
+        # Normalize inputs — handle None, dict, list
+        if mechanisms is None:
+            mechanisms = []
+        elif isinstance(mechanisms, dict):
+            mechanisms = mechanisms.get("mechanisms") or []
+        if hidden_variables is None:
+            hidden_variables = []
+        elif isinstance(hidden_variables, dict):
+            hidden_variables = hidden_variables.get("hidden_variables") or []
+
+        mech_list = mechanisms[:5]
+        hv_list = hidden_variables[:5]
 
         mech_text = self._format_list(mech_list, "mechanism")
         hv_text = self._format_list(hv_list, "hidden variable")
@@ -267,9 +282,13 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
 
         try:
             raw = self.llm_call(prompt, max_tokens=8192)
+            if raw:
+                print(f"    [DEBUG] {batch_label}: LLM returned {len(raw)} chars", flush=True)
             if not raw:
                 from discovery.llm_client import call_json
                 raw = call_json(prompt, max_tokens=8192, provider="auto")
+                if raw:
+                    print(f"    [DEBUG] {batch_label}: call_json returned {len(raw)} chars", flush=True)
             if not raw:
                 print(f"    [WARN] {batch_label}: LLM returned None/empty on all providers", flush=True)
                 return []
@@ -278,7 +297,28 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
             result = extract_json(raw, expected_key="theories")
             if result is None:
                 print(f"    [WARN] {batch_label}: JSON extraction failed ({len(raw) if raw else 0} chars)", flush=True)
-                return []
+                # Retry with simpler prompt — ask for minimal JSON
+                simple_prompt = f"""Return ONLY a JSON array. No prose. No explanation.
+Each object must have: "name" (string), "description" (string), "type" (string).
+Topic: {topic}
+Generate {count} scientific theories as JSON.
+Output: [{{"name": "...", "description": "...", "type": "proposed"}}, ...]"""
+                try:
+                    raw2 = self.llm_call(simple_prompt, max_tokens=4096)
+                    if raw2:
+                        result = extract_json(raw2, expected_key="theories")
+                        if result is None:
+                            # Try array at top level
+                            result = extract_json(raw2)
+                            if result and isinstance(result, list):
+                                result = {"theories": result}
+                        if result:
+                            print(f"    [INFO] {batch_label}: Retry with simpler prompt succeeded", flush=True)
+                except Exception:
+                    pass
+                if result is None:
+                    print(f"    [DEBUG] raw[:500]: {repr(raw[:500])}", flush=True)
+                    return []
 
             if isinstance(result, dict):
                 theories = result.get("theories", [])
@@ -370,10 +410,10 @@ Generate ALL {count} theories. Quality AND quantity. This is a tournament — on
                 tj = theories[j]
                 pair_text += f"""
 Pair {idx+1}: "{ti.get('name', '?')}" vs "{tj.get('name', '?')}"
-  A: {ti.get('description', '')[:120]}
-  A explains: {', '.join(str(e)[:40] for e in ti.get('explains', [])[:2])}
-  B: {tj.get('description', '')[:120]}
-  B explains: {', '.join(str(e)[:40] for e in tj.get('explains', [])[:2])}
+  A: {str(ti.get('description', ''))[:120]}
+  A explains: {', '.join(str(e)[:40] for e in (ti.get('explains') if isinstance(ti.get('explains'), list) else ti.get('supporting_evidence') if isinstance(ti.get('supporting_evidence'), list) else [])[:2])}
+  B: {str(tj.get('description', ''))[:120]}
+  B explains: {', '.join(str(e)[:40] for e in (tj.get('explains') if isinstance(tj.get('explains'), list) else tj.get('supporting_evidence') if isinstance(tj.get('supporting_evidence'), list) else [])[:2])}
 """
 
             prompt = f"""You are a scientific judge. For each pair below, decide which
@@ -440,12 +480,12 @@ Output JSON: {{"results": [{{"pair": 1, "winner": "A|B", "reason": "brief reason
         prompt = f"""Two theories compete to explain: {topic} ({domain})
 
 THEORY 1: {theory1.get('name', '?')}
-  {theory1.get('description', '')[:200]}
-  Predictions: {theory1.get('predictions', [])[:2]}
+  {str(theory1.get('description', ''))[:200]}
+  Predictions: {(theory1.get('predictions') if isinstance(theory1.get('predictions'), list) else [])[:2]}
 
 THEORY 2: {theory2.get('name', '?')}
-  {theory2.get('description', '')[:200]}
-  Predictions: {theory2.get('predictions', [])[:2]}
+  {str(theory2.get('description', ''))[:200]}
+  Predictions: {(theory2.get('predictions') if isinstance(theory2.get('predictions'), list) else [])[:2]}
 
 Design 2-3 experiments that would DEFINITIVELY distinguish between these theories.
 Each experiment must:

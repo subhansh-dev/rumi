@@ -3,7 +3,7 @@
 import re
 import json
 from collections import Counter
-from discovery.groq_client import call as groq_call
+from discovery.llm_client import call as llm_call
 
 
 class RetrievalFilter:
@@ -17,16 +17,16 @@ class RetrievalFilter:
         domain_keywords = self._domain_keywords(domain)
         expanded_terms = self._expand_query(topic, domain_keywords)
         scored = self._score_papers(papers, topic, expanded_terms)
+        # Boost papers whose title contains topic keywords
+        topic_words = set(w.lower() for w in topic.split() if len(w) > 4)
+        for item in scored:
+            title = item["paper"].get("title", "").lower()
+            title_matches = sum(1 for w in topic_words if w in title)
+            item["score"] += title_matches * 0.15  # 15% boost per topic word in title
+
         scored.sort(key=lambda x: x["score"], reverse=True)
 
-        # Batch LLM relevance check for borderline papers — DISABLED (too slow)
         top = [p for p in scored if p["score"] >= self.relevance_threshold]
-        borderline = [p for p in scored if p["score"] < self.relevance_threshold and p["score"] >= 0.15]
-
-        # Skip LLM check — just use scoring
-        # if borderline and len(top) < max_papers:
-        #     llm_scored = self._llm_relevance_check(borderline, topic, domain)
-        #     top.extend(llm_scored)
 
         top.sort(key=lambda x: x["score"], reverse=True)
         top = top[:max_papers]
@@ -204,7 +204,7 @@ Output JSON array of objects with "pmid", "relevant" (true/false), "score" (0.0-
 
         prompt += 'Output: [{"pmid": "...", "relevant": true, "score": 0.0-1.0}]'
 
-        result = groq_call(prompt, json_mode=True, max_tokens=4096)
+        result = llm_call(prompt, json_mode=True, max_tokens=4096)
         if not result:
             return []
 

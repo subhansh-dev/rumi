@@ -113,11 +113,55 @@ def save_to_archive(report: dict, topic: str, domain: str):
     return run_summary
 
 
+def _topic_similarity(topic_a: str, topic_b: str) -> float:
+    """Multi-level topic similarity: word Jaccard + bigram overlap + substring containment."""
+    stopwords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+                 "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
+                 "has", "have", "had", "do", "does", "did", "will", "would", "could",
+                 "should", "may", "might", "can", "this", "that", "these", "those",
+                 "using", "based", "novel", "study", "analysis", "approach"}
+
+    def _get_words(text):
+        return [w.lower() for w in text.split() if len(w) > 3 and w.lower() not in stopwords]
+
+    words_a = set(_get_words(topic_a))
+    words_b = set(_get_words(topic_b))
+
+    if not words_a or not words_b:
+        return 0.0
+
+    # Word-level Jaccard
+    intersection = words_a & words_b
+    union = words_a | words_b
+    word_jaccard = len(intersection) / len(union) if union else 0.0
+
+    # Bigram overlap (catches "KRAS G12C" matching "KRAS G12C")
+    def _bigrams(words):
+        return set(zip(words, words[1:])) if len(words) >= 2 else set()
+
+    bigrams_a = _bigrams(_get_words(topic_a))
+    bigrams_b = _bigrams(_get_words(topic_b))
+    bigram_overlap = len(bigrams_a & bigrams_b) / max(len(bigrams_a | bigrams_b), 1)
+
+    # Substring containment (one topic contains the other)
+    a_lower = topic_a.lower()
+    b_lower = topic_b.lower()
+    containment = 0.0
+    if a_lower in b_lower or b_lower in a_lower:
+        containment = 0.5
+    # Check if key phrases match
+    for phrase in ["kras", "ras", "black hole", "dark matter", "exoplanet", "climate"]:
+        if phrase in a_lower and phrase in b_lower:
+            containment = max(containment, 0.3)
+
+    return max(word_jaccard, bigram_overlap, containment)
+
+
 def get_archive_context(topic: str, domain: str) -> str:
     """Generate context from past discoveries for a new run.
 
-    This tells RUMI: "you already found these things, don't re-discover them.
-    Build on them or explore new angles."
+    Only includes discoveries from the SAME DOMAIN with HIGH topic similarity.
+    Cross-topic noise is filtered out.
     """
     archive = load_archive()
     if not archive.get("runs"):
@@ -125,57 +169,61 @@ def get_archive_context(topic: str, domain: str) -> str:
 
     lines = []
     lines.append("PREVIOUS DISCOVERY CONTEXT:")
-    lines.append("You have run discoveries before. Here's what you already found.")
-    lines.append("Don't re-discover these — build on them or explore new angles.")
     lines.append("")
 
-    # Recent runs
-    recent_runs = archive.get("runs", [])[-5:]
+    # Recent runs — ONLY same domain
+    recent_runs = [r for r in archive.get("runs", [])[-10:] if r.get("domain") == domain]
     if recent_runs:
-        lines.append("Recent runs:")
-        for r in recent_runs:
-            lines.append(f"  - {r.get('topic', '?')} (domain: {r.get('domain', '?')}, "
-                        f"score: {r.get('score', 0):.0f}/100, {r.get('timestamp', '?')})")
+        lines.append(f"Recent {domain} runs:")
+        for r in recent_runs[-3:]:
+            sim = _topic_similarity(topic, r.get("topic", ""))
+            if sim > 0.1:  # only show if somewhat relevant
+                lines.append(f"  - {r.get('topic', '?')[:60]} (score: {r.get('score', 0):.0f}/100)")
         lines.append("")
 
-    # Known theories (relevant to current domain)
-    relevant_theories = [t for t in archive.get("known_theories", [])
-                        if t.get("run_topic", "").lower().startswith(topic[:20].lower())
-                        or t.get("run_topic", "").lower() in topic.lower()
-                        or topic.lower() in t.get("run_topic", "").lower()]
+    # Known theories — ONLY high topic similarity
+    relevant_theories = []
+    for t in archive.get("known_theories", []):
+        run_topic = t.get("run_topic", "")
+        sim = _topic_similarity(topic, run_topic)
+        if sim >= 0.2:  # at least 20% word overlap
+            relevant_theories.append(t)
     if relevant_theories:
         lines.append(f"Previously discovered theories ({len(relevant_theories)}):")
-        for t in relevant_theories[-5:]:
+        for t in relevant_theories[-3:]:
             lines.append(f"  - {t.get('name', '?')} (score: {t.get('score', 0):.2f})")
             lines.append(f"    {t.get('description', '')[:100]}")
         lines.append("")
 
-    # Known variables
-    relevant_vars = [v for v in archive.get("known_variables", [])
-                    if v.get("run_topic", "").lower().startswith(topic[:20].lower())
-                    or v.get("run_topic", "").lower() in topic.lower()
-                    or topic.lower() in v.get("run_topic", "").lower()]
+    # Known variables — ONLY high topic similarity
+    relevant_vars = []
+    for v in archive.get("known_variables", []):
+        run_topic = v.get("run_topic", "")
+        sim = _topic_similarity(topic, run_topic)
+        if sim >= 0.2:
+            relevant_vars.append(v)
     if relevant_vars:
         lines.append(f"Previously proposed hidden variables ({len(relevant_vars)}):")
-        for v in relevant_vars[-5:]:
+        for v in relevant_vars[-3:]:
             lines.append(f"  - [{v.get('type', '?')}] {v.get('name', '?')}")
         lines.append("")
 
-    # Known mechanisms
-    relevant_mechs = [m for m in archive.get("known_mechanisms", [])
-                     if m.get("run_topic", "").lower().startswith(topic[:20].lower())
-                     or m.get("run_topic", "").lower() in topic.lower()
-                     or topic.lower() in m.get("run_topic", "").lower()]
+    # Known mechanisms — ONLY high topic similarity
+    relevant_mechs = []
+    for m in archive.get("known_mechanisms", []):
+        run_topic = m.get("run_topic", "")
+        sim = _topic_similarity(topic, run_topic)
+        if sim >= 0.2:
+            relevant_mechs.append(m)
     if relevant_mechs:
         lines.append(f"Previously discovered mechanisms ({len(relevant_mechs)}):")
-        for m in relevant_mechs[-5:]:
+        for m in relevant_mechs[-3:]:
             lines.append(f"  - [{m.get('type', '?')}] {m.get('name', '?')}")
         lines.append("")
 
     if not relevant_theories and not relevant_vars and not relevant_mechs:
         lines.append(f"No previous discoveries on '{topic}' — this is a fresh exploration.")
-    else:
-        lines.append("INSTRUCTION: Build on these previous findings or explore angles not yet covered.")
+        lines.append("INSTRUCTION: Propose genuinely novel hypotheses. Do NOT repeat known science.")
 
     return "\n".join(lines)
 

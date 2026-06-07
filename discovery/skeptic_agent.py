@@ -6,8 +6,9 @@ from discovery.json_extract import extract_json
 
 
 class SkepticAgent:
-    def __init__(self):
+    def __init__(self, llm_call=None):
         self.stage = LLMStage("skeptic", max_retries=2, backoff=[3, 10])
+        self._llm_call = llm_call
 
     async def review(self, hypothesis, contradictions=None):
         contradictions_text = ""
@@ -54,7 +55,11 @@ Analyze rigorously:
 Output JSON:
 {{"critique": "detailed adversarial critique (2-3 paragraphs)", "logical_flaws": ["flaw1", "flaw2"], "evidence_ratings": [{{"claim": "specific claim", "rating": "strong|moderate|weak", "reason": "why"}}], "alternative_mechanisms": ["alt1", "alt2"], "confounders": ["confounder1"], "methodological_critique": "specific improvements", "novelty_assessment": "independent assessment", "weaknesses": ["top weakness 1", "top weakness 2", "top weakness 3"], "recommendation": "accept|revise|reject", "revised_confidence": 0.0-1.0}}"""
 
-        raw, provider = await self.stage.call_with_retry(prompt, json_mode=True)
+        if self._llm_call:
+            raw = self._llm_call(prompt, max_tokens=4096, phase="skeptic_review")
+            provider = "custom"
+        else:
+            raw, provider = await self.stage.call_with_retry(prompt, json_mode=True)
         if not raw:
             return self._default()
 
