@@ -2891,7 +2891,9 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                     L.append(f"     Step {j+1}: {s_str}")
             # Show derivation if available
             derivation = m.get("derivation", "")
-            if derivation and derivation.lower() not in ("not derivable", "n/a", ""):
+            if isinstance(derivation, dict):
+                derivation = json.dumps(derivation, default=str)[:500]
+            if derivation and str(derivation).lower() not in ("not derivable", "n/a", "", "{}"):
                 L.append(f"     Derivation:")
                 for dline in str(derivation).split("\n")[:5]:
                     L.append(f"       {dline.strip()[:120]}")
