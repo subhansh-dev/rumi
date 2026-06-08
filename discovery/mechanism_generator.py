@@ -33,7 +33,8 @@ class MechanismGenerator:
 
     def generate_mechanisms(self, hidden_variables: list, gaps: list,
                             anomalies: list, topic: str, domain: str,
-                            papers: list = None, archive_context: str = "") -> dict:
+                            papers: list = None, archive_context: str = "",
+                            constraint: dict = None) -> dict:
         """
         Generate causal mechanisms for the proposed hidden variables and observed gaps.
 
@@ -75,6 +76,41 @@ class MechanismGenerator:
         # Get existing causal relationships from graph
         causal_context = self._extract_causal_chains()
 
+        # Build constraint text for Track B (curiosity-driven) pipeline
+        constraint_text = ""
+        if constraint and isinstance(constraint, dict):
+            forbidden = constraint.get("forbidden_theories", [])
+            required = constraint.get("required_properties", [])
+            direction = constraint.get("novelty_direction", "")
+            custom_prompt = constraint.get("constraint_prompt", "")
+
+            if forbidden or required or custom_prompt:
+                constraint_text = "\n\n" + "=" * 60 + "\n"
+                constraint_text += "CURIOSITY CONSTRAINT — Newton-Style Discovery\n"
+                constraint_text += "=" * 60 + "\n\n"
+                constraint_text += f"Core Question: {constraint.get('core_question', topic)}\n\n"
+
+                if forbidden:
+                    constraint_text += "FORBIDDEN THEORIES — You MUST NOT reproduce any of these:\n"
+                    for f_theory in forbidden:
+                        constraint_text += f"  ✗ {f_theory}\n"
+                    constraint_text += "\nThese are already well-known in the literature. Generating them is NOT discovery.\n\n"
+
+                if required:
+                    constraint_text += "REQUIRED PROPERTIES — Your mechanism MUST satisfy ALL of these:\n"
+                    for prop in required:
+                        constraint_text += f"  ✓ {prop}\n"
+                    constraint_text += "\n"
+
+                if direction:
+                    constraint_text += f"NOVELTY DIRECTION: {direction}\n\n"
+
+                if custom_prompt:
+                    constraint_text += custom_prompt + "\n\n"
+
+                constraint_text += "Your task: Generate mechanisms from FIRST PRINCIPLES that are NOT any of the forbidden theories.\n"
+                constraint_text += "Derive from physics/chemistry/biology fundamentals, not from existing literature.\n"
+
         prompt = f"""You are a mechanistic scientist — you DERIVE how things work from first principles.
 
 TOPIC: {topic}
@@ -96,6 +132,7 @@ EXISTING CAUSAL CHAINS IN KNOWLEDGE GRAPH:
 
 PAPERS:
 {paper_context}
+{constraint_text}
 
 Your task: DERIVE causal mechanisms from first principles. Do NOT just describe — DERIVE.
 

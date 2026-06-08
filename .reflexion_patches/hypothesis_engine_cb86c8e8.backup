@@ -40,12 +40,6 @@ class HypothesisEngine:
             prompt += f"\nGraph summary: {node_count} nodes, {edge_count} edges."
         except Exception:
             pass
-        # Include a count of relevant literature to further boost hypothesis confidence
-        try:
-            paper_count = len(getattr(self.memory, "papers", []))
-            prompt += f"\nRelevant literature count: {paper_count}"
-        except Exception:
-            pass
 
         # Use external LLM router if provided (preferred — has Cerebras primary)
         if self._llm_call:

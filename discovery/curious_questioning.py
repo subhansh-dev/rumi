@@ -4,11 +4,18 @@ curious_questioning.py - Phase 0: The Newton Step
 Before literature review, before gap detection:
   1. OBSERVE: What is surprising about this topic?
   2. QUESTION: Why does this happen? What if X were different?
-  3. REFRAME: Turn the observation into a testable question
-  4. SEARCH: Find papers about the WHY
+  3. GENERALIZE: Does this same pattern appear somewhere ELSE? (Newton's move)
+  4. CONSTRAINT: Build forbidden_theories + required_properties for Track B
+  5. REFRAME: Turn the observation into a testable question
+  6. SEARCH: Find papers about the WHY
 
 This produces a question-driven hypothesis that gets merged
 with the broad pipeline results. User gets BOTH.
+
+NEW: Also produces a CONSTRAINT object for Track B pipeline:
+  - forbidden_theories: theories that Track B must NOT reproduce
+  - required_properties: what a novel theory must satisfy
+  - cross_domain_connections: Newton-style generalizations
 """
 import re
 
@@ -19,11 +26,23 @@ class CuriousQuestioning:
     def __init__(self, llm_call=None):
         self.llm_call = llm_call
 
-    def run(self, topic, domain, papers=None):
-        """Run curious questioning on a topic."""
+    def run(self, topic, domain, papers=None, cross_domain_papers=None):
+        """Run curious questioning on a topic.
+
+        Args:
+            topic: Research topic or observation
+            domain: Domain key (e.g. physics, space_astronomy)
+            papers: Domain-specific papers for observations
+            cross_domain_papers: Papers from OTHER domains for generalization
+
+        Returns:
+            dict with observations, questions, core_question, hypothesis,
+            AND a constraint object for Track B pipeline.
+        """
         result = {"observations": [], "questions": [],
                   "reframed": "", "question_hypothesis": "",
-                  "why_it_matters": ""}
+                  "why_it_matters": "", "generalizations": [],
+                  "constraint": None}
 
         observations = self._extract_observations(topic, papers or [])
         result["observations"] = observations
@@ -54,6 +73,21 @@ class CuriousQuestioning:
                 cat = q.get("category", "unknown")
                 categories[cat] = categories.get(cat, 0) + 1
         result["category_summary"] = categories
+
+        # ── NEW: GENERALIZE — Newton's move ──
+        # Connect the anomaly to something ELSE in a different domain
+        if self.llm_call:
+            generalizations = self._generalize(topic, domain, observations,
+                                                result["reframed"],
+                                                papers or [], cross_domain_papers)
+            result["generalizations"] = generalizations
+
+        # ── NEW: GENERATE CONSTRAINT — for Track B pipeline ──
+        constraint = self._generate_constraint(topic, domain, result["reframed"],
+                                                result["question_hypothesis"],
+                                                observations, result["generalizations"],
+                                                papers or [])
+        result["constraint"] = constraint
 
         return result
 
@@ -237,3 +271,235 @@ class CuriousQuestioning:
         except Exception:
             pass
         return None
+
+    # ═══════════════════════════════════════════════════════════════
+    # NEW: GENERALIZE — Newton's Move
+    # ═══════════════════════════════════════════════════════════════
+
+    def _generalize(self, topic, domain, observations, core_question,
+                    domain_papers, cross_domain_papers):
+        """
+        Newton's move: Does this same phenomenon appear somewhere ELSE?
+
+        Newton saw the apple fall and asked: does the same force hold the Moon?
+        He connected TWO things nobody had connected: apple-falling (near) with
+        moon-orbiting (far). The data already existed. The CONNECTION was new.
+
+        This method finds cross-domain connections — similar patterns in
+        different fields that might share a common underlying cause.
+
+        Args:
+            topic: Research topic
+            domain: Domain key
+            observations: Surprising observations from Phase 0
+            core_question: The deep question from Phase 0
+            domain_papers: Papers from the main domain
+            cross_domain_papers: Papers from OTHER domains
+
+        Returns:
+            List of generalization dicts:
+            [{"domain_a": "...", "observation_a": "...",
+              "domain_b": "...", "observation_b": "...",
+              "connection": "...", "hypothesis": "..."}]
+        """
+        obs_lines = []
+        for o in observations[:5]:
+            if isinstance(o, dict):
+                obs_lines.append(f"- {o.get('observation', '')[:100]}")
+        obs_text = "\n".join(obs_lines) if obs_lines else "No specific observations yet."
+
+        cross_lines = []
+        if cross_domain_papers:
+            for p in cross_domain_papers[:8]:
+                if isinstance(p, dict):
+                    title = p.get("title", "?")[:80]
+                    abstract = (p.get("abstract") or "")[:150]
+                    src_domain = p.get("source_domain", p.get("source", "unknown"))
+                    cross_lines.append(f"- [{src_domain}] {title}: {abstract}")
+        cross_text = "\n".join(cross_lines) if cross_lines else "No cross-domain papers available."
+
+        prompt = f"""You are Newton. You just observed something surprising about: {topic}
+
+OBSERVATIONS FROM LITERATURE:
+{obs_text}
+
+CORE QUESTION: {core_question or "Not yet determined"}
+
+CROSS-DOMAIN PAPERS (from OTHER fields):
+{cross_text}
+
+Now do what Newton did with the apple and the moon:
+
+Newton saw an apple fall. Everyone saw apples fall. But Newton asked:
+"Does the SAME force that pulls the apple also hold the Moon in orbit?"
+
+He connected TWO observations that nobody had connected:
+  - Observation A (near Earth): Apple falls to ground
+  - Observation B (far from Earth): Moon orbits Earth
+  - Connection: SAME FORCE at different scales
+  - Hypothesis: Inverse square law of gravitational attraction
+
+Your task: Find 2-3 CROSS-DOMAIN CONNECTIONS for this topic.
+
+For each connection:
+1. OBSERVATION A: The surprising finding in the main domain ({domain})
+2. OBSERVATION B: A SIMILAR pattern in a DIFFERENT domain (from cross-domain papers or your knowledge)
+3. CONNECTION: Why might these be the SAME underlying phenomenon?
+4. HYPOTHESIS: If they share a cause, what would that cause be?
+5. NOVELTY: Has anyone proposed this connection before? (yes/no/unknown)
+
+IMPORTANT:
+- The connection must be SPECIFIC, not vague ("both involve energy" is too vague)
+- The hypothesis must be TESTABLE — it must make a prediction that differs from existing theories
+- The connection should be SURPRISING — something a domain expert wouldn't immediately see
+
+Output JSON:
+{{"generalizations": [
+  {{
+    "observation_a": "What we see in the main domain",
+    "domain_a": "{domain}",
+    "observation_b": "What we see in a different domain",
+    "domain_b": "the other domain",
+    "connection": "Why these might be the same phenomenon",
+    "hypothesis": "If they share a cause, what is it?",
+    "novelty": "yes|no|unknown",
+    "testable_prediction": "What prediction does this connection make that existing theories don't?"
+  }}
+]}}"""
+
+        try:
+            raw = self.llm_call(prompt, max_tokens=2048)
+            if raw:
+                from discovery.json_extract import extract_json
+                result = extract_json(raw if isinstance(raw, str) else str(raw))
+                if isinstance(result, dict):
+                    generalizations = result.get("generalizations", [])
+                    # Validate: each must have observation_a, observation_b, connection
+                    valid = []
+                    for g in generalizations:
+                        if isinstance(g, dict):
+                            if g.get("observation_a") and g.get("observation_b") and g.get("connection"):
+                                valid.append(g)
+                    if valid:
+                        return valid
+        except Exception:
+            pass
+        return []
+
+    # ═══════════════════════════════════════════════════════════════
+    # NEW: GENERATE CONSTRAINT — For Track B Pipeline
+    # ═══════════════════════════════════════════════════════════════
+
+    def _generate_constraint(self, topic, domain, core_question, hypothesis,
+                             observations, generalizations, papers):
+        """
+        Build a constraint object for Track B pipeline.
+
+        The constraint tells the mechanism generator and theory tournament:
+        - What theories they MUST NOT reproduce (forbidden_theories)
+        - What a novel theory MUST satisfy (required_properties)
+        - What cross-domain connections to explore (generalizations)
+
+        This is what makes Track B produce genuinely novel mechanisms
+        instead of reproducing known theories from the literature.
+
+        Returns:
+            {
+                "core_question": "What if dark matter isn't particles?",
+                "forbidden_theories": ["MOND", "TeVeS", "Emergent Gravity", ...],
+                "required_properties": ["explains galaxy rotation curves without DM particles", ...],
+                "cross_domain_connections": [{"observation_a": ..., "observation_b": ..., ...}],
+                "novelty_direction": "gravity modification from information-theoretic principles",
+                "constraint_prompt": "Ready-to-use prompt fragment for mechanism generator"
+            }
+        """
+        # Build observation summary
+        obs_lines = []
+        for o in observations[:5]:
+            if isinstance(o, dict):
+                obs_lines.append(f"- {o.get('observation', '')[:100]}")
+        obs_text = "\n".join(obs_lines) if obs_lines else "No specific observations yet."
+
+        # Build generalization summary
+        gen_lines = []
+        for g in generalizations[:3]:
+            if isinstance(g, dict):
+                gen_lines.append(
+                    f"- Connection: {g.get('connection', '')[:100]}\n"
+                    f"  Hypothesis: {g.get('hypothesis', '')[:100]}"
+                )
+        gen_text = "\n".join(gen_lines) if gen_lines else "No cross-domain connections found yet."
+
+        prompt = f"""You are building a CONSTRAINT for a scientific discovery pipeline.
+
+TOPIC: {topic}
+DOMAIN: {domain}
+CORE QUESTION: {core_question or "Not yet determined"}
+HYPOTHESIS: {hypothesis or "Not yet determined"}
+
+OBSERVATIONS:
+{obs_text}
+
+CROSS-DOMAIN CONNECTIONS:
+{gen_text}
+
+Your task: Build a constraint that forces the pipeline to generate NOVEL theories,
+not reproduce existing ones from the literature.
+
+Step 1: IDENTIFY FORBIDDEN THEORIES
+List 3-5 existing theories that the pipeline should NOT reproduce.
+These are well-known explanations already in the literature.
+Example: For dark matter topic → ["MOND", "TeVeS", "Emergent Gravity", "f(R) gravity"]
+
+Step 2: DEFINE REQUIRED PROPERTIES
+What must a novel theory satisfy? 2-4 specific requirements.
+Example: ["explains galaxy rotation curves without dark matter particles",
+          "makes a prediction that differs from MOND"]
+
+Step 3: DEFINE NOVELTY DIRECTION
+What direction should novel theories explore?
+Example: "gravity modification from information-theoretic principles"
+
+Step 4: BUILD CONSTRAINT PROMPT
+Write a ready-to-use prompt fragment that can be appended to the mechanism
+generator and theory tournament prompts. This fragment should:
+- List the forbidden theories
+- List the required properties
+- Explain WHY these are forbidden (they're already in the literature)
+- Encourage first-principles derivation, not literature reproduction
+
+Output JSON:
+{{
+  "forbidden_theories": ["Theory 1", "Theory 2", ...],
+  "required_properties": ["Property 1", "Property 2", ...],
+  "novelty_direction": "What direction to explore",
+  "constraint_prompt": "Ready-to-use prompt fragment (2-3 paragraphs)"
+}}"""
+
+        try:
+            raw = self.llm_call(prompt, max_tokens=2048)
+            if raw:
+                from discovery.json_extract import extract_json
+                result = extract_json(raw if isinstance(raw, str) else str(raw))
+                if isinstance(result, dict):
+                    constraint = {
+                        "core_question": core_question or topic,
+                        "forbidden_theories": result.get("forbidden_theories", []),
+                        "required_properties": result.get("required_properties", []),
+                        "novelty_direction": result.get("novelty_direction", ""),
+                        "constraint_prompt": result.get("constraint_prompt", ""),
+                        "cross_domain_connections": generalizations,
+                    }
+                    return constraint
+        except Exception:
+            pass
+
+        # Fallback: build a basic constraint without LLM
+        return {
+            "core_question": core_question or topic,
+            "forbidden_theories": [],
+            "required_properties": [],
+            "novelty_direction": "",
+            "constraint_prompt": "",
+            "cross_domain_connections": generalizations,
+        }

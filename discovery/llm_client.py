@@ -235,7 +235,7 @@ CEREBRAS_MODEL = "gpt-oss-120b"
 def _get_cerebras_keys() -> list[str]:
     cfg = _load_config()
     keys = []
-    for k in ["cerebras_api_key", "cerebras_api_key2", "cerebras_api_key3"]:
+    for k in ["cerebras_api_key", "cerebras_api_key2", "cerebras_api_key3", "cerebras_api_key4", "cerebras_api_key5", "cerebras_api_key6"]:
         v = cfg.get(k, "")
         if v:
             keys.append(v)

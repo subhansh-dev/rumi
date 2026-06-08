@@ -37,7 +37,11 @@ Output format:
 import json
 import time
 import sys
+import socket
 from datetime import datetime
+
+# Global network timeout — prevents DNS hangs from blocking the pipeline
+socket.setdefaulttimeout(30)
 from pathlib import Path
 from typing import Optional
 
@@ -279,7 +283,8 @@ def build_knowledge_graph(papers: list, domain: str) -> KnowledgeGraph:
     return graph
 
 
-def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> dict:
+def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
+                           curiosity_constraint: dict = None) -> dict:
     """
     Run the complete discovery pipeline.
 
@@ -387,12 +392,11 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
     # PHASE 0: CURIOUS QUESTIONING — The Newton Step
     # ══════════════════════════════════════════════════════════════
     curious_result = None
+    _curiosity_constraint = curiosity_constraint  # None for Track A, set for Track B
     try:
         from discovery.curious_questioning import CuriousQuestioning
-        # Use LLM client directly (before _truncated_llm is defined)
         from discovery.llm_client import call_json as _early_llm
         cq = CuriousQuestioning(llm_call=_early_llm)
-        # Run on a small initial paper set for observations
         initial_papers = fetch_papers(topic, max_arxiv=10, max_pubmed=10, max_s2=5, max_crossref=5)
         curious_result = cq.run(topic, domain, papers=initial_papers)
         if curious_result:
@@ -407,13 +411,14 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             hypothesis = curious_result.get("question_hypothesis", "")
             if hypothesis:
                 print(f"  Question Hypothesis: {hypothesis[:100]}", flush=True)
-            # Save to report immediately (before any early returns)
             report["curious_questioning"] = {
                 "observations": curious_result.get("observations", []),
                 "questions": curious_result.get("questions", []),
                 "core_question": curious_result.get("reframed", ""),
                 "question_hypothesis": curious_result.get("question_hypothesis", ""),
                 "why_it_matters": curious_result.get("why_it_matters", ""),
+                "generalizations": curious_result.get("generalizations", []),
+                "constraint": curious_result.get("constraint"),
             }
     except Exception as e:
         print(f"  [WARN] Curious questioning skipped: {e}")
@@ -981,11 +986,10 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
             return False
 
         try:
-            # Layer 1: Try phase-specific provider with json_mode=True
+            # Layer 1: Try phase-specific provider
             r = llm_call(prompt, json_mode=True, max_tokens=max_tokens, provider=provider)
             if r and not _is_empty_json(r):
                 return r
-            # If json_mode returned empty, retry without json_mode (some providers return empty JSON)
             if _is_empty_json(r):
                 r = llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider=provider)
                 if r:
@@ -993,7 +997,6 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
 
             # Layer 2: Phase provider exhausted — try auto
             if provider != "auto":
-                print(f"    [DEBUG] {provider} exhausted, trying auto...", flush=True)
                 r = llm_call(prompt, json_mode=True, max_tokens=max_tokens, provider="auto")
                 if r and not _is_empty_json(r):
                     return r
@@ -1001,25 +1004,6 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full") -> 
                     r = llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider="auto")
                     if r:
                         return r
-
-            # Layer 3: All providers in cooldown — wait for soonest, retry
-            import discovery.llm_client as _lc
-            soonest = min(
-                getattr(_lc, '_cerebras_cooldown_until', 0),
-                getattr(_lc, '_groq_cooldown_until', 0),
-                getattr(_lc, '_gemini_cooldown_until', 0),
-            )
-            wait = max(0, min(20, soonest - time.time()))
-            if wait > 0:
-                print(f"    [DEBUG] All providers cooling down, waiting {wait:.0f}s...", flush=True)
-                time.sleep(wait + 1)
-            r = llm_call(prompt, json_mode=True, max_tokens=max_tokens, provider="auto")
-            if r and not _is_empty_json(r):
-                return r
-            if _is_empty_json(r):
-                r = llm_call(prompt, json_mode=False, max_tokens=max_tokens, provider="auto")
-                if r:
-                    return r
 
             print(f"    [DEBUG] LLM exhausted (all providers)", flush=True)
             return None
@@ -1276,7 +1260,8 @@ Output JSON:
         try:
             mech_generator = MechanismGenerator(graph=graph, llm_call=_truncated_llm)
             mech_results = mech_generator.generate_mechanisms(
-                hidden_variables, gaps, anomalies, topic, domain, papers, archive_context
+                hidden_variables, gaps, anomalies, topic, domain, papers, archive_context,
+                constraint=_curiosity_constraint
             )
             mechanisms = mech_results.get("mechanisms", [])
         except Exception as e:
@@ -1528,7 +1513,7 @@ Output JSON:
             competition = TheoryCompetition(graph=graph, llm_call=_truncated_llm)
             comp_results = competition.compete(
                 mechanisms, hidden_variables, anomalies, gaps, topic, domain, papers,
-                archive_context=archive_context
+                archive_context=archive_context, constraint=_curiosity_constraint
             )
             theories = comp_results.get("theories", [])
             winner = comp_results.get("winner")
@@ -1706,11 +1691,18 @@ Output JSON:
                 theories.sort(key=lambda t: t.get("_gflownet_score", 0), reverse=True)
 
                 # Update winner if composite score suggests a different one
+                # BUT never promote known science (rediscovery/well_known) — Winner Override already rejected it
                 if theories and winner:
                     best_composite = theories[0]
                     if best_composite.get("_gflownet_score", 0) > (winner.get("_gflownet_score", 0) or 0):
-                        print(f"  [GFlowNet] Re-ranked: '{best_composite.get('name', '?')[:40]}' (composite={best_composite.get('_gflownet_score', 0):.3f})", flush=True)
-                        print(f"  [GFlowNet] Diversity bonus: +{best_composite.get('_diversity_bonus', 0):.2f}, Novelty bonus: +{best_composite.get('_novelty_bonus', 0):.2f}", flush=True)
+                        # Don't promote known science over novel theories
+                        if best_composite.get("is_novel_vs_known") in ("well_known", "rediscovery"):
+                            print(f"  [GFlowNet] Skipping known science '{best_composite.get('name', '?')[:40]}' — keeping novel winner '{winner.get('name', '?')[:40]}'", flush=True)
+                        else:
+                            old_winner_name = winner.get("name", "?")
+                            winner = best_composite
+                            print(f"  [GFlowNet] Winner updated: '{old_winner_name[:40]}' -> '{winner.get('name', '?')[:40]}' (composite={winner.get('_gflownet_score', 0):.3f})", flush=True)
+                            print(f"  [GFlowNet] Diversity bonus: +{winner.get('_diversity_bonus', 0):.2f}, Novelty bonus: +{winner.get('_novelty_bonus', 0):.2f}", flush=True)
             except Exception as e:
                 print(f"  [WARN] GFlowNet re-ranking skipped: {e}", flush=True)
 
@@ -2555,6 +2547,9 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
     # ══════════════════════════════════════════════════════════════
     # PHASE 13: REFINEMENT PIPELINE (13 stages)
     # ══════════════════════════════════════════════════════════════
+    # Cooldown before heavy refinement LLM calls
+    print("\n  [Cooldown] 30s before refinement pipeline...", flush=True)
+    time.sleep(30)
     print("\n" + "=" * 70, flush=True)
     print("  REFINEMENT PIPELINE — 13 stages of post-processing", flush=True)
     print("=" * 70, flush=True)
@@ -2584,13 +2579,13 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
             classification = refinement.get('classification', {})
             print(f"  Stage 11 (Classification): {classification.get('classification', 'unknown')}")
             scoring = refinement.get('scoring', {})
-            print(f"  Stage 12 (Scoring): {scoring.get('grade', '?')} ({scoring.get('total_score', 0):.0f}/100)")
+            print(f"  Stage 12 (Scoring): {scoring.get('grade', '?')} ({scoring.get('overall_score', scoring.get('total_score', 0)):.0f}/100)")
             courtroom = refinement.get('courtroom', {})
             print(f"  Stage 13 (Courtroom): {courtroom.get('verdict', 'unknown')}")
             report["phases"]["refinement"] = {
                 "classification": classification.get('classification', 'unknown'),
                 "grade": scoring.get('grade', '?'),
-                "score": scoring.get('total_score', 0),
+                "score": scoring.get('overall_score', scoring.get('total_score', 0)),
                 "verdict": courtroom.get('verdict', 'unknown'),
             }
 
@@ -2613,6 +2608,64 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
     except Exception as e:
         print(f"  [ERROR] Refinement pipeline failed: {e}")
         report["errors"].append(f"Refinement: {e}")
+
+    # ══════════════════════════════════════════════════════════════
+    # CANONICAL WINNER RECONCILIATION — Single source of truth
+    # ══════════════════════════════════════════════════════════════
+    # The refinement pipeline's multi_model_competition runs its own
+    # LLM-based tournament with DIFFERENT scoring weights, which can
+    # pick a completely different winner than the main tournament.
+    # We must reconcile: the tournament winner is canonical unless the
+    # refinement winner exists in theories AND has a clearly higher score.
+    _winner_source = "tournament"
+    if refinement and winner:
+        refinement_winner_title = None
+        try:
+            refinement_winner_title = refinement.get("competition", {}).get("winner", "")
+        except Exception:
+            pass
+        if refinement_winner_title and isinstance(refinement_winner_title, str):
+            tournament_winner_name = winner.get("name", "")
+            # Only consider reconciliation if they actually differ
+            if refinement_winner_title.lower().strip() != tournament_winner_name.lower().strip():
+                # Try to find the refinement winner in the theories list
+                refinement_winner_theory = None
+                for t in theories:
+                    t_name = t.get("name", t.get("title", ""))
+                    if t_name and t_name.lower().strip() == refinement_winner_title.lower().strip():
+                        refinement_winner_theory = t
+                        break
+                if refinement_winner_theory:
+                    ref_score = refinement_winner_theory.get("scores", {}).get("overall", 0)
+                    tour_score = winner.get("scores", {}).get("overall", 0)
+                    # Only promote refinement winner if it has a meaningfully higher score
+                    if ref_score > tour_score + 0.03:
+                        print(f"  [Winner Reconciliation] Refinement winner promoted: "
+                              f"'{refinement_winner_title[:50]}' (score={ref_score:.3f}) "
+                              f"replaces tournament winner '{tournament_winner_name[:50]}' (score={tour_score:.3f})", flush=True)
+                        winner = refinement_winner_theory
+                        _winner_source = "refinement"
+                    else:
+                        print(f"  [Winner Reconciliation] Tournament winner stands: "
+                              f"'{tournament_winner_name[:50]}' (score={tour_score:.3f}) "
+                              f"vs refinement '{refinement_winner_title[:50]}' (score={ref_score:.3f})", flush=True)
+                else:
+                    print(f"  [Winner Reconciliation] Refinement winner '{refinement_winner_title[:50]}' "
+                          f"not found in theories list — tournament winner stands", flush=True)
+    # Store canonical winner in report
+    if winner:
+        report["canonical_winner"] = {
+            "name": winner.get("name", "?"),
+            "score": winner.get("scores", {}).get("overall", 0),
+            "source": _winner_source,
+        }
+        report["canonical_winner_theory"] = winner
+        # Update theory_competition phase to match canonical winner
+        if "theory_competition" in report.get("phases", {}):
+            report["phases"]["theory_competition"]["winner"] = winner
+            report["phases"]["theory_competition"]["winner_name"] = winner.get("name")
+            report["phases"]["theory_competition"]["winner_score"] = winner.get("scores", {}).get("overall", 0)
+            report["phases"]["theory_competition"]["winner_source"] = _winner_source
 
     # ══════════════════════════════════════════════════════════════
     # PHASE 14: REFLEXION (Recursive Self-Improvement)
@@ -3080,6 +3133,120 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 L.append(f"    ✗ {tname} (score: {score:.2f}) — {str(reason)[:80]}")
             if len(eliminated) > 5:
                 L.append(f"    ... and {len(eliminated) - 5} more")
+        L.append("")
+
+    # ── Curious Questioning Results (if available) ──
+    cq = report.get("curious_questioning", {})
+    if cq:
+        L.append("-" * 70)
+        L.append("  CURIOUS QUESTIONING - The Newton Step")
+        L.append("-" * 70)
+        core_q = cq.get("core_question", "")
+        hypothesis = cq.get("question_hypothesis", "")
+        why = cq.get("why_it_matters", "")
+        questions = cq.get("questions", [])
+        observations = cq.get("observations", [])
+
+        if core_q:
+            L.append(f"  Core Question: {core_q}")
+        if hypothesis:
+            L.append(f"  Question Hypothesis: {hypothesis[:300]}")
+        if why:
+            L.append(f"  Why It Matters: {why[:200]}")
+        if observations:
+            L.append(f"  Surprising Observations: {len(observations)}")
+            for obs in observations[:3]:
+                if isinstance(obs, dict):
+                    L.append(f"    - {obs.get('observation', '?')[:100]}")
+        if questions:
+            L.append(f"  Questions Generated: {len(questions)}")
+            for q in questions[:5]:
+                if isinstance(q, dict):
+                    L.append(f"    [{q.get('category', '?')}] {q.get('question', '?')[:80]}")
+                else:
+                    L.append(f"    - {str(q)[:80]}")
+
+        # Generalizations (Newton's move)
+        generalizations = cq.get("generalizations", [])
+        if generalizations:
+            L.append(f"  Cross-Domain Connections (Newton's Move): {len(generalizations)}")
+            for g in generalizations[:3]:
+                if isinstance(g, dict):
+                    L.append(f"    Domain A: {g.get('domain_a', '?')}: {g.get('observation_a', '?')[:80]}")
+                    L.append(f"    Domain B: {g.get('domain_b', '?')}: {g.get('observation_b', '?')[:80]}")
+                    L.append(f"    Connection: {g.get('connection', '?')[:100]}")
+                    hyp = g.get("hypothesis", "")
+                    if hyp:
+                        L.append(f"    Hypothesis: {hyp[:100]}")
+                    pred = g.get("testable_prediction", "")
+                    if pred:
+                        L.append(f"    Prediction: {pred[:100]}")
+                    L.append("")
+
+        # Constraint (for Track B)
+        constraint = cq.get("constraint")
+        if constraint and isinstance(constraint, dict):
+            forbidden = constraint.get("forbidden_theories", [])
+            required = constraint.get("required_properties", [])
+            direction = constraint.get("novelty_direction", "")
+            if forbidden or required:
+                L.append(f"  Curiosity Constraint (Track B):")
+                if forbidden:
+                    L.append(f"    Forbidden Theories: {', '.join(forbidden)}")
+                if required:
+                    L.append(f"    Required Properties:")
+                    for prop in required[:3]:
+                        L.append(f"      + {prop}")
+                if direction:
+                    L.append(f"    Novelty Direction: {direction}")
+        L.append("")
+
+    # ── Dual-Track Comparison: Curiosity vs Pipeline ──
+    if cq and theories:
+        L.append("-" * 70)
+        L.append("  DUAL-TRACK COMPARISON: Curiosity vs Pipeline")
+        L.append("-" * 70)
+        L.append("")
+        L.append("  Two independent approaches were used:")
+        L.append("  1. CURIOUS ENGINE: Generated a question-driven hypothesis")
+        L.append("  2. CONVENTIONAL PIPELINE: Ran full 21-phase discovery")
+        L.append("")
+        L.append("  These are SEPARATE tracks. The curiosity hypothesis was NOT")
+        L.append("  injected into the pipeline. Both ran independently.")
+        L.append("")
+
+        # Get pipeline winner — use canonical winner, not re-computed max
+        best_theory = report.get("canonical_winner_theory") or winner or (max(theories, key=lambda t: t.get("scores", {}).get("overall", 0) if isinstance(t, dict) else 0) if theories else {})
+        if isinstance(best_theory, dict):
+            winner_name = best_theory.get("name", "?")
+            winner_score = best_theory.get("scores", {}).get("overall", 0)
+            winner_desc = best_theory.get("description", "")[:200]
+
+            L.append("  TRACK A: CONVENTIONAL PIPELINE WINNER")
+            L.append(f"    Name: {winner_name}")
+            L.append(f"    Score: {winner_score:.2f}")
+            L.append(f"    Description: {winner_desc}")
+            L.append("")
+
+        hypothesis = cq.get("question_hypothesis", "")
+        if hypothesis:
+            L.append("  TRACK B: CURIOSITY-DRIVEN HYPOTHESIS")
+            L.append(f"    Core Question: {cq.get('core_question', '?')[:100]}")
+            L.append(f"    Hypothesis: {hypothesis[:300]}")
+            L.append("")
+
+        L.append("  COMPARISON:")
+        if hypothesis and isinstance(best_theory, dict):
+            pipeline_name = best_theory.get("name", "?")
+            curiosity_short = hypothesis[:60]
+            L.append(f"    Pipeline says: {pipeline_name}")
+            L.append(f"    Curiosity says: {curiosity_short}...")
+            L.append("")
+            L.append("  Both tracks contribute to the discovery. The pipeline")
+            L.append("  validates through evidence and scoring. The curiosity")
+            L.append("  engine identifies the RIGHT QUESTION to ask.")
+            L.append("")
+            L.append("  A discovery needs both: the right question AND the right answer.")
         L.append("")
 
     # ── Adversarial Test Results ──

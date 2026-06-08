@@ -20,6 +20,9 @@
   <a href="https://python.org/versions/3.11">
     <img src="https://img.shields.io/badge/Python-3.11+-blue" alt="Python" />
   </a>
+  <a href="https://hackatime.hackclub.com">
+    <img src="https://hackatime.hackclub.com/api/v1/badge/U0B8B3DHX2A/subhansh-dev/rumi" alt="Hackatime" />
+  </a>
 </p>
 
 <p align="center">

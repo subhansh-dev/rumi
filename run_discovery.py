@@ -16,7 +16,12 @@ import sys
 import os
 import json
 import time
+import socket
 from pathlib import Path
+
+# Global network timeout — prevents DNS hangs from blocking the pipeline indefinitely
+# Covers DNS resolution + connection + read (urllib.request.urlopen respects this)
+socket.setdefaulttimeout(30)
 
 # Fix Unicode encoding on Windows (cp1252 can't handle scientific symbols)
 if sys.platform == "win32":
@@ -97,11 +102,6 @@ def main():
     # Validate we have a topic
     if not topic:
         parser.error("Please provide a topic or --cause observation")
-
-    print(f"{'='*70}")
-    print(f"RUMI DISCOVERY — {topic}")
-    print(f"Domain: {domain or 'auto-detect'} | Mode: {mode}")
-    print(f"{'='*70}\n")
 
     print(f"{'='*70}")
     print(f"RUMI DISCOVERY — {topic}")
@@ -201,28 +201,92 @@ def main():
         }
 
     else:
-        # ── Standard single-pass mode ──
-        # ── Stage 1: Discovery Pipeline v2 (16 phases) ──
+        # ── DUAL-TRACK MODE: Track A (conventional) + Track B (curiosity-driven) ──
+        from discovery.discovery_pipeline_v2 import run_discovery_pipeline
+
+        # ── Step 1: TRACK A — Conventional Pipeline (NO constraint) ──
         print("="*70)
-        print("STAGE 1: DISCOVERY PIPELINE v2 (16 phases)")
+        print("TRACK A: CONVENTIONAL PIPELINE")
         print("="*70)
         t0 = time.time()
         try:
-            from discovery.discovery_pipeline_v2 import run_discovery_pipeline
-            report = run_discovery_pipeline(topic, domain=domain, mode=mode)
-            phases = report.get("phases", {})
-            print(f"\n  Pipeline complete in {time.time()-t0:.0f}s")
-            print(f"  Papers: {phases.get('literature', {}).get('papers_found', 0)}")
-            print(f"  Entities: {phases.get('knowledge_graph', {}).get('entities', 0)}")
-            print(f"  Theories: {phases.get('theory_competition', {}).get('theories_compared', 0)}")
-            score = phases.get('discovery_scoring', {}).get('discovery_score', 0)
-            grade = phases.get('discovery_scoring', {}).get('grade', 'F')
-            print(f"  Score: {score:.0f}/100 ({grade})")
+            report_a = run_discovery_pipeline(topic, domain=domain, mode=mode)
+            phases_a = report_a.get("phases", {})
+            score_a = phases_a.get('discovery_scoring', {}).get('discovery_score', 0)
+            grade_a = phases_a.get('discovery_scoring', {}).get('grade', 'F')
+            winner_a = report_a.get("canonical_winner", {})
+            print(f"\n  Track A complete in {time.time()-t0:.0f}s")
+            print(f"  Winner: {winner_a.get('name', '?')[:50]} (score: {winner_a.get('score', 0):.3f})")
+            print(f"  Score: {score_a:.0f}/100 ({grade_a})")
         except Exception as e:
-            print(f"  Pipeline FAILED: {e}")
+            print(f"  Track A FAILED: {e}")
             import traceback; traceback.print_exc()
-            # Save what we have and exit
-            _save_report(report, topic)
+            report_a = {}
+
+        # ── Step 2: Get constraint from Track A's Phase 0 for Track B ──
+        curiosity_constraint = None
+        if report_a:
+            curiosity_constraint = report_a.get("curious_questioning", {}).get("constraint")
+        if cause_data and not curiosity_constraint:
+            curiosity_constraint = cause_data.get("constraint")
+
+        # ── Cooldown between tracks — let LLM rate limits reset ──
+        if curiosity_constraint and curiosity_constraint.get("forbidden_theories"):
+            cooldown = 60
+            print(f"\n  [Cooldown] Waiting {cooldown}s for LLM rate limits to reset before Track B...")
+            time.sleep(cooldown)
+            print(f"  [Cooldown] Done. Starting Track B.\n")
+
+        # ── Step 3: TRACK B — Curiosity-Driven Pipeline (WITH constraint) ──
+        report_b = {}
+        if curiosity_constraint and curiosity_constraint.get("forbidden_theories"):
+            print()
+            print("="*70)
+            print("TRACK B: CURIOSITY-DRIVEN PIPELINE")
+            print(f"  Forbidden: {', '.join(curiosity_constraint['forbidden_theories'])}")
+            print("="*70)
+            t0 = time.time()
+            try:
+                report_b = run_discovery_pipeline(topic, domain=domain, mode=mode,
+                                                   curiosity_constraint=curiosity_constraint)
+                phases_b = report_b.get("phases", {})
+                score_b = phases_b.get('discovery_scoring', {}).get('discovery_score', 0)
+                grade_b = phases_b.get('discovery_scoring', {}).get('grade', 'F')
+                winner_b = report_b.get("canonical_winner", {})
+                print(f"\n  Track B complete in {time.time()-t0:.0f}s")
+                print(f"  Winner: {winner_b.get('name', '?')[:50]} (score: {winner_b.get('score', 0):.3f})")
+                print(f"  Score: {score_b:.0f}/100 ({grade_b})")
+            except Exception as e:
+                print(f"  Track B FAILED: {e}")
+                import traceback; traceback.print_exc()
+        else:
+            print("\n  [Track B skipped — no curiosity constraint generated]")
+
+        # ── Step 4: Merge — Track A is primary, Track B added for comparison ──
+        report = report_a if report_a else report_b
+
+        if report_b:
+            report["track_b"] = {
+                "winner": report_b.get("canonical_winner"),
+                "score": report_b.get("phases", {}).get("discovery_scoring", {}).get("discovery_score", 0),
+                "grade": report_b.get("phases", {}).get("discovery_scoring", {}).get("grade", "F"),
+                "theories": report_b.get("phases", {}).get("theory_competition", {}).get("theories", []),
+                "constraint": curiosity_constraint,
+            }
+            report["dual_track"] = {
+                "track_a": {
+                    "winner": report_a.get("canonical_winner") if report_a else None,
+                    "score": report_a.get("phases", {}).get("discovery_scoring", {}).get("discovery_score", 0) if report_a else 0,
+                },
+                "track_b": {
+                    "winner": report_b.get("canonical_winner"),
+                    "score": report_b.get("phases", {}).get("discovery_scoring", {}).get("discovery_score", 0),
+                },
+                "constraint": curiosity_constraint,
+            }
+
+        if not report:
+            print("  Both tracks failed. Nothing to save.")
             return
 
     # ── Stage 2: Refinement + Reflexion already run inside pipeline (Phase 13-14) ──
@@ -238,6 +302,8 @@ def main():
             "why_it_matters": cause_data.get("why_it_matters", ""),
             "observations": cause_data.get("observations", []),
             "questions": cause_data.get("questions", []),
+            "generalizations": cause_data.get("generalizations", []),
+            "constraint": cause_data.get("constraint"),
             "generated_topic": topic,
         }
 

@@ -36,7 +36,7 @@ class ResilientLLM:
         Returns:
             {
                 "content": str or None,
-                "provider": "groq|gemini|fallback",
+                "provider": "cerebras|groq|gemini|fallback",
                 "degraded": bool,
                 "error": str or None,
                 "attempts": int
@@ -46,7 +46,32 @@ class ResilientLLM:
         attempts = 0
         last_error = None
 
-        # Strategy 1: Try Groq (fast, but may reject long prompts)
+        # Strategy 1: Try Cerebras (fastest, primary provider)
+        attempts += 1
+        try:
+            from discovery.llm_client import call_json, call as llm_call
+            result = call_json(prompt, max_tokens=max_tokens, provider="cerebras")
+            if result and len(str(result)) > 20:
+                return {
+                    "content": str(result),
+                    "provider": "cerebras",
+                    "degraded": False,
+                    "error": None,
+                    "attempts": attempts,
+                }
+            result = llm_call(prompt, max_tokens=max_tokens, provider="cerebras")
+            if result and len(str(result)) > 20:
+                return {
+                    "content": str(result),
+                    "provider": "cerebras",
+                    "degraded": True,
+                    "error": "JSON mode failed, used text mode",
+                    "attempts": attempts,
+                }
+        except Exception as e:
+            last_error = str(e)
+
+        # Strategy 2: Try Groq (fast, secondary provider)
         attempts += 1
         try:
             from discovery.llm_client import call_json, call as llm_call
@@ -59,7 +84,6 @@ class ResilientLLM:
                     "error": None,
                     "attempts": attempts,
                 }
-            # Try non-JSON mode
             result = llm_call(prompt, max_tokens=max_tokens, provider="groq")
             if result and len(str(result)) > 20:
                 return {
@@ -72,7 +96,7 @@ class ResilientLLM:
         except Exception as e:
             last_error = str(e)
 
-        # Strategy 2: Try Gemini
+        # Strategy 3: Try Gemini (fallback)
         attempts += 1
         time.sleep(2)  # rate limit buffer
         try:
@@ -98,23 +122,21 @@ class ResilientLLM:
         except Exception as e:
             last_error = str(e)
 
-        # Strategy 3: Try with shorter prompt
+        # Strategy 4: Try auto routing (lets llm_client handle rotation)
         attempts += 1
-        if len(prompt) > 2000:
-            short_prompt = prompt[:1500] + "\n\n[Truncated — respond with available context]"
-            try:
-                from discovery.llm_client import call_json
-                result = call_json(short_prompt, max_tokens=max_tokens // 2, provider="gemini")
-                if result and len(str(result)) > 20:
-                    return {
-                        "content": str(result),
-                        "provider": "gemini_short",
-                        "degraded": True,
-                        "error": "Prompt truncated due to length",
-                        "attempts": attempts,
-                    }
-            except Exception as e:
-                last_error = str(e)
+        try:
+            from discovery.llm_client import call_json
+            result = call_json(prompt, max_tokens=max_tokens, provider="auto")
+            if result and len(str(result)) > 20:
+                return {
+                    "content": str(result),
+                    "provider": "auto",
+                    "degraded": True,
+                    "error": "Used auto routing after individual providers failed",
+                    "attempts": attempts,
+                }
+        except Exception as e:
+            last_error = str(e)
 
         # All strategies failed
         self._errors.append(last_error)

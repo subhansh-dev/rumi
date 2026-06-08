@@ -41,7 +41,8 @@ class TheoryCompetition:
 
     def compete(self, mechanisms: list, hidden_variables: list,
                 anomalies: list, gaps: list, topic: str, domain: str,
-                papers: list = None, archive_context: str = "") -> dict:
+                papers: list = None, archive_context: str = "",
+                constraint: dict = None) -> dict:
         """
         Run multi-round tournament competition.
 
@@ -90,7 +91,7 @@ class TheoryCompetition:
         batch1 = self._generate_theories(
             mech_text, hv_text, anomaly_text, gap_text, paper_text,
             topic, domain, count=10, batch_label="LLM batch",
-            archive_context=archive_context
+            archive_context=archive_context, constraint=constraint
         )
         all_theories.extend(batch1)
 
@@ -98,7 +99,7 @@ class TheoryCompetition:
         batch2 = self._generate_theories(
             mech_text, hv_text, anomaly_text, gap_text, paper_text,
             topic, domain, count=10, batch_label="creative batch",
-            creative=True, archive_context=archive_context
+            creative=True, archive_context=archive_context, constraint=constraint
         )
         all_theories.extend(batch2)
 
@@ -219,7 +220,7 @@ class TheoryCompetition:
     def _generate_theories(self, mech_text, hv_text, anomaly_text, gap_text,
                            paper_text, topic, domain, count=10,
                            batch_label="batch", creative=False,
-                           archive_context="") -> list:
+                           archive_context="", constraint=None) -> list:
         """Generate a batch of theories via LLM."""
         creative_instruction = ""
         if creative:
@@ -231,6 +232,41 @@ Be CREATIVE. Generate theories from DIFFERENT domains:
 - A completely unexpected angle nobody would think of
 - A theory that combines two unrelated fields
 The most important discoveries come from unexpected connections."""
+
+        # Build constraint text for Track B (curiosity-driven) pipeline
+        constraint_text = ""
+        if constraint and isinstance(constraint, dict):
+            forbidden = constraint.get("forbidden_theories", [])
+            required = constraint.get("required_properties", [])
+            direction = constraint.get("novelty_direction", "")
+            custom_prompt = constraint.get("constraint_prompt", "")
+
+            if forbidden or required or custom_prompt:
+                constraint_text = "\n\n" + "=" * 60 + "\n"
+                constraint_text += "CURIOSITY CONSTRAINT — Newton-Style Discovery\n"
+                constraint_text += "=" * 60 + "\n\n"
+                constraint_text += f"Core Question: {constraint.get('core_question', topic)}\n\n"
+
+                if forbidden:
+                    constraint_text += "FORBIDDEN THEORIES — You MUST NOT reproduce any of these:\n"
+                    for f_theory in forbidden:
+                        constraint_text += f"  X {f_theory}\n"
+                    constraint_text += "\nThese are already well-known in the literature. Generating them is NOT discovery.\n\n"
+
+                if required:
+                    constraint_text += "REQUIRED PROPERTIES — Your theory MUST satisfy ALL of these:\n"
+                    for prop in required:
+                        constraint_text += f"  + {prop}\n"
+                    constraint_text += "\n"
+
+                if direction:
+                    constraint_text += f"NOVELTY DIRECTION: {direction}\n\n"
+
+                if custom_prompt:
+                    constraint_text += custom_prompt + "\n\n"
+
+                constraint_text += "Generate theories from FIRST PRINCIPLES that are NOT any of the forbidden theories.\n"
+                constraint_text += "At least 3 theories MUST be genuinely novel — not renamed versions of forbidden theories.\n"
 
         prompt = f"""You are generating competing scientific theories for a tournament.
 The TOP {count // 2} will survive. The rest will be eliminated. Make every theory count.
@@ -254,6 +290,7 @@ RELEVANT PAPERS:
 {paper_text}
 
 {archive_context}
+{constraint_text}
 
 Generate EXACTLY {count} COMPETING THEORIES. Each must explain the same observations
 but through DIFFERENT mechanisms. Include:
