@@ -395,22 +395,18 @@ Output JSON:
         """
         Build a constraint object for Track B pipeline.
 
-        The constraint tells the mechanism generator and theory tournament:
-        - What theories they MUST NOT reproduce (forbidden_theories)
-        - What a novel theory MUST satisfy (required_properties)
-        - What cross-domain connections to explore (generalizations)
-
-        This is what makes Track B produce genuinely novel mechanisms
-        instead of reproducing known theories from the literature.
+        The constraint ENCOURAGES novel mechanisms without forbidding existing ones.
+        It tells the pipeline what theories are already known (for reference) and
+        what direction to explore for novelty.
 
         Returns:
             {
                 "core_question": "What if dark matter isn't particles?",
-                "forbidden_theories": ["MOND", "TeVeS", "Emergent Gravity", ...],
-                "required_properties": ["explains galaxy rotation curves without DM particles", ...],
-                "cross_domain_connections": [{"observation_a": ..., "observation_b": ..., ...}],
-                "novelty_direction": "gravity modification from information-theoretic principles",
-                "constraint_prompt": "Ready-to-use prompt fragment for mechanism generator"
+                "forbidden_theories": ["MOND", "TeVeS", ...],  # known theories (for reference)
+                "required_properties": ["explains rotation curves", ...],  # desirable, not mandatory
+                "cross_domain_connections": [...],
+                "novelty_direction": "information-theoretic gravity",
+                "constraint_prompt": "Ready-to-use prompt fragment"
             }
         """
         # Build observation summary
@@ -430,7 +426,7 @@ Output JSON:
                 )
         gen_text = "\n".join(gen_lines) if gen_lines else "No cross-domain connections found yet."
 
-        prompt = f"""You are building a CONSTRAINT for a scientific discovery pipeline.
+        prompt = f"""You are building a DISCOVERY GUIDE for a scientific pipeline.
 
 TOPIC: {topic}
 DOMAIN: {domain}
@@ -443,37 +439,32 @@ OBSERVATIONS:
 CROSS-DOMAIN CONNECTIONS:
 {gen_text}
 
-Your task: Build a constraint that forces the pipeline to generate NOVEL theories,
-not reproduce existing ones from the literature.
+Your task: Build a guide that encourages NOVEL theories while acknowledging existing ones.
 
-Step 1: IDENTIFY FORBIDDEN THEORIES
-List 3-5 existing theories that the pipeline should NOT reproduce.
-These are well-known explanations already in the literature.
+Step 1: LIST KNOWN THEORIES
+List 3-5 existing theories in this space (for reference, not for banning).
 Example: For dark matter topic → ["MOND", "TeVeS", "Emergent Gravity", "f(R) gravity"]
 
-Step 2: DEFINE REQUIRED PROPERTIES
-What must a novel theory satisfy? 2-4 specific requirements.
-Example: ["explains galaxy rotation curves without dark matter particles",
-          "makes a prediction that differs from MOND"]
+Step 2: DEFINE DESIRABLE PROPERTIES
+What would a novel theory ideally have? 2-4 desirable (not mandatory) properties.
+Example: ["explains galaxy rotation curves", "makes testable predictions"]
 
 Step 3: DEFINE NOVELTY DIRECTION
 What direction should novel theories explore?
 Example: "gravity modification from information-theoretic principles"
 
-Step 4: BUILD CONSTRAINT PROMPT
-Write a ready-to-use prompt fragment that can be appended to the mechanism
-generator and theory tournament prompts. This fragment should:
-- List the forbidden theories
-- List the required properties
-- Explain WHY these are forbidden (they're already in the literature)
-- Encourage first-principles derivation, not literature reproduction
+Step 4: BUILD PROMPT FRAGMENT
+Write a prompt fragment that ENCOURAGES novelty without forbidding anything.
+- List known theories as CONTEXT (not as bans)
+- Encourage going BEYOND them with novel approaches
+- It is OK to reference known theories if extended with new elements
 
 Output JSON:
 {{
-  "forbidden_theories": ["Theory 1", "Theory 2", ...],
-  "required_properties": ["Property 1", "Property 2", ...],
+  "forbidden_theories": ["Known Theory 1", "Known Theory 2", ...],
+  "required_properties": ["Desirable Property 1", "Desirable Property 2", ...],
   "novelty_direction": "What direction to explore",
-  "constraint_prompt": "Ready-to-use prompt fragment (2-3 paragraphs)"
+  "constraint_prompt": "Ready-to-use prompt fragment (2-3 paragraphs, encouraging not forbidding)"
 }}"""
 
         try:

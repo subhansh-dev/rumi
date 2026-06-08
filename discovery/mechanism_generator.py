@@ -77,6 +77,7 @@ class MechanismGenerator:
         causal_context = self._extract_causal_chains()
 
         # Build constraint text for Track B (curiosity-driven) pipeline
+        # SOFT constraint: encourages novel mechanisms without forbidding existing ones
         constraint_text = ""
         if constraint and isinstance(constraint, dict):
             forbidden = constraint.get("forbidden_theories", [])
@@ -86,20 +87,21 @@ class MechanismGenerator:
 
             if forbidden or required or custom_prompt:
                 constraint_text = "\n\n" + "=" * 60 + "\n"
-                constraint_text += "CURIOSITY CONSTRAINT — Newton-Style Discovery\n"
+                constraint_text += "CURIOSITY-DRIVEN DISCOVERY — Novel Mechanisms\n"
                 constraint_text += "=" * 60 + "\n\n"
                 constraint_text += f"Core Question: {constraint.get('core_question', topic)}\n\n"
 
                 if forbidden:
-                    constraint_text += "FORBIDDEN THEORIES — You MUST NOT reproduce any of these:\n"
+                    constraint_text += "KNOWN THEORIES IN THIS SPACE (for reference, not reproduction):\n"
                     for f_theory in forbidden:
-                        constraint_text += f"  ✗ {f_theory}\n"
-                    constraint_text += "\nThese are already well-known in the literature. Generating them is NOT discovery.\n\n"
+                        constraint_text += f"  - {f_theory}\n"
+                    constraint_text += "\nThese are well-known. Your goal is to go BEYOND them with novel mechanisms.\n"
+                    constraint_text += "If you reference any of these, you MUST extend them with a genuinely new element.\n\n"
 
                 if required:
-                    constraint_text += "REQUIRED PROPERTIES — Your mechanism MUST satisfy ALL of these:\n"
+                    constraint_text += "DESIRABLE PROPERTIES (aim for these, but not all are mandatory):\n"
                     for prop in required:
-                        constraint_text += f"  ✓ {prop}\n"
+                        constraint_text += f"  + {prop}\n"
                     constraint_text += "\n"
 
                 if direction:
@@ -108,8 +110,8 @@ class MechanismGenerator:
                 if custom_prompt:
                     constraint_text += custom_prompt + "\n\n"
 
-                constraint_text += "Your task: Generate mechanisms from FIRST PRINCIPLES that are NOT any of the forbidden theories.\n"
-                constraint_text += "Derive from physics/chemistry/biology fundamentals, not from existing literature.\n"
+                constraint_text += "Your task: Generate mechanisms from FIRST PRINCIPLES. Prefer novel approaches over well-known ones.\n"
+                constraint_text += "It is OK to reference known theories if you extend them with new elements.\n"
 
         prompt = f"""You are a mechanistic scientist — you DERIVE how things work from first principles.
 

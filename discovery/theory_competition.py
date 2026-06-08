@@ -234,6 +234,7 @@ Be CREATIVE. Generate theories from DIFFERENT domains:
 The most important discoveries come from unexpected connections."""
 
         # Build constraint text for Track B (curiosity-driven) pipeline
+        # SOFT constraint: encourages novel theories without forbidding existing ones
         constraint_text = ""
         if constraint and isinstance(constraint, dict):
             forbidden = constraint.get("forbidden_theories", [])
@@ -243,18 +244,19 @@ The most important discoveries come from unexpected connections."""
 
             if forbidden or required or custom_prompt:
                 constraint_text = "\n\n" + "=" * 60 + "\n"
-                constraint_text += "CURIOSITY CONSTRAINT — Newton-Style Discovery\n"
+                constraint_text += "CURIOSITY-DRIVEN DISCOVERY — Novel Theories\n"
                 constraint_text += "=" * 60 + "\n\n"
                 constraint_text += f"Core Question: {constraint.get('core_question', topic)}\n\n"
 
                 if forbidden:
-                    constraint_text += "FORBIDDEN THEORIES — You MUST NOT reproduce any of these:\n"
+                    constraint_text += "KNOWN THEORIES IN THIS SPACE (for reference):\n"
                     for f_theory in forbidden:
-                        constraint_text += f"  X {f_theory}\n"
-                    constraint_text += "\nThese are already well-known in the literature. Generating them is NOT discovery.\n\n"
+                        constraint_text += f"  - {f_theory}\n"
+                    constraint_text += "\nThese are well-known. Include some for comparison, but also generate\n"
+                    constraint_text += "at least 3 genuinely NOVEL theories that go beyond these.\n\n"
 
                 if required:
-                    constraint_text += "REQUIRED PROPERTIES — Your theory MUST satisfy ALL of these:\n"
+                    constraint_text += "DESIRABLE PROPERTIES (aim for these):\n"
                     for prop in required:
                         constraint_text += f"  + {prop}\n"
                     constraint_text += "\n"
@@ -265,8 +267,8 @@ The most important discoveries come from unexpected connections."""
                 if custom_prompt:
                     constraint_text += custom_prompt + "\n\n"
 
-                constraint_text += "Generate theories from FIRST PRINCIPLES that are NOT any of the forbidden theories.\n"
-                constraint_text += "At least 3 theories MUST be genuinely novel — not renamed versions of forbidden theories.\n"
+                constraint_text += "Generate a MIX of conventional and novel theories. Novel theories should explore\n"
+                constraint_text += "first-principles approaches that go beyond the known theories listed above.\n"
 
         prompt = f"""You are generating competing scientific theories for a tournament.
 The TOP {count // 2} will survive. The rest will be eliminated. Make every theory count.
