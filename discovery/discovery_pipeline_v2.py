@@ -1435,7 +1435,8 @@ Output JSON:
                 from discovery.counterfactual_reasoner import CounterfactualReasoner
                 cfr = CounterfactualReasoner(llm_call=_truncated_llm)
                 # Build a proper theory dict for the reasoner
-                top_theory = winner or (theories[0] if theories else {})
+                # Note: winner is not set yet (tournament runs in Phase 8), use theories[0]
+                top_theory = theories[0] if theories else {}
                 cf_theory = {
                     "name": top_theory.get("title", top_theory.get("name", "")),
                     "description": top_theory.get("description", top_theory.get("mechanism", "")),
@@ -2511,6 +2512,11 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
         from discovery.observability_checker import ObservabilityChecker
         obs_checker = ObservabilityChecker()
         all_preds = []
+        # Get predictions from prediction engine (primary source)
+        pred_engine_preds = report.get("phases", {}).get("prediction_engine", {}).get("predictions", [])
+        if pred_engine_preds:
+            all_preds.extend(pred_engine_preds)
+        # Also get predictions from theories (secondary source)
         for t in (theories or []):
             if isinstance(t, dict):
                 all_preds.extend(t.get("predictions", []))

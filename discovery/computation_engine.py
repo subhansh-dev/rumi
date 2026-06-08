@@ -174,7 +174,17 @@ def verify_mechanism_numbers(mechanism: dict) -> dict:
     }
 
     # Extract all numbers from steps and derivation
-    all_text = " ".join(str(s) for s in steps) + " " + derivation + " " + math_model
+    # Normalize derivation — can be string, list of dicts, or list of strings
+    derivation_text = ""
+    if isinstance(derivation, str):
+        derivation_text = derivation
+    elif isinstance(derivation, list):
+        for d in derivation:
+            if isinstance(d, dict):
+                derivation_text += " " + str(d.get("step", "")) + " " + " ".join(str(c) for c in d.get("content", []))
+            else:
+                derivation_text += " " + str(d)
+    all_text = " ".join(str(s) for s in steps) + " " + derivation_text + " " + math_model
     stated_numbers = _extract_numbers(all_text)
 
     # Check each parameter
@@ -318,7 +328,20 @@ def _trace_derivation(name: str, value_str: str, derivation: str,
         else:
             return None
 
-    derivation_text = derivation + " " + " ".join(str(s) for s in steps) + " " + math_model
+    # Normalize derivation — can be string, list of dicts, or list of strings
+    if isinstance(derivation, str):
+        derivation_norm = derivation
+    elif isinstance(derivation, list):
+        parts = []
+        for d in derivation:
+            if isinstance(d, dict):
+                parts.append(str(d.get("step", "")) + " " + " ".join(str(c) for c in d.get("content", [])))
+            else:
+                parts.append(str(d))
+        derivation_norm = " ".join(parts)
+    else:
+        derivation_norm = str(derivation)
+    derivation_text = derivation_norm + " " + " ".join(str(s) for s in steps) + " " + math_model
     name_lower = name.lower()
 
     # Look for the parameter name or related terms in derivation

@@ -797,18 +797,38 @@ def run_math_verification(theory, mechanisms=None, predictions=None, llm_call=No
     desc = theory.get("description", theory.get("mechanism", ""))
     math_model = theory.get("mathematical_model", "")
 
+    # Also scan derivation field (LLM stores derivations here as list of dicts)
+    derivation_text = ""
+    derivation = theory.get("derivation", "")
+    if isinstance(derivation, str):
+        derivation_text = derivation
+    elif isinstance(derivation, list):
+        for d in derivation:
+            if isinstance(d, dict):
+                derivation_text += " " + str(d.get("step", "")) + " " + " ".join(str(c) for c in d.get("content", []))
+            else:
+                derivation_text += " " + str(d)
+
     # Also scan mechanism descriptions for equations
     mech_text = ""
     if mechanisms:
         for m in (mechanisms if isinstance(mechanisms, list) else [])[:5]:
             m_desc = m.get("description", m.get("mechanism", ""))
             m_steps = m.get("steps") or m.get("causal_chain") or []
+            m_deriv = m.get("derivation", "")
             if m_desc:
                 mech_text += " " + m_desc
             for s in (m_steps if isinstance(m_steps, list) else []):
                 mech_text += " " + str(s)
+            # Also read derivation field from mechanisms
+            if isinstance(m_deriv, str):
+                mech_text += " " + m_deriv
+            elif isinstance(m_deriv, list):
+                for d in m_deriv:
+                    if isinstance(d, dict):
+                        mech_text += " " + str(d.get("step", "")) + " " + " ".join(str(c) for c in d.get("content", []))
 
-    full_text = f"{desc} {math_model} {mech_text}"
+    full_text = f"{desc} {math_model} {derivation_text} {mech_text}"
     try: results["equation_solving"] = solve_equation_from_text(full_text, llm_call=llm_call)
     except Exception as e: results["equation_solving"] = {"error": str(e)[:100]}
     try: results["dimensional_analysis"] = check_dimensional_consistency(full_text)

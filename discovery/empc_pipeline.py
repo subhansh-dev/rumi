@@ -145,6 +145,16 @@ class EMPCPipeline:
             for item in source:
                 if not isinstance(item, dict): continue
                 desc = item.get("description","") + " " + item.get("mathematical_model","")
+                # Also read derivation field (LLM stores derivations here)
+                derivation = item.get("derivation", "")
+                if isinstance(derivation, str):
+                    desc += " " + derivation
+                elif isinstance(derivation, list):
+                    for d in derivation:
+                        if isinstance(d, dict):
+                            desc += " " + str(d.get("step", "")) + " " + " ".join(str(c) for c in d.get("content", []))
+                        else:
+                            desc += " " + str(d)
                 for match in re.finditer(r"([A-Za-z_][\w]*)\s*=\s*([^,.;\n]{5,80})", desc):
                     var, expr = match.group(1), match.group(2).strip()
                     has_nums = any(c.isdigit() for c in expr)

@@ -40,7 +40,28 @@ class MechanismCompletenessChecker:
         math_model = mechanism.get("mathematical_model", "")
         steps = mechanism.get("steps", [])
         params = mechanism.get("key_parameters", [])
-        full_text = desc + " " + math_model + " " + " ".join(str(s) for s in steps)
+        derivation = mechanism.get("derivation", "")
+
+        # Normalize derivation — can be string, list of dicts, or list of strings
+        derivation_text = ""
+        if isinstance(derivation, str):
+            derivation_text = derivation
+        elif isinstance(derivation, list):
+            for d in derivation:
+                if isinstance(d, dict):
+                    derivation_text += " " + str(d.get("step", "")) + " " + " ".join(str(c) for c in d.get("content", []))
+                else:
+                    derivation_text += " " + str(d)
+
+        # Also check key_parameters for derivation chains
+        param_text = ""
+        if isinstance(params, list):
+            for p in params:
+                if isinstance(p, dict):
+                    param_text += " " + str(p.get("name", "")) + " " + str(p.get("expected_value", ""))
+                    param_text += " " + " ".join(str(c) for c in p.get("derivation_chain", []))
+
+        full_text = desc + " " + math_model + " " + derivation_text + " " + param_text + " " + " ".join(str(s) for s in steps)
         full_lower = full_text.lower()
 
         # Check 1: Assumptions stated
