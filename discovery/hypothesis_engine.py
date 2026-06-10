@@ -71,7 +71,7 @@ class HypothesisEngine:
             h["id"] = str(uuid.uuid4())
             h["topic"] = topic
             h["domain"] = domain
-            h["provider"] = providerrrrr
+            h["provider"] = providerrrrrr
             h["created_at"] = datetime.utcnow().isoformat()
             h["status"] = "draft"
 
