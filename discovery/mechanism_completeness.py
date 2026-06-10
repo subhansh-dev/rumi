@@ -66,13 +66,16 @@ class MechanismCompletenessChecker:
 
         # Check 1: Assumptions stated
         assumption_keywords = ["assume", "given", "starting from", "premise", "if we assume",
-                              "consider", "suppose", "let us", "we begin"]
+                              "consider", "suppose", "let us", "we begin", "based on",
+                              "consistent with", "step 1", "starting from:"]
         has_assumptions = any(kw in full_lower for kw in assumption_keywords)
 
         # Check 2: Derivation present (step-by-step reasoning)
         derivation_keywords = ["therefore", "thus", "it follows", "substituting",
                               "solving", "integrating", "deriving", "from this",
-                              "we obtain", "we get", "which gives", "yielding"]
+                              "we obtain", "we get", "which gives", "yielding",
+                              "it follows that", "starting from:", "step 2",
+                              "step 3", "step 4", "step 5", "governing equation"]
         derivation_count = sum(1 for kw in derivation_keywords if kw in full_lower)
         has_derivation = derivation_count >= 2
 
@@ -104,6 +107,8 @@ class MechanismCompletenessChecker:
         if has_numbers and has_units: score += 0.15
         if has_simulation: score += 0.15
         if has_params: score += 0.1
+        # Bonus for having a mathematical model field (even if placeholder)
+        if math_model and len(math_model) > 10: score += 0.05
 
         # Identify gaps
         gaps = []

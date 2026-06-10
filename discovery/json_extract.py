@@ -298,6 +298,19 @@ def _find_last_balanced_json(text: str, start: int) -> int | None:
 
 def _wrap(result, expected_key):
     """Wrap result in expected_key dict if needed."""
+    # Semantic alias mapping — LLMs often use different names for the same concept
+    ALIAS_MAP = {
+        "mechanisms": ["hypotheses", "theories", "explanations", "pathways",
+                       "causal_mechanisms", "causal_pathways", "mechanisms_list"],
+        "theories": ["hypotheses", "mechanisms", "explanations", "models",
+                     "theories_list", "competing_theories"],
+        "hidden_variables": ["variables", "hidden_factors", "proposed_variables",
+                             "latent_variables", "unknowns"],
+        "predictions": ["testable_predictions", "forecast", "forecasts",
+                        "predictions_list", "testable_claims"],
+        "contradictions": ["conflicts", "discrepancies", "inconsistencies"],
+        "findings": ["results", "discoveries", "observations"],
+    }
     if isinstance(result, dict):
         # If expected_key not found, look for similar keys
         if expected_key and expected_key not in result:
@@ -310,6 +323,9 @@ def _wrap(result, expected_key):
                 'proposed_' + expected_key,      # "hidden_variables" → "proposed_hidden_variables"
                 expected_key.replace('_', ' '),  # "hidden_variables" → "hidden variables"
             ]
+            # Add semantic aliases (e.g., "hypotheses" when looking for "mechanisms")
+            aliases = ALIAS_MAP.get(expected_key, [])
+            candidates.extend(aliases)
             for candidate in candidates:
                 if candidate in result:
                     val = result[candidate]

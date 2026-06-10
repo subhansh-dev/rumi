@@ -80,6 +80,7 @@ from discovery.bayesian_scorer import BayesianScorer
 from discovery.literature_contradiction_scorer import LiteratureContradictionScorer
 from discovery.resilient_llm import ResilientLLM
 from discovery.hypothesis_memory import HypothesisMemory
+from discovery.cross_validation import CrossValidator
 
 
 # Domain detection (reused from run_full_pipeline.py)
@@ -2372,6 +2373,34 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
         skeptic_result = {"recommendation": "unknown", "weaknesses": ["Review failed"]}
 
     # ══════════════════════════════════════════════════════════════
+    # PHASE 11.6: CROSS-VALIDATION — Test theory against held-out papers
+    # ══════════════════════════════════════════════════════════════
+    cross_validation_result = {}
+    if papers and (winner or theories):
+        print("\n[Phase 11.6/12] CROSS-VALIDATION — Testing against unseen literature...", flush=True)
+        try:
+            cv = CrossValidator()
+            top_theory = winner or (theories[0] if theories else {})
+            cv_result = cv.validate(top_theory, papers, topic, domain)
+            if cv_result:
+                robustness = cv_result.get("robustness_score", 0)
+                supported = cv_result.get("supported_by_holdout", 0)
+                contradicted = cv_result.get("contradicted_by_holdout", 0)
+                total_holdout = cv_result.get("holdout_papers", 0)
+                print(f"  Holdout: {total_holdout} papers unseen by theory", flush=True)
+                print(f"  Supported: {supported} | Contradicted: {contradicted}", flush=True)
+                print(f"  Robustness: {robustness:.0%}", flush=True)
+                if cv_result.get("holdout_findings"):
+                    for f in cv_result["holdout_findings"][:3]:
+                        status = f.get("status", "?")
+                        icon = {"supports": "✓", "contradicts": "✗", "neutral": "–"}.get(status, "?")
+                        print(f"    {icon} {f.get('paper_title', '?')[:50]}: {f.get('finding', '')[:60]}", flush=True)
+                report["phases"]["cross_validation"] = cv_result
+                cross_validation_result = cv_result
+        except Exception as e:
+            print(f"  [WARN] Cross-validation skipped: {e}", flush=True)
+
+    # ══════════════════════════════════════════════════════════════
     # PHASE 12: DISCOVERY SCORING
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 12/12] DISCOVERY SCORING — Final quality gate...", flush=True)
@@ -2404,6 +2433,28 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
                 skeptic_result=report.get("phases", {}).get("skeptic_review"),
                 critical_eval=report.get("phases", {}).get("peer_review"),
             )
+
+            # Apply cross-validation robustness adjustment
+            if cross_validation_result:
+                robustness = cross_validation_result.get("robustness_score", 0)
+                cv_penalty = 0
+                cv_details = []
+                if robustness >= 0.7:
+                    bonus = min(5, int(robustness * 7))
+                    score_result["discovery_score"] = min(100, score_result["discovery_score"] + bonus)
+                    cv_details.append(f"Cross-validation robust {robustness:.0%} (+{bonus})")
+                elif robustness < 0.3 and cross_validation_result.get("holdout_papers", 0) >= 3:
+                    penalty = min(10, int((0.3 - robustness) * 30))
+                    score_result["discovery_score"] = max(0, score_result["discovery_score"] - penalty)
+                    cv_details.append(f"Cross-validation weak {robustness:.0%} (-{penalty})")
+                contradicted = cross_validation_result.get("contradicted_by_holdout", 0)
+                if contradicted >= 3:
+                    penalty = min(8, contradicted * 2)
+                    score_result["discovery_score"] = max(0, score_result["discovery_score"] - penalty)
+                    cv_details.append(f"Contradicted by {contradicted} holdout papers (-{penalty})")
+                if cv_details:
+                    score_result.setdefault("adversarial_details", []).extend(cv_details)
+                    print(f"  [Cross-Validation] {' | '.join(cv_details)}", flush=True)
             # Apply domain-specific scoring weights
             try:
                 from discovery.domain_templates import adjust_discovery_score

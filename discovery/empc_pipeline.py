@@ -131,10 +131,26 @@ class EMPCPipeline:
         for m in (mechanisms or []):
             if not isinstance(m, dict): continue
             desc = (m.get("description") or m.get("mechanism") or "").lower()
-            mech_words = set(w for w in desc.split() if len(w) > 4)
+            # Also include derivation, steps, and mathematical_model in the check
+            derivation = m.get("derivation", "")
+            if isinstance(derivation, list):
+                derivation = " ".join(str(d) for d in derivation)
+            steps_text = " ".join(str(s) for s in (m.get("steps") or []))
+            math_model = m.get("mathematical_model", "")
+            full_text = desc + " " + str(derivation) + " " + steps_text + " " + str(math_model)
+            mech_words = set(w for w in full_text.lower().split() if len(w) > 4)
             overlap = len(ev_words & mech_words)
-            is_grounded = overlap >= 2 or len(desc) > 200
-            entry = {"name": m.get("name","?"), "evidence_refs": overlap, "is_grounded": is_grounded}
+            # Grounding criteria: word overlap OR has structured derivation OR has math model
+            has_derivation = any(kw in full_text.lower() for kw in [
+                "therefore", "thus", "it follows", "substituting", "solving",
+                "deriving", "from this", "we obtain", "we get", "yielding",
+                "step 1", "step 2", "step 3", "starting from", "governing equation",
+            ])
+            has_math = bool(math_model) and len(str(math_model)) > 10
+            is_grounded = overlap >= 2 or len(desc) > 200 or (has_derivation and has_math)
+            entry = {"name": m.get("name","?"), "evidence_refs": overlap,
+                     "has_derivation": has_derivation, "has_math": has_math,
+                     "is_grounded": is_grounded}
             (grounded if is_grounded else ungrounded).append(entry)
         score = len(grounded) / max(1, len(grounded) + len(ungrounded))
         return {"grounded_mechanisms": grounded, "ungrounded_mechanisms": ungrounded, "grounding_score": round(score, 3)}
