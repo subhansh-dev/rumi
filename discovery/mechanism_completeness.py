@@ -14,15 +14,19 @@ import re
 class MechanismCompletenessChecker:
     """Check if mechanisms are derivationally complete."""
 
+    # Domain-specific criteria
+    MATH_DOMAINS = {"physics", "space_astronomy", "materials_science", "chemistry", "mathematics"}
+    BIO_DOMAINS = {"drug_discovery", "neuroscience", "ecology", "public_health"}
+
     def __init__(self, llm_call=None):
         self.llm_call = llm_call
 
-    def check_mechanisms(self, mechanisms: list) -> dict:
+    def check_mechanisms(self, mechanisms: list, domain: str = "") -> dict:
         results = []
         for m in (mechanisms or []):
             if not isinstance(m, dict):
                 continue
-            check = self._check_single(m)
+            check = self._check_single(m, domain=domain)
             results.append(check)
 
         complete = [r for r in results if r["completeness_score"] >= 0.6]
@@ -35,7 +39,7 @@ class MechanismCompletenessChecker:
             "details": results,
         }
 
-    def _check_single(self, mechanism: dict) -> dict:
+    def _check_single(self, mechanism: dict, domain: str = "") -> dict:
         desc = mechanism.get("description", "") + " " + mechanism.get("mechanism", "")
         math_model = mechanism.get("mathematical_model", "")
         steps = mechanism.get("steps", [])
@@ -98,31 +102,63 @@ class MechanismCompletenessChecker:
         param_count = len(params) if isinstance(params, list) else 0
         has_params = param_count >= 1
 
-        # Compute completeness score
-        score = 0.0
-        if has_assumptions: score += 0.2
-        if has_derivation: score += 0.3
-        if derived_transport: score += 0.2
-        elif has_transport: score += 0.1  # mentioned but not derived
-        if has_numbers and has_units: score += 0.15
-        if has_simulation: score += 0.15
-        if has_params: score += 0.1
-        # Bonus for having a mathematical model field (even if placeholder)
-        if math_model and len(math_model) > 10: score += 0.05
+        # Check 6: Biological domain checks (drug_discovery, neuroscience, ecology, etc.)
+        is_bio = domain in self.BIO_DOMAINS
+        bio_pathway_keywords = ["pathway", "receptor", "protein", "gene", "enzyme",
+                               "biomarker", "clinical", "trial", "patient", "disease",
+                               "mutation", "expression", "inhibition", "activation",
+                               "transcription", "signaling", "metabolism", "toxicity"]
+        has_biological_mechanism = any(kw in full_lower for kw in bio_pathway_keywords)
+        has_causal_chain = any(kw in full_lower for kw in
+            ["causes", "leads to", "results in", "mediates", "drives",
+             "triggers", "induces", "promotes", "inhibits", "prevents"])
+        has_testable = any(kw in full_lower for kw in
+            ["testable", "predict", "measure", "observe", "detect",
+             "biomarker", "endpoint", "outcome", "efficacy", "response"])
 
-        # Identify gaps
+        # Compute completeness score (domain-aware)
+        score = 0.0
+        if is_bio:
+            # Biological domain: mechanism quality matters, not physics equations
+            if has_assumptions: score += 0.15
+            if has_biological_mechanism: score += 0.25
+            if has_causal_chain: score += 0.20
+            if has_testable: score += 0.15
+            if has_numbers: score += 0.10
+            if has_params: score += 0.10
+            if desc and len(desc) > 100: score += 0.05  # substantial description
+        else:
+            # Physics/math domain: equations and derivations matter
+            if has_assumptions: score += 0.2
+            if has_derivation: score += 0.3
+            if derived_transport: score += 0.2
+            elif has_transport: score += 0.1
+            if has_numbers and has_units: score += 0.15
+            if has_simulation: score += 0.15
+            if has_params: score += 0.1
+            if math_model and len(math_model) > 10: score += 0.05
+
+        # Identify gaps (domain-aware)
         gaps = []
         if not has_assumptions:
             gaps.append("No explicit assumptions stated")
-        if not has_derivation:
-            gaps.append("No step-by-step derivation")
-        if not derived_transport:
-            if has_transport:
-                gaps.append("Transport coefficient mentioned but not derived from first principles")
-            else:
-                gaps.append("No transport coefficients specified")
-        if not has_simulation:
-            gaps.append("No numerical validation or simulation")
+        if is_bio:
+            if not has_biological_mechanism:
+                gaps.append("No biological mechanism or pathway described")
+            if not has_causal_chain:
+                gaps.append("No causal chain (A causes B)")
+            if not has_testable:
+                gaps.append("No testable prediction or measurable endpoint")
+        else:
+            if not has_derivation:
+                gaps.append("No step-by-step derivation")
+            if not derived_transport:
+                if has_transport:
+                    gaps.append("Transport coefficient mentioned but not derived from first principles")
+                else:
+                    gaps.append("No transport coefficients specified")
+            if not has_simulation:
+                gaps.append("No numerical validation or simulation")
 
         return {
             "name": mechanism.get("name", "?"),

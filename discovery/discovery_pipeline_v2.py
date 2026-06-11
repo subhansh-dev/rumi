@@ -54,7 +54,7 @@ if sys.platform == "win32":
         pass
 
 # Existing modules
-from discovery.llm_client import call as llm_call, call_json, get_status
+from discovery.llm_client import call as llm_call, call_json, call_math, get_status
 from discovery.citation_grounding import fetch_papers, build_citation_context, ground_claims
 from discovery.computational import run_all_calculations, format_calculations_for_prompt
 from discovery.domain_computational import run_domain_calculations, format_for_prompt, DOMAIN_COMPUTATIONS
@@ -285,14 +285,16 @@ def build_knowledge_graph(papers: list, domain: str) -> KnowledgeGraph:
 
 
 def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
-                           curiosity_constraint: dict = None) -> dict:
+                           curiosity_constraint: dict = None,
+                           original_topic: str = "") -> dict:
     """
     Run the complete discovery pipeline.
 
     Args:
-        topic: Research topic
+        topic: Research topic (may be LLM-reframed)
         domain: Domain (auto-detected if empty)
         mode: "quick" (phases 1-5), "standard" (1-8), "full" (all 12)
+        original_topic: Original cause/observation before LLM reframe (for literature search)
 
     Returns:
         Complete discovery report dict
@@ -427,10 +429,22 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
     # ══════════════════════════════════════════════════════════════
     # PHASE 1: LITERATURE
     # ══════════════════════════════════════════════════════════════
+    # Build domain-specific search query from original cause + reframe
+    # Filter out generic philosophical words that pollute search results
+    _generic_words = {"what", "assumption", "everyone", "accept", "about", "wrong",
+                      "does", "could", "would", "should", "might", "hypothesis",
+                      "theory", "model", "framework", "approach", "perspective",
+                      "implications", "relationship", "between", "analysis"}
+    _search_source = original_topic if original_topic else topic
+    _search_keywords = [w for w in _search_source.lower().split()
+                        if len(w) > 3 and w not in _generic_words]
+    _search_query = " ".join(_search_keywords[:8]) if _search_keywords else topic
+
     print("\n[Phase 1/12] LITERATURE — Fetching papers from 4 sources (3 rounds)...", flush=True)
+    print(f"  Search query: {_search_query[:80]}", flush=True)
     try:
-        # Round 1: Full topic query across all 4 sources
-        papers = fetch_papers(topic, max_arxiv=20, max_pubmed=20, max_s2=20, max_crossref=20)
+        # Round 1: Domain-specific query across all 4 sources
+        papers = fetch_papers(_search_query, max_arxiv=20, max_pubmed=20, max_s2=20, max_crossref=20)
         print(f"  Round 1: {len(papers)} papers")
 
         # Round 2: Shortened key-phrase query
@@ -969,6 +983,14 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
     # Layer 1: Phase-specific provider (with its own internal fallback chain)
     # Layer 2: Auto (Cerebras→Groq→Gemini with cooldown-aware retry)
     # Layer 3: Wait for cooldown, retry auto one more time
+    def _math_llm(prompt, max_tokens=4096, **kwargs):
+        """LLM call optimized for math/derivation tasks.
+        Routes through: DeepSeek R1 → Kimi → DeepSeek V4 → general chain."""
+        if len(prompt) > 10000:
+            prompt = prompt[:9500] + "\n\n[Context truncated — respond with available information]"
+        return call_math(prompt, max_tokens=max_tokens, temperature=0.3,
+                         json_mode=kwargs.get("json_mode", False))
+
     def _truncated_llm(prompt, max_tokens=4096, **kwargs):
         """LLM call with prompt truncation + phase-aware routing + multi-layer fallback."""
         if len(prompt) > 10000:
@@ -1257,6 +1279,9 @@ Output JSON:
     _loop_threshold = 0.03
     _loop_prev_score = 0.0
     _loop_history = []
+    theories = []  # initialized before loop; Phase 7 references this before Phase 8 assigns it
+    winner = None
+    mechanisms = []
     MATH_HEAVY = {"physics", "space_astronomy", "materials_science", "chemistry", "mathematics"}
     _is_math = domain in MATH_HEAVY
 
@@ -1417,7 +1442,7 @@ Output JSON:
                 print("\n[Phase 6.5/12] MATH CHAIN — Light pass (non-math domain)...", flush=True)
             try:
                 from discovery.math_chain import MathChain
-                mc = MathChain(llm_call=_truncated_llm)
+                mc = MathChain(llm_call=_math_llm)
                 if _is_math:
                     mechanisms = mc.process_mechanisms(mechanisms, topic, domain)
                 else:
@@ -1807,7 +1832,7 @@ Output JSON:
                             } for c in candidates[:5]],
                         }
                     else:
-                        print("  No valid candidates generated (RDKit may not be installed)", flush=True)
+                        print("  No valid candidates generated (LLM call failed or returned invalid SMILES)", flush=True)
             except (ImportError, AttributeError, Exception) as e:
                 print(f"  [WARN] Molecule generation skipped: {e}", flush=True)
 
@@ -1962,7 +1987,14 @@ Output JSON:
                 print("  CONVERGED at loop %d" % (_li+1), flush=True)
                 break
         _loop_prev_score = _cs
-        _loop_history.append({'loop': _li+1, 'score': _cs})
+        _loop_history.append({
+            'loop': _li+1,
+            'score': _cs,
+            'winner': (winner.get('name', '?') if winner else 'none'),
+            'mechanisms': len(mechanisms),
+            'theories': len(theories),
+            'strategy': _lab,
+        })
         if _li < _loop_max - 1:
             time.sleep(5)
 
@@ -2044,7 +2076,7 @@ Output JSON:
     if top_theory:
         try:
             from discovery.math_engine import run_math_verification
-            math_result = run_math_verification(top_theory, mechanisms=mechanisms, predictions=accepted_preds, llm_call=_truncated_llm)
+            math_result = run_math_verification(top_theory, mechanisms=mechanisms, predictions=accepted_preds, llm_call=_math_llm)
             if math_result:
                 math_score = math_result.get("overall_score", 0)
                 math_summary = math_result.get("summary", "")
@@ -2645,7 +2677,7 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
         from discovery.mechanism_completeness import MechanismCompletenessChecker
         mcc = MechanismCompletenessChecker()
         if mechanisms:
-            mcc_result = mcc.check_mechanisms(mechanisms)
+            mcc_result = mcc.check_mechanisms(mechanisms, domain=domain)
             complete = mcc_result.get("complete", 0)
             total = mcc_result.get("total", 0)
             avg = mcc_result.get("avg_completeness", 0)

@@ -210,7 +210,7 @@ def main():
         print("="*70)
         t0 = time.time()
         try:
-            report_a = run_discovery_pipeline(topic, domain=domain, mode=mode)
+            report_a = run_discovery_pipeline(topic, domain=domain, mode=mode, original_topic=cause or topic)
             phases_a = report_a.get("phases", {})
             score_a = phases_a.get('discovery_scoring', {}).get('discovery_score', 0)
             grade_a = phases_a.get('discovery_scoring', {}).get('grade', 'F')
@@ -248,7 +248,8 @@ def main():
             t0 = time.time()
             try:
                 report_b = run_discovery_pipeline(topic, domain=domain, mode=mode,
-                                                   curiosity_constraint=curiosity_constraint)
+                                                   curiosity_constraint=curiosity_constraint,
+                                                   original_topic=cause or topic)
                 phases_b = report_b.get("phases", {})
                 score_b = phases_b.get('discovery_scoring', {}).get('discovery_score', 0)
                 grade_b = phases_b.get('discovery_scoring', {}).get('grade', 'F')

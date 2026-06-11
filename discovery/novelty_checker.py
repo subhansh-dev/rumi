@@ -94,6 +94,8 @@ class NoveltyChecker:
 
         # From description — extract key phrases
         desc = theory.get("description", theory.get("mechanism", ""))
+        if not isinstance(desc, str):
+            desc = str(desc) if desc else ""
         # Extract noun phrases that look like scientific concepts
         for match in re.findall(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', desc):
             if len(match) > 8:
@@ -101,6 +103,8 @@ class NoveltyChecker:
 
         # From mathematical model
         model = theory.get("mathematical_model", theory.get("mathematical_formalism", ""))
+        if not isinstance(model, str):
+            model = str(model) if model else ""
         if model:
             # Extract variable names
             for var in re.findall(r'([A-Z][a-z_]+(?:_[a-z]+)*)', model):

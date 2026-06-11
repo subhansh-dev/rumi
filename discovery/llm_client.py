@@ -324,32 +324,34 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
     return None
 
 
-# ── Jiekou (Claude Fable 5 via OpenAI-compatible proxy) ─────────────
-# To disable: set "jiekou_enabled": false in config/api_keys.json
-# To remove:  delete jiekou_api_key, jiekou_model, jiekou_enabled from config
-
-JIEKOU_BASE_URL = "https://api.jiekou.ai/openai"
 
 
-def _get_jiekou_config() -> dict:
+
+# ── NVIDIA NIM (Nemotron, Kimi, GLM via NVIDIA) ─────────────────────
+# To disable: set "nvidia_enabled": false in config/api_keys.json
+
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+
+
+def _get_nvidia_config() -> dict:
     cfg = _load_config()
-    if not cfg.get("jiekou_enabled", False):
+    if not cfg.get("nvidia_enabled", False):
         return {}
-    key = cfg.get("jiekou_api_key", "")
-    model = cfg.get("jiekou_model", "claude-fable-5")
+    key = cfg.get("nvidia_api_key", "")
+    model = cfg.get("nvidia_model", "nvidia/llama-3.1-nemotron-ultra-253b-v1")
     if not key:
         return {}
     return {"key": key, "model": model}
 
 
-def _call_jiekou(prompt: str, json_mode: bool = False,
+def _call_nvidia(prompt: str, json_mode: bool = False,
                  max_tokens: int = 4096, temperature: float = 0.3) -> str | None:
-    """Call Claude via Jiekou proxy. OpenAI-compatible endpoint."""
+    """Call NVIDIA NIM API. OpenAI-compatible endpoint."""
     try:
         import requests
     except ImportError:
         return None
-    config = _get_jiekou_config()
+    config = _get_nvidia_config()
     if not config:
         return None
 
@@ -377,33 +379,31 @@ def _call_jiekou(prompt: str, json_mode: bool = False,
     for attempt in range(2):
         try:
             resp = requests.post(
-                f"{JIEKOU_BASE_URL}/chat/completions",
+                f"{NVIDIA_BASE_URL}/chat/completions",
                 headers=headers, json=payload, timeout=120,
             )
             if resp.status_code == 200:
                 data = resp.json()
-                choice = data.get("choices", [{}])[0].get("message", {})
-                content = choice.get("content", "")
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 if content and content.strip():
                     return content.strip()
             elif resp.status_code == 429:
-                time.sleep(5)
+                time.sleep(10 * (attempt + 1))
                 continue
             elif resp.status_code == 400 and json_mode:
                 payload.pop("response_format", None)
                 resp2 = requests.post(
-                    f"{JIEKOU_BASE_URL}/chat/completions",
+                    f"{NVIDIA_BASE_URL}/chat/completions",
                     headers=headers, json=payload, timeout=120,
                 )
                 if resp2.status_code == 200:
                     data = resp2.json()
-                    choice = data.get("choices", [{}])[0].get("message", {})
-                    content = choice.get("content", "")
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                     if content and content.strip():
                         return content.strip()
                 return None
             else:
-                print(f"    [LLM] Jiekou {resp.status_code}: {resp.text[:100]}", flush=True)
+                print(f"    [LLM] NVIDIA {resp.status_code}: {resp.text[:100]}", flush=True)
                 return None
         except requests.exceptions.Timeout:
             continue
@@ -419,6 +419,241 @@ def _call_jiekou(prompt: str, json_mode: bool = False,
 #             and remove this section + _call_xiaomi from call() routing
 
 XIAOMI_BASE_URL = "https://token-plan-sgp.xiaomimimo.com/anthropic"
+
+
+# ── Kimi K2.6 (via NVIDIA NIM) — best for math reasoning ────────────
+# Uses same NVIDIA endpoint but separate key/model
+# To disable: set "kimi_enabled": false in config/api_keys.json
+
+def _get_kimi_config() -> dict:
+    cfg = _load_config()
+    if not cfg.get("kimi_enabled", False):
+        return {}
+    key = cfg.get("kimi_api_key", "")
+    model = cfg.get("kimi_model", "moonshotai/kimi-k2.6")
+    if not key:
+        return {}
+    return {"key": key, "model": model}
+
+
+def _call_kimi(prompt: str, json_mode: bool = False,
+               max_tokens: int = 4096, temperature: float = 0.3) -> str | None:
+    """Call Kimi K2.6 via NVIDIA NIM. Best for math/derivation tasks."""
+    try:
+        import requests
+    except ImportError:
+        return None
+    config = _get_kimi_config()
+    if not config:
+        return None
+
+    key = config["key"]
+    model = config["model"]
+
+    effective_prompt = prompt
+    if json_mode and "json" not in prompt.lower():
+        effective_prompt = prompt + "\n\nRespond in JSON format."
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": effective_prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+    for attempt in range(2):
+        try:
+            resp = requests.post(
+                f"{NVIDIA_BASE_URL}/chat/completions",
+                headers=headers, json=payload, timeout=120,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content and content.strip():
+                    return content.strip()
+            elif resp.status_code == 429:
+                time.sleep(10 * (attempt + 1))
+                continue
+            elif resp.status_code == 400 and json_mode:
+                payload.pop("response_format", None)
+                resp2 = requests.post(
+                    f"{NVIDIA_BASE_URL}/chat/completions",
+                    headers=headers, json=payload, timeout=120,
+                )
+                if resp2.status_code == 200:
+                    data = resp2.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    if content and content.strip():
+                        return content.strip()
+                return None
+            else:
+                print(f"    [LLM] Kimi {resp.status_code}: {resp.text[:100]}", flush=True)
+                return None
+        except requests.exceptions.Timeout:
+            continue
+        except Exception:
+            return None
+
+    return None
+
+
+# ── GLM 5.1 (via NVIDIA NIM) ─────────────────────────────────────────
+# To disable: set "glm_enabled": false in config/api_keys.json
+
+def _get_glm_config() -> dict:
+    cfg = _load_config()
+    if not cfg.get("glm_enabled", False):
+        return {}
+    key = cfg.get("glm_api_key", "")
+    model = cfg.get("glm_model", "zhipu/glm-5.1")
+    if not key:
+        return {}
+    return {"key": key, "model": model}
+
+
+def _call_glm(prompt: str, json_mode: bool = False,
+              max_tokens: int = 4096, temperature: float = 0.3) -> str | None:
+    """Call GLM 5.1 via NVIDIA NIM."""
+    try:
+        import requests
+    except ImportError:
+        return None
+    config = _get_glm_config()
+    if not config:
+        return None
+
+    key = config["key"]
+    model = config["model"]
+
+    effective_prompt = prompt
+    if json_mode and "json" not in prompt.lower():
+        effective_prompt = prompt + "\n\nRespond in JSON format."
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": effective_prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+    for attempt in range(2):
+        try:
+            resp = requests.post(
+                f"{NVIDIA_BASE_URL}/chat/completions",
+                headers=headers, json=payload, timeout=120,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content and content.strip():
+                    return content.strip()
+            elif resp.status_code == 429:
+                time.sleep(10 * (attempt + 1))
+                continue
+            else:
+                print(f"    [LLM] GLM {resp.status_code}: {resp.text[:100]}", flush=True)
+                return None
+        except requests.exceptions.Timeout:
+            continue
+        except Exception:
+            return None
+
+    return None
+
+
+# ── Fireworks AI (DeepSeek R1) — best for math reasoning ────────────
+# TEMPORARY: $6 credits, will run out
+# To disable: set "fireworks_enabled": false in config/api_keys.json
+
+FIREWORKS_BASE_URL = "https://api.fireworks.ai/inference/v1"
+
+
+def _get_fireworks_config() -> dict:
+    cfg = _load_config()
+    if not cfg.get("fireworks_enabled", False):
+        return {}
+    key = cfg.get("fireworks_api_key", "")
+    model = cfg.get("fireworks_model", "accounts/fireworks/models/deepseek-r1")
+    if not key:
+        return {}
+    return {"key": key, "model": model}
+
+
+def _call_fireworks(prompt: str, json_mode: bool = False,
+                    max_tokens: int = 4096, temperature: float = 0.3) -> str | None:
+    """Call DeepSeek R1 via Fireworks AI. Best for math/derivation tasks."""
+    try:
+        import requests
+    except ImportError:
+        return None
+    config = _get_fireworks_config()
+    if not config:
+        return None
+
+    key = config["key"]
+    model = config["model"]
+
+    effective_prompt = prompt
+    if json_mode and "json" not in prompt.lower():
+        effective_prompt = prompt + "\n\nRespond in JSON format."
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": effective_prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+    for attempt in range(2):
+        try:
+            resp = requests.post(
+                f"{FIREWORKS_BASE_URL}/chat/completions",
+                headers=headers, json=payload, timeout=120,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                choice = data.get("choices", [{}])[0].get("message", {})
+                content = choice.get("content", "")
+                # DeepSeek R1 may put reasoning in a separate field
+                reasoning = choice.get("reasoning_content", "")
+                if content and content.strip():
+                    return content.strip()
+                if reasoning and len(reasoning) > 10:
+                    return reasoning.strip()
+            elif resp.status_code == 429:
+                time.sleep(10 * (attempt + 1))
+                continue
+            else:
+                print(f"    [LLM] Fireworks {resp.status_code}: {resp.text[:100]}", flush=True)
+                return None
+        except requests.exceptions.Timeout:
+            continue
+        except Exception:
+            return None
+
+    return None
 
 
 def _get_xiaomi_config() -> dict:
@@ -509,17 +744,31 @@ def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
     now = time.time()
 
     if provider == "auto":
-        # Full chain: Jiekou (Claude) → Xiaomi → Cerebras → Groq → Gemini
+        # Full chain: NVIDIA → Kimi → DeepSeek V4 → DeepSeek R1 → MiMo → Cerebras → Groq → Gemini
         # Retry the whole chain up to 3 times if all providers fail
-        # To remove Xiaomi: delete the _call_xiaomi block and function above
         MAX_CHAIN_ATTEMPTS = 3
         for chain_attempt in range(MAX_CHAIN_ATTEMPTS):
-            # Jiekou / Claude Fable 5 (primary when enabled)
-            if _get_jiekou_config():
-                result = _call_jiekou(prompt, json_mode, max_tokens, temperature)
+            # NVIDIA Nemotron
+            if _get_nvidia_config():
+                result = _call_nvidia(prompt, json_mode, max_tokens, temperature)
                 if result:
                     return result
-            # Xiaomi MiMo (secondary)
+            # Kimi K2.6 (best for math)
+            if _get_kimi_config():
+                result = _call_kimi(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+            # GLM 5.1
+            if _get_glm_config():
+                result = _call_glm(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+            # Fireworks (DeepSeek R1 — best for math)
+            if _get_fireworks_config():
+                result = _call_fireworks(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+            # Xiaomi MiMo
             if _get_xiaomi_config():
                 result = _call_xiaomi(prompt, json_mode, max_tokens, temperature)
                 if result:
@@ -586,8 +835,14 @@ def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
         if not result:
             _gemini_cooldown_until = time.time() + COOLDOWN_SECONDS
         return result
-    if provider == "jiekou":
-        return _call_jiekou(prompt, json_mode, max_tokens, temperature)
+    if provider == "nvidia":
+        return _call_nvidia(prompt, json_mode, max_tokens, temperature)
+    if provider == "kimi":
+        return _call_kimi(prompt, json_mode, max_tokens, temperature)
+    if provider == "glm":
+        return _call_glm(prompt, json_mode, max_tokens, temperature)
+    if provider == "fireworks":
+        return _call_fireworks(prompt, json_mode, max_tokens, temperature)
     if provider == "xiaomi":
         return _call_xiaomi(prompt, json_mode, max_tokens, temperature)
     return None
@@ -598,6 +853,30 @@ def call_json(prompt: str, max_tokens: int = 8192,
     """Call with JSON response mode."""
     return call(prompt, json_mode=True, max_tokens=max_tokens,
                 temperature=temperature, provider=provider)
+
+
+def call_math(prompt: str, max_tokens: int = 8192,
+              temperature: float = 0.3, json_mode: bool = False) -> str | None:
+    """Call with math-optimized routing: DeepSeek R1 → Kimi → DeepSeek V4 → general chain.
+
+    Use for: Math Chain (Phase 6.5), Math Engine (Phase 9), derivation tasks.
+    DeepSeek R1 is the best math reasoning model — it should be primary for equations.
+    """
+    # Math-optimized chain: reasoning models first
+    math_providers = [
+        ("fireworks", _get_fireworks_config, _call_fireworks),  # DeepSeek R1
+        ("kimi", _get_kimi_config, _call_kimi),                 # Kimi K2.6
+        ("glm", _get_glm_config, _call_glm),                    # DeepSeek V4 Pro
+    ]
+
+    for name, get_cfg, call_fn in math_providers:
+        if get_cfg():
+            result = call_fn(prompt, json_mode, max_tokens, temperature)
+            if result:
+                return result
+
+    # Fallback to general chain (skip providers already tried)
+    return call(prompt, json_mode=json_mode, max_tokens=max_tokens, temperature=temperature, provider="auto")
 
 
 def call_thinking(prompt: str, max_tokens: int = 32768,
@@ -624,11 +903,17 @@ def is_available(provider: str = "auto") -> bool:
         return bool(_get_gemini_keys())
     if provider == "cerebras":
         return bool(_get_cerebras_keys())
-    if provider == "jiekou":
-        return bool(_get_jiekou_config())
+    if provider == "nvidia":
+        return bool(_get_nvidia_config())
+    if provider == "kimi":
+        return bool(_get_kimi_config())
+    if provider == "glm":
+        return bool(_get_glm_config())
+    if provider == "fireworks":
+        return bool(_get_fireworks_config())
     if provider == "xiaomi":
         return bool(_get_xiaomi_config())
-    return bool(_get_jiekou_config()) or bool(_get_xiaomi_config()) or bool(_get_cerebras_keys()) or bool(_get_groq_keys()) or bool(_get_gemini_keys())
+    return bool(_get_nvidia_config()) or bool(_get_kimi_config()) or bool(_get_glm_config()) or bool(_get_fireworks_config()) or bool(_get_xiaomi_config()) or bool(_get_cerebras_keys()) or bool(_get_groq_keys()) or bool(_get_gemini_keys())
 
 
 def get_status() -> dict:
@@ -636,11 +921,17 @@ def get_status() -> dict:
     groq_keys = _get_groq_keys()
     gemini_keys = _get_gemini_keys()
     cerebras_keys = _get_cerebras_keys()
-    jiekou_config = _get_jiekou_config()
+    nvidia_config = _get_nvidia_config()
+    kimi_config = _get_kimi_config()
+    glm_config = _get_glm_config()
+    fireworks_config = _get_fireworks_config()
     xiaomi_config = _get_xiaomi_config()
-    primary = "jiekou" if jiekou_config else "xiaomi" if xiaomi_config else "cerebras" if cerebras_keys else "groq" if groq_keys else "gemini" if gemini_keys else "none"
+    primary = "nvidia" if nvidia_config else "kimi" if kimi_config else "glm" if glm_config else "fireworks" if fireworks_config else "xiaomi" if xiaomi_config else "cerebras" if cerebras_keys else "groq" if groq_keys else "gemini" if gemini_keys else "none"
     return {
-        "jiekou": {"available": bool(jiekou_config), "model": jiekou_config.get("model", "N/A")} if jiekou_config else {"available": False},
+        "nvidia": {"available": bool(nvidia_config), "model": nvidia_config.get("model", "N/A")} if nvidia_config else {"available": False},
+        "kimi": {"available": bool(kimi_config), "model": kimi_config.get("model", "N/A")} if kimi_config else {"available": False},
+        "glm": {"available": bool(glm_config), "model": glm_config.get("model", "N/A")} if glm_config else {"available": False},
+        "fireworks": {"available": bool(fireworks_config), "model": fireworks_config.get("model", "N/A")} if fireworks_config else {"available": False},
         "xiaomi": {"available": bool(xiaomi_config), "model": xiaomi_config.get("model", "N/A")} if xiaomi_config else {"available": False},
         "cerebras": {"available": bool(cerebras_keys), "keys": len(cerebras_keys),
                      "model": CEREBRAS_MODEL},
