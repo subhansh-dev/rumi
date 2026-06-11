@@ -301,11 +301,13 @@ def _wrap(result, expected_key):
     # Semantic alias mapping — LLMs often use different names for the same concept
     ALIAS_MAP = {
         "mechanisms": ["hypotheses", "theories", "explanations", "pathways",
-                       "causal_mechanisms", "causal_pathways", "mechanisms_list"],
+                       "causal_mechanisms", "causal_pathways", "mechanisms_list",
+                       "novel_theory", "proposed_mechanisms", "candidate_mechanisms"],
         "theories": ["hypotheses", "mechanisms", "explanations", "models",
-                     "theories_list", "competing_theories"],
+                     "theories_list", "competing_theories", "novel_theory",
+                     "proposed_theories", "candidate_theories"],
         "hidden_variables": ["variables", "hidden_factors", "proposed_variables",
-                             "latent_variables", "unknowns"],
+                             "latent_variables", "unknowns", "novel_variables"],
         "predictions": ["testable_predictions", "forecast", "forecasts",
                         "predictions_list", "testable_claims"],
         "contradictions": ["conflicts", "discrepancies", "inconsistencies"],
@@ -337,6 +339,14 @@ def _wrap(result, expected_key):
             for k, v in result.items():
                 if isinstance(v, list) and expected_key in k.lower():
                     return {expected_key: v}
+            # Canonical fallback: find ANY key with a list of dicts (the actual content)
+            # This handles any model/format without hardcoding specific key names
+            list_of_dicts = [(k, v) for k, v in result.items()
+                             if isinstance(v, list) and v and isinstance(v[0], dict)]
+            if list_of_dicts:
+                # Pick the largest list (most likely the main content)
+                best = max(list_of_dicts, key=lambda kv: len(kv[1]))
+                return {expected_key: best[1]}
             # If result has a single list value, use that
             list_vals = [(k, v) for k, v in result.items() if isinstance(v, list) and v]
             if len(list_vals) == 1:

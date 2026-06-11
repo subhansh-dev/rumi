@@ -1251,667 +1251,723 @@ Output JSON:
                                 hidden_variables, [], [], [], [], t_start)
 
     # ══════════════════════════════════════════════════════════════
-    # PHASE 6: MECHANISM GENERATION
-    # ══════════════════════════════════════════════════════════════
-    print("\n[Phase 6/12] MECHANISM GENERATION — Building causal pathways...", flush=True)
-    _current_phase["name"] = "mechanism_generation"
-    try:
-        # PRIMARY: MechanismGenerator — detailed causal chains with derivations
-        mechanisms = []
+
+    # RECURRENT DISCOVERY LOOP (Phases 6-8)
+    _loop_max = 3
+    _loop_threshold = 0.03
+    _loop_prev_score = 0.0
+    _loop_history = []
+    MATH_HEAVY = {"physics", "space_astronomy", "materials_science", "chemistry", "mathematics"}
+    _is_math = domain in MATH_HEAVY
+
+    for _li in range(_loop_max):
+        _labs = ["exploratory", "rigorous", "convergent"]
+        _lab = _labs[_li % 3]
+        print("\n  LOOP %d/%d -- %s" % (_li+1, _loop_max, _lab.upper()), flush=True)
+
+        # PHASE 6: MECHANISM GENERATION
+        # ══════════════════════════════════════════════════════════════
+        print("\n[Phase 6/12] MECHANISM GENERATION — Building causal pathways...", flush=True)
+        _current_phase["name"] = "mechanism_generation"
         try:
-            mech_generator = MechanismGenerator(graph=graph, llm_call=_truncated_llm)
-            mech_results = mech_generator.generate_mechanisms(
-                hidden_variables, gaps, anomalies, topic, domain, papers, archive_context,
-                constraint=_curiosity_constraint
-            )
-            mechanisms = mech_results.get("mechanisms", [])
-        except Exception as e:
-            print(f"  [MechanismGenerator] Failed: {e}", flush=True)
-
-        # FALLBACK: MechanismDiscoveryEngine — graph-mined correlations
-        if not mechanisms:
+            # PRIMARY: MechanismGenerator — detailed causal chains with derivations
+            mechanisms = []
             try:
-                from discovery.mechanism_discovery import MechanismDiscoveryEngine
-                mde = MechanismDiscoveryEngine(graph=graph, llm_call=_truncated_llm)
-                mde_results = mde.discover_from_graph(topic, domain)
-                if mde_results and mde_results.get("mechanisms"):
-                    raw_mechanisms = mde_results["mechanisms"]
-                    # Normalize MechanismDiscovery format: flatten candidates and remap fields
-                    mechanisms = []
-                    for group in raw_mechanisms:
-                        # Skip schema-like objects
-                        if group.get("type") == "object" and not group.get("description") and not group.get("candidates"):
-                            continue
-                        candidates = group.get("candidates", [])
-                        if not candidates:
-                            # Single mechanism (no candidates wrapper) — only add if it has substance
-                            if group.get("name") or group.get("description") or group.get("steps"):
-                                mechanisms.append(group)
-                        else:
-                            for c in candidates:
-                                # Remap fields to standard format
-                                if "causal_chain" in c and "steps" not in c:
-                                    c["steps"] = c["causal_chain"]
-                                if "correlation" not in c and group.get("correlation"):
-                                    c["correlation"] = group["correlation"]
-                                # Extract name from multiple possible fields
-                                if "name" not in c or not c.get("name") or c.get("name") in ("object", ""):
-                                    c["name"] = (
-                                        c.get("mechanism_name") or
-                                        c.get("correlation") or
-                                        c.get("description", "")[:60] or
-                                        c.get("type", "causal_pathway")
-                                    )
-                                # Skip if name is still generic
-                                if c.get("name") in ("object", "causal_pathway", ""):
-                                    continue
-                                c.setdefault("type", "causal_pathway")
-                                mechanisms.append(c)
-                    print(f"  [MechanismDiscovery] {len(mechanisms)} mechanisms (normalized from {len(raw_mechanisms)} groups)", flush=True)
-            except Exception as e:
-                print(f"  [MechanismDiscovery] Failed: {e}", flush=True)
-
-        # LAST RESORT: Algorithmic
-        if not mechanisms:
-            from discovery.algorithmic_discovery import generate_mechanisms_algorithmic
-            mechanisms = generate_mechanisms_algorithmic(graph, hidden_variables, topic, domain)
-            if mechanisms:
-                print(f"  Algorithmic fallback: {len(mechanisms)} mechanisms")
-
-        # -- Math Consistency Checker --
-        if mechanisms:
-            try:
-                from discovery.math_consistency_checker import MathConsistencyChecker
-                mcc = MathConsistencyChecker()
-                for mech in mechanisms[:3]:
-                    math_result = mcc.check_theory(mech, domain=domain)
-                    if math_result and not math_result.get("consistent", True):
-                        mech["math_warnings"] = math_result.get("issues", [])[:3]
-                        print(f"  [Math Check] {mech.get('name', '?')[:30]}: issues found", flush=True)
-            except Exception as e:
-                print(f"  [WARN] Math consistency check skipped: {e}")
-
-        # Validate mechanisms — allow descriptions without explicit steps
-        validated_mechanisms = []
-        for m in mechanisms:
-            name = m.get("name", "")
-            steps = m.get("steps", m.get("causal_chain", []))  # handle both formats
-            description = m.get("description", m.get("mechanism", m.get("correlation", "")))
-            # Ensure steps field exists for downstream consumers
-            if "steps" not in m and "causal_chain" in m:
-                m["steps"] = m["causal_chain"]
-            # Fix unnamed mechanisms — extract name from description
-            if not name or name in ("Unnamed mechanism", "Unnamed Mechanism", ""):
-                if description:
-                    m["name"] = description[:60]
-                    name = m["name"]
-                elif steps:
-                    m["name"] = f"Mechanism: {steps[0][:40]}"
-                    name = m["name"]
-            # Reject truly empty mechanisms — no name, no description, no steps
-            if not name and not description and len(steps) < 1:
-                continue
-            # Reject generic "Hidden mechanism connecting X" with no description
-            if "Hidden mechanism connecting" in name and not description and len(steps) < 1:
-                continue
-            # Reject non-scientific mechanisms
-            desc_lower = (description + " " + name).lower()
-            non_scientific = [
-                "funding", "organizational", "market", "economic", "political",
-                "social", "management", "administrative", "bureaucratic",
-                "funding-driven", "market-driven", "resource allocation",
-            ]
-            if any(term in desc_lower for term in non_scientific):
-                continue
-            # Tag single-step as direct_observation
-            if len(steps) == 1:
-                m.setdefault("type", "direct_observation")
-            # Tag mechanisms with description but no steps as proposed
-            if len(steps) < 1 and description:
-                m.setdefault("type", "proposed")
-            # Mark as speculative if missing key fields — no confidence cap
-            if not m.get("inputs") and not m.get("outputs"):
-                m["status"] = "speculative"
-                # Don't cap confidence — let scorer decide
-            validated_mechanisms.append(m)
-        mechanisms = validated_mechanisms
-
-        print(f"  Generated {len(mechanisms)} mechanisms")
-        for m in mechanisms[:3]:
-            print(f"    [{m.get('type', '?')}] {m.get('name', '?')}")
-            for s in m.get("steps", [])[:2]:
-                s_str = str(s)[:80] if s else ""
-                print(f"      → {s_str}")
-        report["phases"]["mechanism_generation"] = {
-            "mechanisms_generated": len(mechanisms),
-            "types": list(set(m.get("type", "?") for m in mechanisms)),
-            "mechanism_details": mechanisms,
-        }
-    except Exception as e:
-        print(f"  [ERROR] Mechanism generation failed: {e}")
-        report["errors"].append(f"Phase 6: {e}")
-        mechanisms = []
-
-    # ══════════════════════════════════════════════════════════════
-    # PHASE 7: PREDICTION ENGINE
-    # ══════════════════════════════════════════════════════════════
-    print("\n[Phase 7/12] PREDICTION ENGINE — Generating testable predictions...", flush=True)
-    _current_phase["name"] = "prediction_engine"
-    try:
-        # Defensive: convert all mechanism/HV values to strings to prevent float+str errors
-        safe_mechanisms = []
-        for m in (mechanisms or []):
-            if isinstance(m, dict):
-                sm = {k: str(v) if not isinstance(v, (list, dict)) else v for k, v in m.items()}
-                safe_mechanisms.append(sm)
-            else:
-                safe_mechanisms.append(m)
-        safe_hvs = []
-        for h in (hidden_variables or []):
-            if isinstance(h, dict):
-                sh = {k: str(v) if not isinstance(v, (list, dict)) else v for k, v in h.items()}
-                safe_hvs.append(sh)
-            else:
-                safe_hvs.append(h)
-
-        pred_engine = PredictionEngine(graph=graph, llm_call=_truncated_llm)
-        pred_results = pred_engine.generate_predictions(
-            safe_mechanisms, safe_hvs, topic, domain, anomalies
-        )
-        predictions = pred_results.get("predictions", [])
-
-        # Algorithmic fallback
-        if not predictions:
-            from discovery.algorithmic_discovery import generate_predictions_algorithmic
-            predictions = generate_predictions_algorithmic(mechanisms, hidden_variables, topic, domain, graph)
-            if predictions:
-                print(f"  Algorithmic fallback: {len(predictions)} predictions")
-
-        # Validate predictions
-        validation = pred_engine.validate_predictions(predictions)
-
-        # -- Counterfactual Reasoning — store results in report --
-        if mechanisms:
-            try:
-                from discovery.counterfactual_reasoner import CounterfactualReasoner
-                cfr = CounterfactualReasoner(llm_call=_truncated_llm)
-                # Build a proper theory dict for the reasoner
-                # Note: winner is not set yet (tournament runs in Phase 8), use theories[0]
-                top_theory = theories[0] if theories else {}
-                cf_theory = {
-                    "name": top_theory.get("title", top_theory.get("name", "")),
-                    "description": top_theory.get("description", top_theory.get("mechanism", "")),
-                    "mathematical_model": top_theory.get("mathematical_model", ""),
-                    "key_parameters": top_theory.get("key_parameters", []),
-                    "predictions": predictions,
-                    "mechanisms": mechanisms,
-                    "steps": top_theory.get("steps", []),
-                }
-                cf_result = cfr.reason(cf_theory, domain=domain)
-                if cf_result and cf_result.get("counterfactuals"):
-                    print(f"  [Counterfactual] {len(cf_result['counterfactuals'])} consequences derived", flush=True)
-                    report["phases"]["counterfactual_reasoning"] = {
-                        "total_derived": cf_result.get("total_derived", 0),
-                        "supported": len(cf_result.get("supported", [])),
-                        "contradicted": len(cf_result.get("contradicted", [])),
-                        "consistency": cf_result.get("overall_consistency", 0),
-                        "details": cf_result,
-                    }
-            except Exception as e:
-                print(f"  [WARN] Counterfactual reasoning skipped: {e}")
-        accepted_preds = validation.get("accepted", predictions)
-
-        # -- Prediction Literature Validator — check predictions against real papers --
-        if accepted_preds:
-            try:
-                from discovery.prediction_literature_validator import PredictionLiteratureValidator
-                plv = PredictionLiteratureValidator(llm_call=_truncated_llm)
-                lit_validation = plv.validate_predictions(
-                    accepted_preds, mechanisms, topic, domain, existing_papers=papers
+                mech_generator = MechanismGenerator(graph=graph, llm_call=_truncated_llm)
+                mech_results = mech_generator.generate_mechanisms(
+                    hidden_variables, gaps, anomalies, topic, domain, papers, archive_context,
+                    constraint=_curiosity_constraint
                 )
-                if lit_validation:
-                    validated = lit_validation.get("validations", [])
-                    supported = sum(1 for v in validated if v.get("validation_status") == "supported")
-                    contradicted = sum(1 for v in validated if v.get("validation_status") == "contradicted")
-                    print(f"  [Lit Validation] {supported} supported, {contradicted} contradicted by literature", flush=True)
-                    if "prediction_engine" not in report["phases"]:
-                        report["phases"]["prediction_engine"] = {}
-                    report["phases"]["prediction_engine"]["literature_validation"] = {
-                        "total_validated": len(validated),
-                        "supported": supported,
-                        "contradicted": contradicted,
-                    }
+                mechanisms = mech_results.get("mechanisms", [])
             except Exception as e:
-                print(f"  [WARN] Prediction literature validation skipped: {e}", flush=True)
+                print(f"  [MechanismGenerator] Failed: {e}", flush=True)
 
-        print(f"  Generated {len(predictions)} predictions ({len(accepted_preds)} accepted)")
-        for p in accepted_preds[:3]:
-            print(f"    [{p.get('type', '?')}] {p.get('statement', '')[:80]}")
-        report["phases"]["prediction_engine"] = {
-            "total_predictions": len(predictions),
-            "accepted": len(accepted_preds),
-            "acceptance_rate": validation.get("acceptance_rate", 0),
-            "accepted_details": accepted_preds,
-            "predictions": predictions,
-            "all_predictions": predictions,
-        }
-    except Exception as e:
-        print(f"  [ERROR] Prediction generation failed: {e}")
-        report["errors"].append(f"Phase 7: {e}")
-        predictions = []
-        accepted_preds = []
+            # FALLBACK: MechanismDiscoveryEngine — graph-mined correlations
+            if not mechanisms:
+                try:
+                    from discovery.mechanism_discovery import MechanismDiscoveryEngine
+                    mde = MechanismDiscoveryEngine(graph=graph, llm_call=_truncated_llm)
+                    mde_results = mde.discover_from_graph(topic, domain)
+                    if mde_results and mde_results.get("mechanisms"):
+                        raw_mechanisms = mde_results["mechanisms"]
+                        # Normalize MechanismDiscovery format: flatten candidates and remap fields
+                        mechanisms = []
+                        for group in raw_mechanisms:
+                            # Skip schema-like objects
+                            if group.get("type") == "object" and not group.get("description") and not group.get("candidates"):
+                                continue
+                            candidates = group.get("candidates", [])
+                            if not candidates:
+                                # Single mechanism (no candidates wrapper) — only add if it has substance
+                                if group.get("name") or group.get("description") or group.get("steps"):
+                                    mechanisms.append(group)
+                            else:
+                                for c in candidates:
+                                    # Remap fields to standard format
+                                    if "causal_chain" in c and "steps" not in c:
+                                        c["steps"] = c["causal_chain"]
+                                    if "correlation" not in c and group.get("correlation"):
+                                        c["correlation"] = group["correlation"]
+                                    # Extract name from multiple possible fields
+                                    if "name" not in c or not c.get("name") or c.get("name") in ("object", ""):
+                                        c["name"] = (
+                                            c.get("mechanism_name") or
+                                            c.get("correlation") or
+                                            c.get("description", "")[:60] or
+                                            c.get("type", "causal_pathway")
+                                        )
+                                    # Skip if name is still generic
+                                    if c.get("name") in ("object", "causal_pathway", ""):
+                                        continue
+                                    c.setdefault("type", "causal_pathway")
+                                    mechanisms.append(c)
+                        print(f"  [MechanismDiscovery] {len(mechanisms)} mechanisms (normalized from {len(raw_mechanisms)} groups)", flush=True)
+                except Exception as e:
+                    print(f"  [MechanismDiscovery] Failed: {e}", flush=True)
 
-    # ══════════════════════════════════════════════════════════════
-    # PHASE 8: THEORY COMPETITION
-    # ══════════════════════════════════════════════════════════════
-    print("\n[Phase 8/12] THEORY COMPETITION — Comparing explanations...", flush=True)
-    _current_phase["name"] = "theory_competition"
-    try:
-        # PRIMARY: TheoryCompetition — full tournament with scoring/elimination
-        theories = []
-        winner = None
-        comp_results = {}  # Initialize — only assigned if TheoryCompetition runs
-        try:
-            competition = TheoryCompetition(graph=graph, llm_call=_truncated_llm)
-            comp_results = competition.compete(
-                mechanisms, hidden_variables, anomalies, gaps, topic, domain, papers,
-                archive_context=archive_context, constraint=_curiosity_constraint
-            )
-            theories = comp_results.get("theories", [])
-            winner = comp_results.get("winner")
+            # LAST RESORT: Algorithmic
+            if not mechanisms:
+                from discovery.algorithmic_discovery import generate_mechanisms_algorithmic
+                mechanisms = generate_mechanisms_algorithmic(graph, hidden_variables, topic, domain)
+                if mechanisms:
+                    print(f"  Algorithmic fallback: {len(mechanisms)} mechanisms")
+
+            # -- Math Consistency Checker --
+            if mechanisms:
+                try:
+                    from discovery.math_consistency_checker import MathConsistencyChecker
+                    mcc = MathConsistencyChecker()
+                    for mech in mechanisms[:3]:
+                        math_result = mcc.check_theory(mech, domain=domain)
+                        if math_result and not math_result.get("consistent", True):
+                            mech["math_warnings"] = math_result.get("issues", [])[:3]
+                            print(f"  [Math Check] {mech.get('name', '?')[:30]}: issues found", flush=True)
+                except Exception as e:
+                    print(f"  [WARN] Math consistency check skipped: {e}")
+
+            # Validate mechanisms — allow descriptions without explicit steps
+            validated_mechanisms = []
+            for m in mechanisms:
+                name = m.get("name", "")
+                steps = m.get("steps", m.get("causal_chain", []))  # handle both formats
+                description = m.get("description", m.get("mechanism", m.get("correlation", "")))
+                # Ensure steps field exists for downstream consumers
+                if "steps" not in m and "causal_chain" in m:
+                    m["steps"] = m["causal_chain"]
+                # Fix unnamed mechanisms — extract name from description
+                if not name or name in ("Unnamed mechanism", "Unnamed Mechanism", ""):
+                    if description:
+                        m["name"] = description[:60]
+                        name = m["name"]
+                    elif steps:
+                        m["name"] = f"Mechanism: {steps[0][:40]}"
+                        name = m["name"]
+                # Reject truly empty mechanisms — no name, no description, no steps
+                if not name and not description and len(steps) < 1:
+                    continue
+                # Reject generic "Hidden mechanism connecting X" with no description
+                if "Hidden mechanism connecting" in name and not description and len(steps) < 1:
+                    continue
+                # Reject non-scientific mechanisms
+                desc_lower = (description + " " + name).lower()
+                non_scientific = [
+                    "funding", "organizational", "market", "economic", "political",
+                    "social", "management", "administrative", "bureaucratic",
+                    "funding-driven", "market-driven", "resource allocation",
+                ]
+                if any(term in desc_lower for term in non_scientific):
+                    continue
+                # Tag single-step as direct_observation
+                if len(steps) == 1:
+                    m.setdefault("type", "direct_observation")
+                # Tag mechanisms with description but no steps as proposed
+                if len(steps) < 1 and description:
+                    m.setdefault("type", "proposed")
+                # Mark as speculative if missing key fields — no confidence cap
+                if not m.get("inputs") and not m.get("outputs"):
+                    m["status"] = "speculative"
+                    # Don't cap confidence — let scorer decide
+                validated_mechanisms.append(m)
+            mechanisms = validated_mechanisms
+
+            print(f"  Generated {len(mechanisms)} mechanisms")
+            for m in mechanisms[:3]:
+                print(f"    [{m.get('type', '?')}] {m.get('name', '?')}")
+                for s in m.get("steps", [])[:2]:
+                    s_str = str(s)[:80] if s else ""
+                    print(f"      → {s_str}")
+            report["phases"]["mechanism_generation"] = {
+                "mechanisms_generated": len(mechanisms),
+                "types": list(set(m.get("type", "?") for m in mechanisms)),
+                "mechanism_details": mechanisms,
+            }
         except Exception as e:
-            print(f"  [TheoryCompetition] Failed: {e}", flush=True)
+            print(f"  [ERROR] Mechanism generation failed: {e}")
+            report["errors"].append(f"Phase 6: {e}")
+            mechanisms = []
 
-        # FALLBACK: HypothesisTournament — evolutionary tournament
-        if not theories:
+        # ══════════════════════════════════════════════════════════════
+        # PHASE 6.5: MATH CHAIN — Derive equations for mechanisms
+        # Domain-aware: full for math-heavy domains, light for others
+        # ══════════════════════════════════════════════════════════════
+        if mechanisms and _truncated_llm:
+            if _is_math:
+                print("\n[Phase 6.5/12] MATH CHAIN — Deriving equations (math domain)...", flush=True)
+            else:
+                print("\n[Phase 6.5/12] MATH CHAIN — Light pass (non-math domain)...", flush=True)
             try:
-                import asyncio
-                from discovery.hypothesis_tournament import HypothesisTournament
-                ht = HypothesisTournament(llm_call=_truncated_llm)
-                tournament_hyps = asyncio.run(ht.run(hidden_variables[:6], graph, topic, domain))
-                if tournament_hyps:
-                    theories = tournament_hyps if isinstance(tournament_hyps, list) else []
-                    winner = theories[0] if theories else None
-                    print(f"  [HypothesisTournament] {len(theories)} theories (evolutionary)", flush=True)
+                from discovery.math_chain import MathChain
+                mc = MathChain(llm_call=_truncated_llm)
+                if _is_math:
+                    mechanisms = mc.process_mechanisms(mechanisms, topic, domain)
+                else:
+                    quant = [m for m in mechanisms if isinstance(m, dict) and any(c.isdigit() for c in m.get("description", ""))]
+                    if quant:
+                        mc.process_mechanisms(quant, topic, domain)
+                with_eq = sum(1 for m in mechanisms if isinstance(m, dict) and m.get("mathematical_model", "") and "equation to be derived" not in m.get("mathematical_model", "").lower() and len(m.get("mathematical_model", "")) > 15)
+                with_params = sum(1 for m in mechanisms if isinstance(m, dict) and m.get("key_parameters"))
+                with_deriv = sum(1 for m in mechanisms if isinstance(m, dict) and m.get("derivation_steps"))
+                print(f"  Equations: {with_eq}/{len(mechanisms)} | Parameters: {with_params}/{len(mechanisms)} | Derivations: {with_deriv}/{len(mechanisms)}", flush=True)
             except Exception as e:
-                print(f"  [HypothesisTournament] Failed: {e}", flush=True)
+                print(f"  [WARN] Math chain skipped: {e}", flush=True)
 
-        # LAST RESORT: Algorithmic (NOT a real tournament — flag it)
-        if not theories:
-            from discovery.algorithmic_discovery import compare_theories_algorithmic
-            theories = compare_theories_algorithmic(hidden_variables, graph, papers)
-            winner = theories[0] if theories else None
-            if theories:
-                print(f"  [WARN] TOURNAMENT FAILED — using algorithmic graph analysis instead", flush=True)
-                print(f"  [WARN] These theories did NOT go through generation/scoring/elimination", flush=True)
-                for t in theories:
-                    t["tournament_status"] = "algorithmic_fallback"
-                    t["tournament_reliable"] = False
+        # ══════════════════════════════════════════════════════════════
+        # PHASE 7: PREDICTION ENGINE
+        # ══════════════════════════════════════════════════════════════
+        print("\n[Phase 7/12] PREDICTION ENGINE — Generating testable predictions...", flush=True)
+        _current_phase["name"] = "prediction_engine"
+        try:
+            # Defensive: convert all mechanism/HV values to strings to prevent float+str errors
+            safe_mechanisms = []
+            for m in (mechanisms or []):
+                if isinstance(m, dict):
+                    sm = {k: str(v) if not isinstance(v, (list, dict)) else v for k, v in m.items()}
+                    safe_mechanisms.append(sm)
+                else:
+                    safe_mechanisms.append(m)
+            safe_hvs = []
+            for h in (hidden_variables or []):
+                if isinstance(h, dict):
+                    sh = {k: str(v) if not isinstance(v, (list, dict)) else v for k, v in h.items()}
+                    safe_hvs.append(sh)
+                else:
+                    safe_hvs.append(h)
 
-        # -- Multi-Agent Debate — store results in report --
-        top_theory = winner or (theories[0] if theories else {})
-        if top_theory:
+            pred_engine = PredictionEngine(graph=graph, llm_call=_truncated_llm)
+            pred_results = pred_engine.generate_predictions(
+                safe_mechanisms, safe_hvs, topic, domain, anomalies
+            )
+            predictions = pred_results.get("predictions", [])
+
+            # Algorithmic fallback
+            if not predictions:
+                from discovery.algorithmic_discovery import generate_predictions_algorithmic
+                predictions = generate_predictions_algorithmic(mechanisms, hidden_variables, topic, domain, graph)
+                if predictions:
+                    print(f"  Algorithmic fallback: {len(predictions)} predictions")
+
+            # Validate predictions
+            validation = pred_engine.validate_predictions(predictions)
+
+            # -- Counterfactual Reasoning — store results in report --
+            if mechanisms:
+                try:
+                    from discovery.counterfactual_reasoner import CounterfactualReasoner
+                    cfr = CounterfactualReasoner(llm_call=_truncated_llm)
+                    # Build a proper theory dict for the reasoner
+                    # Note: winner is not set yet (tournament runs in Phase 8), use theories[0]
+                    top_theory = theories[0] if theories else {}
+                    cf_theory = {
+                        "name": top_theory.get("title", top_theory.get("name", "")),
+                        "description": top_theory.get("description", top_theory.get("mechanism", "")),
+                        "mathematical_model": top_theory.get("mathematical_model", ""),
+                        "key_parameters": top_theory.get("key_parameters", []),
+                        "predictions": predictions,
+                        "mechanisms": mechanisms,
+                        "steps": top_theory.get("steps", []),
+                    }
+                    cf_result = cfr.reason(cf_theory, domain=domain)
+                    if cf_result and cf_result.get("counterfactuals"):
+                        print(f"  [Counterfactual] {len(cf_result['counterfactuals'])} consequences derived", flush=True)
+                        report["phases"]["counterfactual_reasoning"] = {
+                            "total_derived": cf_result.get("total_derived", 0),
+                            "supported": len(cf_result.get("supported", [])),
+                            "contradicted": len(cf_result.get("contradicted", [])),
+                            "consistency": cf_result.get("overall_consistency", 0),
+                            "details": cf_result,
+                        }
+                except Exception as e:
+                    print(f"  [WARN] Counterfactual reasoning skipped: {e}")
+            accepted_preds = validation.get("accepted", predictions)
+
+            # -- Prediction Literature Validator — check predictions against real papers --
+            if accepted_preds:
+                try:
+                    from discovery.prediction_literature_validator import PredictionLiteratureValidator
+                    plv = PredictionLiteratureValidator(llm_call=_truncated_llm)
+                    lit_validation = plv.validate_predictions(
+                        accepted_preds, mechanisms, topic, domain, existing_papers=papers
+                    )
+                    if lit_validation:
+                        validated = lit_validation.get("validations", [])
+                        supported = sum(1 for v in validated if v.get("validation_status") == "supported")
+                        contradicted = sum(1 for v in validated if v.get("validation_status") == "contradicted")
+                        print(f"  [Lit Validation] {supported} supported, {contradicted} contradicted by literature", flush=True)
+                        if "prediction_engine" not in report["phases"]:
+                            report["phases"]["prediction_engine"] = {}
+                        report["phases"]["prediction_engine"]["literature_validation"] = {
+                            "total_validated": len(validated),
+                            "supported": supported,
+                            "contradicted": contradicted,
+                        }
+                except Exception as e:
+                    print(f"  [WARN] Prediction literature validation skipped: {e}", flush=True)
+
+            print(f"  Generated {len(predictions)} predictions ({len(accepted_preds)} accepted)")
+            for p in accepted_preds[:3]:
+                print(f"    [{p.get('type', '?')}] {p.get('statement', '')[:80]}")
+            report["phases"]["prediction_engine"] = {
+                "total_predictions": len(predictions),
+                "accepted": len(accepted_preds),
+                "acceptance_rate": validation.get("acceptance_rate", 0),
+                "accepted_details": accepted_preds,
+                "predictions": predictions,
+                "all_predictions": predictions,
+            }
+        except Exception as e:
+            print(f"  [ERROR] Prediction generation failed: {e}")
+            report["errors"].append(f"Phase 7: {e}")
+            predictions = []
+            accepted_preds = []
+
+        # ══════════════════════════════════════════════════════════════
+        # PHASE 8: THEORY COMPETITION
+        # ══════════════════════════════════════════════════════════════
+        print("\n[Phase 8/12] THEORY COMPETITION — Comparing explanations...", flush=True)
+        _current_phase["name"] = "theory_competition"
+        try:
+            # PRIMARY: TheoryCompetition — full tournament with scoring/elimination
+            theories = []
+            winner = None
+            comp_results = {}  # Initialize — only assigned if TheoryCompetition runs
             try:
-                from discovery.multi_agent_debate import MultiAgentDebate
-                mad = MultiAgentDebate()
-                theory_desc = top_theory.get("description", top_theory.get("mechanism", top_theory.get("name", "")))
-                if theory_desc:
-                    debate_result = mad.run_debate(theory_desc, topic=topic)
-                    if debate_result:
-                        verdict = getattr(debate_result, "final_verdict", "unknown")
-                        confidence = getattr(debate_result, "confidence", 0)
-                        print(f"  [Multi-Agent Debate] Verdict: {verdict} (confidence: {confidence:.0%})", flush=True)
-                        report["phases"]["multi_agent_debate"] = {
-                            "verdict": verdict,
-                            "confidence": confidence,
-                            "details": str(debate_result)[:500],
+                competition = TheoryCompetition(graph=graph, llm_call=_truncated_llm)
+                comp_results = competition.compete(
+                    mechanisms, hidden_variables, anomalies, gaps, topic, domain, papers,
+                    archive_context=archive_context, constraint=_curiosity_constraint
+                )
+                theories = comp_results.get("theories", [])
+                winner = comp_results.get("winner")
+            except Exception as e:
+                print(f"  [TheoryCompetition] Failed: {e}", flush=True)
+
+            # FALLBACK: HypothesisTournament — evolutionary tournament
+            if not theories:
+                try:
+                    import asyncio
+                    from discovery.hypothesis_tournament import HypothesisTournament
+                    ht = HypothesisTournament(llm_call=_truncated_llm)
+                    tournament_hyps = asyncio.run(ht.run(hidden_variables[:6], graph, topic, domain))
+                    if tournament_hyps:
+                        theories = tournament_hyps if isinstance(tournament_hyps, list) else []
+                        winner = theories[0] if theories else None
+                        print(f"  [HypothesisTournament] {len(theories)} theories (evolutionary)", flush=True)
+                except Exception as e:
+                    print(f"  [HypothesisTournament] Failed: {e}", flush=True)
+
+            # LAST RESORT: Algorithmic (NOT a real tournament — flag it)
+            if not theories:
+                from discovery.algorithmic_discovery import compare_theories_algorithmic
+                theories = compare_theories_algorithmic(hidden_variables, graph, papers)
+                winner = theories[0] if theories else None
+                if theories:
+                    print(f"  [WARN] TOURNAMENT FAILED — using algorithmic graph analysis instead", flush=True)
+                    print(f"  [WARN] These theories did NOT go through generation/scoring/elimination", flush=True)
+                    for t in theories:
+                        t["tournament_status"] = "algorithmic_fallback"
+                        t["tournament_reliable"] = False
+
+            # -- Multi-Agent Debate — store results in report --
+            top_theory = winner or (theories[0] if theories else {})
+            if top_theory:
+                try:
+                    from discovery.multi_agent_debate import MultiAgentDebate
+                    mad = MultiAgentDebate()
+                    theory_desc = top_theory.get("description", top_theory.get("mechanism", top_theory.get("name", "")))
+                    if theory_desc:
+                        debate_result = mad.run_debate(theory_desc, topic=topic)
+                        if debate_result:
+                            verdict = getattr(debate_result, "final_verdict", "unknown")
+                            confidence = getattr(debate_result, "confidence", 0)
+                            print(f"  [Multi-Agent Debate] Verdict: {verdict} (confidence: {confidence:.0%})", flush=True)
+                            report["phases"]["multi_agent_debate"] = {
+                                "verdict": verdict,
+                                "confidence": confidence,
+                                "details": str(debate_result)[:500],
+                            }
+                except Exception as e:
+                    print(f"  [WARN] Multi-agent debate skipped: {e}")
+
+            # Normalize theory format — HypothesisTournament outputs different fields than scorer expects
+            for t in theories:
+                if "name" not in t and "title" in t:
+                    t["name"] = t["title"]
+                if "description" not in t and "mechanistic_rationale" in t:
+                    t["description"] = t["mechanistic_rationale"]
+                if "type" not in t and "pattern_type" in t:
+                    t["type"] = t["pattern_type"]
+                if "predictions" not in t:
+                    t["predictions"] = []
+                if "steps" not in t and "edges" in t:
+                    t["steps"] = [f"{e.get('source','')} --{e.get('relation','')}--> {e.get('target','')}" for e in t.get("edges", [])]
+                if "hidden_variables" not in t and "nodes" in t:
+                    t["hidden_variables"] = t["nodes"]
+                if "explains" not in t and "supporting_evidence" in t:
+                    t["explains"] = t["supporting_evidence"]
+                if "fails_to_explain" not in t and "contradictory_evidence" in t:
+                    t["fails_to_explain"] = t["contradictory_evidence"]
+                if "key_assumptions" not in t:
+                    t["key_assumptions"] = []
+
+            # Validate theories — require causal chains, not just correlations
+            validated_theories = []
+            for t in theories:
+                name = t.get("name", "")
+                desc = t.get("description", t.get("mechanism", ""))
+                # Track causal status for reporting — don't penalize
+                # Correlations are valid starting points (Darwin didn't know DNA)
+                if "correlat" in desc.lower() and "caus" not in desc.lower():
+                    t["causal_status"] = "correlation_only"
+                    t["causal_penalty"] = 0  # no penalty — correlations are valid
+                has_causal = any(kw in desc.lower() for kw in ["causes", "leads to", "produces", "generates", "triggers", "mediates", "drives"])
+                if not has_causal:
+                    t["causal_status"] = "no_causal_claim"
+                    t["causal_penalty"] = 0  # no penalty — track for reporting only
+                validated_theories.append(t)
+            theories = validated_theories
+
+            print(f"  {len(theories)} competing theories (tournament)")
+            if winner:
+                w_score = winner.get("scores", {}).get("overall", 0)
+                print(f"  Winner: {winner.get('name', '?')} (score: {w_score:.2f})")
+            eliminated = comp_results.get("eliminated", [])
+            if eliminated:
+                print(f"  Eliminated: {len(eliminated)} theories killed in tournament")
+
+            # Determine tournament source
+            tournament_source = "hypothesis_tournament" if not comp_results else "theory_competition"
+
+            # Novelty check on surviving theories
+            if theories and papers:
+                try:
+                    from discovery.novelty_checker import NoveltyChecker
+                    nc_theory = NoveltyChecker(llm_call=_truncated_llm)
+                    for t in theories[:5]:
+                        t_name = t.get("name", "")
+                        if not t_name:
+                            continue
+                        t_novelty = nc_theory.check_novelty(t, papers or [], topic, domain)
+                        t_score = t_novelty.get("novelty_score", 0.5)
+                        t_verdict = t_novelty.get("novelty_verdict", "unknown")
+                        t["is_novel_vs_known"] = t_verdict
+                        t["novelty_score"] = t_score
+                        if t_verdict in ("well_known", "rediscovery"):
+                            print(f"  [Novelty] {t_name[:40]}: {t_verdict} (score={t_score:.2f}) — KNOWN SCIENCE", flush=True)
+                        else:
+                            print(f"  [Novelty] {t_name[:40]}: {t_verdict} (score={t_score:.2f})", flush=True)
+                except Exception as e:
+                    print(f"  [WARN] Theory novelty check skipped: {e}", flush=True)
+
+            # -- Winner Override: if winner is well_known/rediscovery, pick best novel theory --
+            if winner and winner.get("is_novel_vs_known") in ("well_known", "rediscovery"):
+                novel_theories = [t for t in theories
+                                  if t.get("is_novel_vs_known") not in ("well_known", "rediscovery", "")]
+                if novel_theories:
+                    best_novel = max(novel_theories, key=lambda t: t.get("scores", {}).get("overall", 0))
+                    print(f"  [Winner Override] '{winner.get('name', '?')[:40]}' is {winner.get('is_novel_vs_known')}", flush=True)
+                    print(f"  [Winner Override] Picking novel: '{best_novel.get('name', '?')[:40]}' (score={best_novel.get('scores', {}).get('overall', 0):.2f})", flush=True)
+                    winner = best_novel
+
+            # -- GFlowNet-Inspired Diversity Selection --
+            # Re-rank theories by composite score: quality + novelty + diversity
+            # This rewards theories that are DIFFERENT from each other, not just high-scoring
+            if len(theories) >= 3:
+                try:
+                    import re
+                    # Compute diversity bonus for each theory
+                    for i, t in enumerate(theories):
+                        t_desc = t.get("description", t.get("mechanism", ""))
+                        t_name = t.get("name", "")
+                        quality_score = t.get("scores", {}).get("overall", 0)
+
+                        # Novelty bonus
+                        novelty_verdict = t.get("is_novel_vs_known", "")
+                        novelty_bonus = {"novel": 0.2, "refinement": 0.1, "": 0.05}.get(novelty_verdict, 0)
+
+                        # Diversity bonus — reward theories with unique terms
+                        # Compare against other theories' descriptions
+                        unique_terms = 0
+                        t_words = set(w.lower() for w in t_desc.split() if len(w) > 4)
+                        for j, other in enumerate(theories):
+                            if i == j:
+                                continue
+                            other_desc = other.get("description", "")
+                            other_words = set(w.lower() for w in other_desc.split() if len(w) > 4)
+                            overlap = len(t_words & other_words)
+                            total = len(t_words | other_words)
+                            if total > 0:
+                                similarity = overlap / total
+                                if similarity < 0.3:  # less similar = more diverse
+                                    unique_terms += 1
+
+                        diversity_bonus = min(0.15, unique_terms * 0.03)
+
+                        # Composite score (GFlowNet-style: quality × novelty × diversity)
+                        composite = quality_score * (1 + novelty_bonus + diversity_bonus)
+                        t["_gflownet_score"] = round(composite, 3)
+                        t["_diversity_bonus"] = round(diversity_bonus, 3)
+                        t["_novelty_bonus"] = round(novelty_bonus, 3)
+
+                    # Re-sort by composite score
+                    theories.sort(key=lambda t: t.get("_gflownet_score", 0), reverse=True)
+
+                    # Update winner if composite score suggests a different one
+                    # BUT never promote known science (rediscovery/well_known) — Winner Override already rejected it
+                    if theories and winner:
+                        best_composite = theories[0]
+                        if best_composite.get("_gflownet_score", 0) > (winner.get("_gflownet_score", 0) or 0):
+                            # Don't promote known science over novel theories
+                            if best_composite.get("is_novel_vs_known") in ("well_known", "rediscovery"):
+                                print(f"  [GFlowNet] Skipping known science '{best_composite.get('name', '?')[:40]}' — keeping novel winner '{winner.get('name', '?')[:40]}'", flush=True)
+                            else:
+                                old_winner_name = winner.get("name", "?")
+                                winner = best_composite
+                                print(f"  [GFlowNet] Winner updated: '{old_winner_name[:40]}' -> '{winner.get('name', '?')[:40]}' (composite={winner.get('_gflownet_score', 0):.3f})", flush=True)
+                                print(f"  [GFlowNet] Diversity bonus: +{winner.get('_diversity_bonus', 0):.2f}, Novelty bonus: +{winner.get('_novelty_bonus', 0):.2f}", flush=True)
+                except Exception as e:
+                    print(f"  [WARN] GFlowNet re-ranking skipped: {e}", flush=True)
+
+            report["phases"]["theory_competition"] = {
+                "theories_compared": comp_results.get("theories_compared", len(theories)),
+                "theories": theories,
+                "eliminated": eliminated,
+                "winner": winner,
+                "winner_name": winner.get("name") if winner else None,
+                "winner_score": winner.get("scores", {}).get("overall", 0) if winner else 0,
+                "tournament_log": comp_results.get("tournament_log", []),
+                "competition_analysis": comp_results.get("competition_analysis", ""),
+                "discriminating_experiments": comp_results.get("discriminating_experiments", []),
+                "tournament_source": tournament_source,
+            }
+        except Exception as e:
+            print(f"  [ERROR] Theory competition failed: {e}")
+            report["errors"].append(f"Phase 8: {e}")
+            theories = []
+            winner = None
+
+        # ══════════════════════════════════════════════════════════════
+        # PHASE 8.25: MOLECULE GENERATION — Drug candidates (drug_discovery only)
+        # ══════════════════════════════════════════════════════════════
+        if domain in ("drug_discovery",) and (winner or theories):
+            print("\n[Phase 8.25] MOLECULE GENERATION — Designing drug candidates...", flush=True)
+            try:
+                from discovery.molecule import generate_candidates, format_candidates
+                top_theory = winner or (theories[0] if theories else {})
+                # Extract target from theory — look for protein/gene/drug entities
+                target = ""
+                theory_desc = top_theory.get("description", top_theory.get("mechanism", ""))
+                theory_name = top_theory.get("name", "")
+                # Try to find a drug target from hidden variables or graph entities
+                for hv in (hidden_variables or []):
+                    if isinstance(hv, dict) and hv.get("type") in ("protein", "gene", "drug"):
+                        target = hv.get("name", "")
+                        break
+                if not target:
+                    # Use theory name as target
+                    target = theory_name or topic
+                if target:
+                    print(f"  Target: {target}", flush=True)
+                    candidates = generate_candidates(target, graph=graph, num_candidates=6)
+                    if candidates:
+                        print(f"  Generated {len(candidates)} drug candidates", flush=True)
+                        for c in candidates[:3]:
+                            print(f"    {c.get('name', '?')}: {c.get('molecular_formula', '?')} "
+                                  f"(QED={c.get('qed', 0):.2f}, score={c.get('score', 0):.2f})", flush=True)
+                        report["phases"]["molecule_generation"] = {
+                            "target": target,
+                            "candidates_generated": len(candidates),
+                            "top_candidates": [{
+                                "name": c.get("name"),
+                                "smiles": c.get("smiles"),
+                                "formula": c.get("molecular_formula"),
+                                "mw": c.get("mw"),
+                                "qed": c.get("qed"),
+                                "score": c.get("score"),
+                                "lipinski_violations": c.get("lipinski_violations"),
+                            } for c in candidates[:5]],
+                        }
+                    else:
+                        print("  No valid candidates generated (RDKit may not be installed)", flush=True)
+            except (ImportError, AttributeError, Exception) as e:
+                print(f"  [WARN] Molecule generation skipped: {e}", flush=True)
+
+        # ══════════════════════════════════════════════════════════════
+        # PHASE 8.3: ABSTRACTION COMPRESSION — Find simplest explanation
+        # ══════════════════════════════════════════════════════════════
+        # A theory is compression: 100 observations → 1 principle
+        # Ask: what is the SIMPLEST explanation that accounts for everything?
+        if theories and _truncated_llm and len(theories) >= 2:
+            print("\n[Phase 8.3] ABSTRACTION COMPRESSION — Finding simplest unifying principle...", flush=True)
+            try:
+                theory_summaries = []
+                for t in theories[:6]:
+                    name = t.get("name", "?")
+                    desc = t.get("description", "")[:100]
+                    theory_summaries.append(f"- {name}: {desc}")
+
+                # Build observations text
+                obs_lines = []
+                for g in (gaps or [])[:5]:
+                    reason = g.get("reason", g.get("description", ""))[:100]
+                    if reason:
+                        obs_lines.append(f"- {reason}")
+                obs_text = chr(10).join(obs_lines) if obs_lines else "No specific observations available"
+
+                compress_prompt = f"""You are a theoretical physicist seeking the SIMPLEST explanation.
+
+    TOPIC: {topic}
+    DOMAIN: {domain}
+
+    CURRENT THEORIES:
+    {chr(10).join(theory_summaries)}
+
+    OBSERVATIONS TO EXPLAIN:
+    {obs_text}
+
+    Your task: Find ONE unifying principle that explains ALL observations with MINIMUM assumptions.
+
+    A good unifying principle:
+    - Explains more with less (Occam's razor)
+    - Connects seemingly unrelated observations
+    - Makes NEW predictions that individual theories don't
+    - Has mathematical elegance (fewer free parameters)
+
+    BAD: "Multiple mechanisms coexist" — that's not compression, that's giving up
+    GOOD: "All observations follow from principle X because Y" — that's compression
+
+    Output JSON:
+    {{"unifying_principle": "one sentence description", "explanation": "how it explains all observations", "new_predictions": ["prediction 1", "prediction 2"], "simplicity_score": 0.0-1.0, "why_better": "why this is simpler than individual theories"}}"""
+
+                compress_raw = _truncated_llm(compress_prompt, max_tokens=2048)
+                if compress_raw:
+                    from discovery.json_extract import extract_json
+                    compress_result = extract_json(compress_raw)
+                    if compress_result and compress_result.get("unifying_principle"):
+                        principle = compress_result["unifying_principle"]
+                        explanation = compress_result.get("explanation", "")
+                        new_preds = compress_result.get("new_predictions", [])
+                        simplicity = compress_result.get("simplicity_score", 0)
+                        print(f"  [Abstraction] Unifying principle: {principle[:80]}", flush=True)
+                        print(f"  [Abstraction] Simplicity score: {simplicity}", flush=True)
+                        if new_preds:
+                            print(f"  [Abstraction] New predictions: {len(new_preds)}", flush=True)
+                        report["phases"]["abstraction_compression"] = {
+                            "unifying_principle": principle,
+                            "explanation": explanation[:500],
+                            "new_predictions": new_preds,
+                            "simplicity_score": simplicity,
                         }
             except Exception as e:
-                print(f"  [WARN] Multi-agent debate skipped: {e}")
+                print(f"  [WARN] Abstraction compression skipped: {e}", flush=True)
 
-        # Normalize theory format — HypothesisTournament outputs different fields than scorer expects
-        for t in theories:
-            if "name" not in t and "title" in t:
-                t["name"] = t["title"]
-            if "description" not in t and "mechanistic_rationale" in t:
-                t["description"] = t["mechanistic_rationale"]
-            if "type" not in t and "pattern_type" in t:
-                t["type"] = t["pattern_type"]
-            if "predictions" not in t:
-                t["predictions"] = []
-            if "steps" not in t and "edges" in t:
-                t["steps"] = [f"{e.get('source','')} --{e.get('relation','')}--> {e.get('target','')}" for e in t.get("edges", [])]
-            if "hidden_variables" not in t and "nodes" in t:
-                t["hidden_variables"] = t["nodes"]
-            if "explains" not in t and "supporting_evidence" in t:
-                t["explains"] = t["supporting_evidence"]
-            if "fails_to_explain" not in t and "contradictory_evidence" in t:
-                t["fails_to_explain"] = t["contradictory_evidence"]
-            if "key_assumptions" not in t:
-                t["key_assumptions"] = []
-
-        # Validate theories — require causal chains, not just correlations
-        validated_theories = []
-        for t in theories:
-            name = t.get("name", "")
-            desc = t.get("description", t.get("mechanism", ""))
-            # Track causal status for reporting — don't penalize
-            # Correlations are valid starting points (Darwin didn't know DNA)
-            if "correlat" in desc.lower() and "caus" not in desc.lower():
-                t["causal_status"] = "correlation_only"
-                t["causal_penalty"] = 0  # no penalty — correlations are valid
-            has_causal = any(kw in desc.lower() for kw in ["causes", "leads to", "produces", "generates", "triggers", "mediates", "drives"])
-            if not has_causal:
-                t["causal_status"] = "no_causal_claim"
-                t["causal_penalty"] = 0  # no penalty — track for reporting only
-            validated_theories.append(t)
-        theories = validated_theories
-
-        print(f"  {len(theories)} competing theories (tournament)")
-        if winner:
-            w_score = winner.get("scores", {}).get("overall", 0)
-            print(f"  Winner: {winner.get('name', '?')} (score: {w_score:.2f})")
-        eliminated = comp_results.get("eliminated", [])
-        if eliminated:
-            print(f"  Eliminated: {len(eliminated)} theories killed in tournament")
-
-        # Determine tournament source
-        tournament_source = "hypothesis_tournament" if not comp_results else "theory_competition"
-
-        # Novelty check on surviving theories
-        if theories and papers:
-            try:
-                from discovery.novelty_checker import NoveltyChecker
-                nc_theory = NoveltyChecker(llm_call=_truncated_llm)
-                for t in theories[:5]:
-                    t_name = t.get("name", "")
-                    if not t_name:
-                        continue
-                    t_novelty = nc_theory.check_novelty(t, papers or [], topic, domain)
-                    t_score = t_novelty.get("novelty_score", 0.5)
-                    t_verdict = t_novelty.get("novelty_verdict", "unknown")
-                    t["is_novel_vs_known"] = t_verdict
-                    t["novelty_score"] = t_score
-                    if t_verdict in ("well_known", "rediscovery"):
-                        print(f"  [Novelty] {t_name[:40]}: {t_verdict} (score={t_score:.2f}) — KNOWN SCIENCE", flush=True)
-                    else:
-                        print(f"  [Novelty] {t_name[:40]}: {t_verdict} (score={t_score:.2f})", flush=True)
-            except Exception as e:
-                print(f"  [WARN] Theory novelty check skipped: {e}", flush=True)
-
-        # -- Winner Override: if winner is well_known/rediscovery, pick best novel theory --
-        if winner and winner.get("is_novel_vs_known") in ("well_known", "rediscovery"):
-            novel_theories = [t for t in theories
-                              if t.get("is_novel_vs_known") not in ("well_known", "rediscovery", "")]
-            if novel_theories:
-                best_novel = max(novel_theories, key=lambda t: t.get("scores", {}).get("overall", 0))
-                print(f"  [Winner Override] '{winner.get('name', '?')[:40]}' is {winner.get('is_novel_vs_known')}", flush=True)
-                print(f"  [Winner Override] Picking novel: '{best_novel.get('name', '?')[:40]}' (score={best_novel.get('scores', {}).get('overall', 0):.2f})", flush=True)
-                winner = best_novel
-
-        # -- GFlowNet-Inspired Diversity Selection --
-        # Re-rank theories by composite score: quality + novelty + diversity
-        # This rewards theories that are DIFFERENT from each other, not just high-scoring
-        if len(theories) >= 3:
-            try:
-                import re
-                # Compute diversity bonus for each theory
-                for i, t in enumerate(theories):
-                    t_desc = t.get("description", t.get("mechanism", ""))
-                    t_name = t.get("name", "")
-                    quality_score = t.get("scores", {}).get("overall", 0)
-
-                    # Novelty bonus
-                    novelty_verdict = t.get("is_novel_vs_known", "")
-                    novelty_bonus = {"novel": 0.2, "refinement": 0.1, "": 0.05}.get(novelty_verdict, 0)
-
-                    # Diversity bonus — reward theories with unique terms
-                    # Compare against other theories' descriptions
-                    unique_terms = 0
-                    t_words = set(w.lower() for w in t_desc.split() if len(w) > 4)
-                    for j, other in enumerate(theories):
-                        if i == j:
-                            continue
-                        other_desc = other.get("description", "")
-                        other_words = set(w.lower() for w in other_desc.split() if len(w) > 4)
-                        overlap = len(t_words & other_words)
-                        total = len(t_words | other_words)
-                        if total > 0:
-                            similarity = overlap / total
-                            if similarity < 0.3:  # less similar = more diverse
-                                unique_terms += 1
-
-                    diversity_bonus = min(0.15, unique_terms * 0.03)
-
-                    # Composite score (GFlowNet-style: quality × novelty × diversity)
-                    composite = quality_score * (1 + novelty_bonus + diversity_bonus)
-                    t["_gflownet_score"] = round(composite, 3)
-                    t["_diversity_bonus"] = round(diversity_bonus, 3)
-                    t["_novelty_bonus"] = round(novelty_bonus, 3)
-
-                # Re-sort by composite score
-                theories.sort(key=lambda t: t.get("_gflownet_score", 0), reverse=True)
-
-                # Update winner if composite score suggests a different one
-                # BUT never promote known science (rediscovery/well_known) — Winner Override already rejected it
-                if theories and winner:
-                    best_composite = theories[0]
-                    if best_composite.get("_gflownet_score", 0) > (winner.get("_gflownet_score", 0) or 0):
-                        # Don't promote known science over novel theories
-                        if best_composite.get("is_novel_vs_known") in ("well_known", "rediscovery"):
-                            print(f"  [GFlowNet] Skipping known science '{best_composite.get('name', '?')[:40]}' — keeping novel winner '{winner.get('name', '?')[:40]}'", flush=True)
-                        else:
-                            old_winner_name = winner.get("name", "?")
-                            winner = best_composite
-                            print(f"  [GFlowNet] Winner updated: '{old_winner_name[:40]}' -> '{winner.get('name', '?')[:40]}' (composite={winner.get('_gflownet_score', 0):.3f})", flush=True)
-                            print(f"  [GFlowNet] Diversity bonus: +{winner.get('_diversity_bonus', 0):.2f}, Novelty bonus: +{winner.get('_novelty_bonus', 0):.2f}", flush=True)
-            except Exception as e:
-                print(f"  [WARN] GFlowNet re-ranking skipped: {e}", flush=True)
-
-        report["phases"]["theory_competition"] = {
-            "theories_compared": comp_results.get("theories_compared", len(theories)),
-            "theories": theories,
-            "eliminated": eliminated,
-            "winner": winner,
-            "winner_name": winner.get("name") if winner else None,
-            "winner_score": winner.get("scores", {}).get("overall", 0) if winner else 0,
-            "tournament_log": comp_results.get("tournament_log", []),
-            "competition_analysis": comp_results.get("competition_analysis", ""),
-            "discriminating_experiments": comp_results.get("discriminating_experiments", []),
-            "tournament_source": tournament_source,
-        }
-    except Exception as e:
-        print(f"  [ERROR] Theory competition failed: {e}")
-        report["errors"].append(f"Phase 8: {e}")
-        theories = []
-        winner = None
-
-    # ══════════════════════════════════════════════════════════════
-    # PHASE 8.25: MOLECULE GENERATION — Drug candidates (drug_discovery only)
-    # ══════════════════════════════════════════════════════════════
-    if domain in ("drug_discovery",) and (winner or theories):
-        print("\n[Phase 8.25] MOLECULE GENERATION — Designing drug candidates...", flush=True)
+        # ══════════════════════════════════════════════════════════════
+        # PHASE 8.5: ADVERSARIAL TEST — Attack every discovery
+        # ══════════════════════════════════════════════════════════════
+        print("\n[Phase 8.5/12] ADVERSARIAL TEST — Attacking every discovery...", flush=True)
+        _current_phase["name"] = "adversarial_test"
         try:
-            from discovery.molecule import generate_candidates, format_candidates
-            top_theory = winner or (theories[0] if theories else {})
-            # Extract target from theory — look for protein/gene/drug entities
-            target = ""
-            theory_desc = top_theory.get("description", top_theory.get("mechanism", ""))
-            theory_name = top_theory.get("name", "")
-            # Try to find a drug target from hidden variables or graph entities
-            for hv in (hidden_variables or []):
-                if isinstance(hv, dict) and hv.get("type") in ("protein", "gene", "drug"):
-                    target = hv.get("name", "")
-                    break
-            if not target:
-                # Use theory name as target
-                target = theory_name or topic
-            if target:
-                print(f"  Target: {target}", flush=True)
-                candidates = generate_candidates(target, graph=graph, num_candidates=6)
-                if candidates:
-                    print(f"  Generated {len(candidates)} drug candidates", flush=True)
-                    for c in candidates[:3]:
-                        print(f"    {c.get('name', '?')}: {c.get('molecular_formula', '?')} "
-                              f"(QED={c.get('qed', 0):.2f}, score={c.get('score', 0):.2f})", flush=True)
-                    report["phases"]["molecule_generation"] = {
-                        "target": target,
-                        "candidates_generated": len(candidates),
-                        "top_candidates": [{
-                            "name": c.get("name"),
-                            "smiles": c.get("smiles"),
-                            "formula": c.get("molecular_formula"),
-                            "mw": c.get("mw"),
-                            "qed": c.get("qed"),
-                            "score": c.get("score"),
-                            "lipinski_violations": c.get("lipinski_violations"),
-                        } for c in candidates[:5]],
-                    }
-                else:
-                    print("  No valid candidates generated (RDKit may not be installed)", flush=True)
-        except (ImportError, AttributeError, Exception) as e:
-            print(f"  [WARN] Molecule generation skipped: {e}", flush=True)
-
-    # ══════════════════════════════════════════════════════════════
-    # PHASE 8.3: ABSTRACTION COMPRESSION — Find simplest explanation
-    # ══════════════════════════════════════════════════════════════
-    # A theory is compression: 100 observations → 1 principle
-    # Ask: what is the SIMPLEST explanation that accounts for everything?
-    if theories and _truncated_llm and len(theories) >= 2:
-        print("\n[Phase 8.3] ABSTRACTION COMPRESSION — Finding simplest unifying principle...", flush=True)
-        try:
-            theory_summaries = []
-            for t in theories[:6]:
-                name = t.get("name", "?")
-                desc = t.get("description", "")[:100]
-                theory_summaries.append(f"- {name}: {desc}")
-
-            # Build observations text
-            obs_lines = []
-            for g in (gaps or [])[:5]:
-                reason = g.get("reason", g.get("description", ""))[:100]
-                if reason:
-                    obs_lines.append(f"- {reason}")
-            obs_text = chr(10).join(obs_lines) if obs_lines else "No specific observations available"
-
-            compress_prompt = f"""You are a theoretical physicist seeking the SIMPLEST explanation.
-
-TOPIC: {topic}
-DOMAIN: {domain}
-
-CURRENT THEORIES:
-{chr(10).join(theory_summaries)}
-
-OBSERVATIONS TO EXPLAIN:
-{obs_text}
-
-Your task: Find ONE unifying principle that explains ALL observations with MINIMUM assumptions.
-
-A good unifying principle:
-- Explains more with less (Occam's razor)
-- Connects seemingly unrelated observations
-- Makes NEW predictions that individual theories don't
-- Has mathematical elegance (fewer free parameters)
-
-BAD: "Multiple mechanisms coexist" — that's not compression, that's giving up
-GOOD: "All observations follow from principle X because Y" — that's compression
-
-Output JSON:
-{{"unifying_principle": "one sentence description", "explanation": "how it explains all observations", "new_predictions": ["prediction 1", "prediction 2"], "simplicity_score": 0.0-1.0, "why_better": "why this is simpler than individual theories"}}"""
-
-            compress_raw = _truncated_llm(compress_prompt, max_tokens=2048)
-            if compress_raw:
-                from discovery.json_extract import extract_json
-                compress_result = extract_json(compress_raw)
-                if compress_result and compress_result.get("unifying_principle"):
-                    principle = compress_result["unifying_principle"]
-                    explanation = compress_result.get("explanation", "")
-                    new_preds = compress_result.get("new_predictions", [])
-                    simplicity = compress_result.get("simplicity_score", 0)
-                    print(f"  [Abstraction] Unifying principle: {principle[:80]}", flush=True)
-                    print(f"  [Abstraction] Simplicity score: {simplicity}", flush=True)
-                    if new_preds:
-                        print(f"  [Abstraction] New predictions: {len(new_preds)}", flush=True)
-                    report["phases"]["abstraction_compression"] = {
-                        "unifying_principle": principle,
-                        "explanation": explanation[:500],
-                        "new_predictions": new_preds,
-                        "simplicity_score": simplicity,
-                    }
-        except Exception as e:
-            print(f"  [WARN] Abstraction compression skipped: {e}", flush=True)
-
-    # ══════════════════════════════════════════════════════════════
-    # PHASE 8.5: ADVERSARIAL TEST — Attack every discovery
-    # ══════════════════════════════════════════════════════════════
-    print("\n[Phase 8.5/12] ADVERSARIAL TEST — Attacking every discovery...", flush=True)
-    _current_phase["name"] = "adversarial_test"
-    try:
-        from discovery.test_stage import AdversarialTest
-        tester = AdversarialTest(llm_call=_truncated_llm)
-        test_results = tester.test_discoveries(
-            hidden_variables, mechanisms, theories, papers, topic, domain, gaps, anomalies
-        )
-        report["phases"]["adversarial_test"] = test_results
-
-        # Print results
-        summary = test_results.get("survival_summary", {})
-        for category in ["hidden_variables", "mechanisms", "theories"]:
-            s = summary.get(category, {})
-            survived = s.get("survived", 0)
-            weakened = s.get("weakened", 0)
-            killed = s.get("killed", 0)
-            total = s.get("started", 0)
-            print(f"  {category}: {total} tested → {survived} survived, {weakened} weakened, {killed} killed")
-
-        # Print individual verdicts
-        for test_list_name in ["hidden_variable_tests", "mechanism_tests", "theory_tests"]:
-            for t in test_results.get(test_list_name, [])[:3]:
-                name = t.get("name", "?")
-                verdict = t.get("verdict", "?")
-                score = t.get("attack_score", 0)
-                existing = t.get("existing_theory", "")
-                falsification = t.get("falsification", "")
-                icon = {"survived": "✓", "weakened": "⚠", "killed": "✗"}.get(verdict, "?")
-                print(f"    {icon} {name[:40]} ({verdict}, score: {score:.2f})")
-                if existing and existing != "None known":
-                    print(f"      Existing theory: {str(existing)[:80]}")
-                if falsification:
-                    print(f"      Falsification: {str(falsification)[:80]}")
-
-    except Exception as e:
-        print(f"  [ERROR] Adversarial test failed: {e}")
-        report["errors"].append(f"Phase 8.5: {e}")
-
-    # ══════════════════════════════════════════════════════════════
-    # PHASE 8.6: CRITICAL EVALUATION — Formal assessment
-    # ══════════════════════════════════════════════════════════════
-    # Evaluates the top discovery across 6 dimensions:
-    # novelty, methodology, significance, clarity, limitations, reproducibility.
-    print("\n[Phase 8.6/12] CRITICAL EVALUATION — Formal assessment...", flush=True)
-    _current_phase["name"] = "critical_evaluation"
-    try:
-        from discovery.peer_review import CriticalEvaluator
-        reviewer = CriticalEvaluator(llm_call=_truncated_llm)
-        top_theory = winner or (theories[0] if theories else {})
-        if top_theory:
-            peer_review = reviewer.review(
-                top_theory, mechanisms, accepted_preds, papers, topic, domain,
-                adversarial_results=test_results if 'test_results' in dir() else None
+            from discovery.test_stage import AdversarialTest
+            tester = AdversarialTest(llm_call=_truncated_llm)
+            test_results = tester.test_discoveries(
+                hidden_variables, mechanisms, theories, papers, topic, domain, gaps, anomalies
             )
-            report["phases"]["peer_review"] = peer_review
-            print(f"  Overall score: {peer_review.get('overall_score', 0)}/10")
-            print(f"  Recommendation: {peer_review.get('recommendation', 'unknown')}")
-            major = peer_review.get("major_issues", [])
-            if major:
-                print(f"  Major issues: {len(major)}")
-                for issue in major[:2]:
-                    print(f"    ! {str(issue)[:80]}")
-    except Exception as e:
-        print(f"  [WARN] Critical evaluation failed: {e}")
-        report["errors"].append(f"Phase 8.6: {e}")
+            report["phases"]["adversarial_test"] = test_results
 
-    # ══════════════════════════════════════════════════════════════
+            # Print results
+            summary = test_results.get("survival_summary", {})
+            for category in ["hidden_variables", "mechanisms", "theories"]:
+                s = summary.get(category, {})
+                survived = s.get("survived", 0)
+                weakened = s.get("weakened", 0)
+                killed = s.get("killed", 0)
+                total = s.get("started", 0)
+                print(f"  {category}: {total} tested → {survived} survived, {weakened} weakened, {killed} killed")
+
+            # Print individual verdicts
+            for test_list_name in ["hidden_variable_tests", "mechanism_tests", "theory_tests"]:
+                for t in test_results.get(test_list_name, [])[:3]:
+                    name = t.get("name", "?")
+                    verdict = t.get("verdict", "?")
+                    score = t.get("attack_score", 0)
+                    existing = t.get("existing_theory", "")
+                    falsification = t.get("falsification", "")
+                    icon = {"survived": "✓", "weakened": "⚠", "killed": "✗"}.get(verdict, "?")
+                    print(f"    {icon} {name[:40]} ({verdict}, score: {score:.2f})")
+                    if existing and existing != "None known":
+                        print(f"      Existing theory: {str(existing)[:80]}")
+                    if falsification:
+                        print(f"      Falsification: {str(falsification)[:80]}")
+
+        except Exception as e:
+            print(f"  [ERROR] Adversarial test failed: {e}")
+            report["errors"].append(f"Phase 8.5: {e}")
+
+        # ══════════════════════════════════════════════════════════════
+        # PHASE 8.6: CRITICAL EVALUATION — Formal assessment
+        # ══════════════════════════════════════════════════════════════
+        # Evaluates the top discovery across 6 dimensions:
+        # novelty, methodology, significance, clarity, limitations, reproducibility.
+        print("\n[Phase 8.6/12] CRITICAL EVALUATION — Formal assessment...", flush=True)
+        _current_phase["name"] = "critical_evaluation"
+        try:
+            from discovery.peer_review import CriticalEvaluator
+            reviewer = CriticalEvaluator(llm_call=_truncated_llm)
+            top_theory = winner or (theories[0] if theories else {})
+            if top_theory:
+                peer_review = reviewer.review(
+                    top_theory, mechanisms, accepted_preds, papers, topic, domain,
+                    adversarial_results=test_results if 'test_results' in dir() else None
+                )
+                report["phases"]["peer_review"] = peer_review
+                print(f"  Overall score: {peer_review.get('overall_score', 0)}/10")
+                print(f"  Recommendation: {peer_review.get('recommendation', 'unknown')}")
+                major = peer_review.get("major_issues", [])
+                if major:
+                    print(f"  Major issues: {len(major)}")
+                    for issue in major[:2]:
+                        print(f"    ! {str(issue)[:80]}")
+        except Exception as e:
+            print(f"  [WARN] Critical evaluation failed: {e}")
+            report["errors"].append(f"Phase 8.6: {e}")
+
+        # ══════════════════════════════════════════════════════════════
+
+        # Convergence
+        _cw = winner or (theories[0] if theories else {})
+        _cs = _cw.get("scores", {}).get("overall", 0) if _cw else 0
+        if _li > 0:
+            _d = abs(_cs - _loop_prev_score)
+            print("  Convergence delta=%.3f" % _d, flush=True)
+            if _d < _loop_threshold:
+                print("  CONVERGED at loop %d" % (_li+1), flush=True)
+                break
+        _loop_prev_score = _cs
+        _loop_history.append({'loop': _li+1, 'score': _cs})
+        if _li < _loop_max - 1:
+            time.sleep(5)
+
+    report["loop_history"] = _loop_history
+
     # PHASE 9: COMPUTATIONAL VERIFICATION
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 9/12] COMPUTATIONAL VERIFICATION — Running computations...", flush=True)

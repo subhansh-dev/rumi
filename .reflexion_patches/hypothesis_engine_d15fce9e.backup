@@ -47,15 +47,6 @@ class HypothesisEngine:
         except Exception:
             pass
 
-        # Add explicit quality criteria to guide LLM toward higher-confidence hypotheses
-        prompt += "\n\nHypothesis Quality Guidelines:"
-        prompt += "\n- Generate hypotheses that are SPECIFIC and TESTABLE, not vague generalizations"
-        prompt += "\n- Ground each hypothesis in the provided graph relationships and domain knowledge"
-        prompt += "\n- Reference specific mechanisms, pathways, or evidence patterns when possible"
-        prompt += "\n- Identify the novelty of each hypothesis: what distinguishes it from established knowledge?"
-        prompt += "\n- Assign confidence scores between 60-95% based on supporting evidence strength"
-        prompt += "\n- Include brief justification for each confidence score"
-
         # Use external LLM router if provided (preferred — has Cerebras primary)
         if self._llm_call:
             raw = self._llm_call(prompt, max_tokens=8192)
