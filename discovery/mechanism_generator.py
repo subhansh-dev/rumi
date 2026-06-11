@@ -319,6 +319,39 @@ Prefer mechanisms that make counterfactual predictions (most powerful causal lev
                     if not mechs:
                         print(f"    [DEBUG] raw[:500]: {repr(raw[:500])}", flush=True)
 
+                # Retry: if LLM returned only reasoning (no mechanisms), use it as context for a targeted follow-up
+                if isinstance(result, dict) and not result.get("mechanisms"):
+                    reasoning_text = result.get("reasoning", "") or result.get("analysis", "") or ""
+                    if reasoning_text and len(reasoning_text) > 100:
+                        print(f"    [RETRY] LLM returned reasoning only ({len(reasoning_text)} chars), retrying with targeted prompt...", flush=True)
+                        retry_prompt = f"""Based on this analysis, extract the causal mechanisms as a JSON array.
+
+ANALYSIS:
+{reasoning_text[:3000]}
+
+TOPIC: {topic}
+DOMAIN: {domain}
+
+Extract 3-5 mechanisms from the analysis above. Each mechanism must have:
+- name: descriptive name
+- type: causal_pathway|feedback_loop|emergent_property|threshold_effect|cascade
+- description: how it works (from the analysis)
+- steps: list of causal steps
+- mathematical_model: governing equation if available
+
+Output JSON:
+{{"mechanisms": [{{"name": "...", "type": "causal_pathway", "description": "...", "steps": ["step1", "step2"], "mathematical_model": "equation or empty"}}]}}"""
+
+                        try:
+                            retry_raw = self.llm_call(retry_prompt, max_tokens=4096)
+                            if retry_raw:
+                                retry_result = extract_json(retry_raw, expected_key="mechanisms")
+                                if retry_result and isinstance(retry_result, dict) and retry_result.get("mechanisms"):
+                                    result = retry_result
+                                    print(f"    [RETRY] Success: extracted {len(result.get('mechanisms', []))} mechanisms from reasoning", flush=True)
+                        except Exception as e:
+                            print(f"    [RETRY] Failed: {e}", flush=True)
+
                 if isinstance(result, dict):
                     valid_mechanisms = []
                     for m in result.get("mechanisms", []):

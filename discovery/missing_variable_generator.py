@@ -247,6 +247,37 @@ quantitative predictions. Reject any proposal that is just a fancy name without 
                     if not hvs:
                         print(f"    [DEBUG] raw[:500]: {repr(raw[:500])}", flush=True)
 
+                    # Retry: if LLM returned only reasoning (no hidden_variables), use it as context
+                    if not hvs and isinstance(result, dict):
+                        reasoning_text = result.get("reasoning", "") or result.get("analysis", "") or ""
+                        if reasoning_text and len(reasoning_text) > 100:
+                            print(f"    [RETRY] LLM returned reasoning only ({len(reasoning_text)} chars), retrying...", flush=True)
+                            retry_prompt = f"""Based on this analysis, extract the hidden variables as JSON.
+
+ANALYSIS:
+{reasoning_text[:3000]}
+
+TOPIC: {topic}
+DOMAIN: {domain}
+
+Extract 3-5 hidden variables from the analysis. Each must have:
+- name: descriptive name
+- type: entity|process|force|field|variable
+- description: what it is and why it matters
+- confidence: 0.0-1.0
+
+Output JSON:
+{{"hidden_variables": [{{"name": "...", "type": "entity", "description": "...", "confidence": 0.5}}]}}"""
+                            try:
+                                raw2 = self.llm_call(retry_prompt, max_tokens=4096)
+                                if raw2:
+                                    result2 = extract_json(raw2, expected_key="hidden_variables")
+                                    if result2 and isinstance(result2, dict) and result2.get("hidden_variables"):
+                                        result = result2
+                                        print(f"    [RETRY] Success: extracted {len(result['hidden_variables'])} hidden variables from reasoning", flush=True)
+                            except Exception as e:
+                                print(f"    [RETRY] Failed: {e}", flush=True)
+
                 if isinstance(result, dict):
                     # Validate and enrich
                     for hv in result.get("hidden_variables", []):
