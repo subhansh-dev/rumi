@@ -30,7 +30,7 @@ class HypothesisEngine:
                                    backoff=[3, 5, 8, 12, 20], providers=["cerebras", "groq", "gemini"])
 
     async def generate(self, graph, topic, domain, run_id, contradictions=None, latent_candidates=None):
-        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=100)
+        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=50)
         prompt += "\n\nCRITICAL: Generate hypotheses with confidence >= 0.7. Provide detailed mechanistic rationales citing specific evidence from the literature. Include testable predictions and potential falsification criteria. Avoid vague or overly broad statements."
 
         # Use external LLM router if provided (preferred — has Cerebras primary)
