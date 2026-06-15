@@ -194,7 +194,7 @@ def _call_gemini(prompt: str, json_mode: bool = False,
         for attempt in range(2):
             _rate_limit_gemini(max_tokens)
             try:
-                client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=SLOW_TIMEOUT000))
+                client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=SLOW_TIMEOUT * 1000))
                 kwargs = dict(
                     temperature=temperature,
                     max_output_tokens=min(max_tokens, 65536),
