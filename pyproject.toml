@@ -46,7 +46,7 @@ include = ["discovery*", "brain*", "scientist*", "actions*", "agent*", "security
 exclude = ["data*", "logs*", "assets*"]
 
 [tool.setuptools]
-py-modules = ["rumi_launcher", "main", "ui", "telegram_bot", "thinking_loop"]
+py-modules = ["rumi_launcher", "main", "ui", "rumi_tui", "telegram_bot", "thinking_loop"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}

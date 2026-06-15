@@ -126,7 +126,7 @@ def _call_groq(prompt: str, json_mode: bool = False,
             try:
                 resp = requests.post(
                     "https://api.groq.com/openai/v1/chat/completions",
-                    headers=headers, json=payload, timeout=60,
+                    headers=headers, json=payload, timeout=SLOW_TIMEOUT,
                 )
                 if resp.status_code == 200:
                     data = resp.json()
@@ -194,7 +194,7 @@ def _call_gemini(prompt: str, json_mode: bool = False,
         for attempt in range(2):
             _rate_limit_gemini(max_tokens)
             try:
-                client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=60000))
+                client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=SLOW_TIMEOUT000))
                 kwargs = dict(
                     temperature=temperature,
                     max_output_tokens=min(max_tokens, 65536),
@@ -277,7 +277,7 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
         try:
             resp = requests.post(
                 "https://api.cerebras.ai/v1/chat/completions",
-                headers=headers, json=payload, timeout=60,
+                headers=headers, json=payload, timeout=SLOW_TIMEOUT,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -303,7 +303,7 @@ def _call_cerebras(prompt: str, json_mode: bool = False,
                 payload.pop("response_format", None)
                 resp2 = requests.post(
                     "https://api.cerebras.ai/v1/chat/completions",
-                    headers=headers, json=payload, timeout=60,
+                    headers=headers, json=payload, timeout=SLOW_TIMEOUT,
                 )
                 if resp2.status_code == 200:
                     data = resp2.json()
@@ -380,7 +380,7 @@ def _call_nvidia(prompt: str, json_mode: bool = False,
         try:
             resp = requests.post(
                 f"{NVIDIA_BASE_URL}/chat/completions",
-                headers=headers, json=payload, timeout=120,
+                headers=headers, json=payload, timeout=NVIDIA_TIMEOUT,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -394,7 +394,7 @@ def _call_nvidia(prompt: str, json_mode: bool = False,
                 payload.pop("response_format", None)
                 resp2 = requests.post(
                     f"{NVIDIA_BASE_URL}/chat/completions",
-                    headers=headers, json=payload, timeout=120,
+                    headers=headers, json=payload, timeout=NVIDIA_TIMEOUT,
                 )
                 if resp2.status_code == 200:
                     data = resp2.json()
@@ -472,7 +472,7 @@ def _call_kimi(prompt: str, json_mode: bool = False,
         try:
             resp = requests.post(
                 f"{NVIDIA_BASE_URL}/chat/completions",
-                headers=headers, json=payload, timeout=120,
+                headers=headers, json=payload, timeout=NVIDIA_TIMEOUT,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -486,7 +486,7 @@ def _call_kimi(prompt: str, json_mode: bool = False,
                 payload.pop("response_format", None)
                 resp2 = requests.post(
                     f"{NVIDIA_BASE_URL}/chat/completions",
-                    headers=headers, json=payload, timeout=120,
+                    headers=headers, json=payload, timeout=NVIDIA_TIMEOUT,
                 )
                 if resp2.status_code == 200:
                     data = resp2.json()
@@ -555,7 +555,7 @@ def _call_glm(prompt: str, json_mode: bool = False,
         try:
             resp = requests.post(
                 f"{NVIDIA_BASE_URL}/chat/completions",
-                headers=headers, json=payload, timeout=120,
+                headers=headers, json=payload, timeout=NVIDIA_TIMEOUT,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -630,7 +630,7 @@ def _call_fireworks(prompt: str, json_mode: bool = False,
         try:
             resp = requests.post(
                 f"{FIREWORKS_BASE_URL}/chat/completions",
-                headers=headers, json=payload, timeout=120,
+                headers=headers, json=payload, timeout=NVIDIA_TIMEOUT,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -702,7 +702,7 @@ def _call_xiaomi(prompt: str, json_mode: bool = False,
         try:
             resp = requests.post(
                 f"{XIAOMI_BASE_URL}/v1/messages",
-                headers=headers, json=payload, timeout=120,
+                headers=headers, json=payload, timeout=NVIDIA_TIMEOUT,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -736,6 +736,8 @@ _cerebras_cooldown_until = 0.0
 _groq_cooldown_until = 0.0
 _gemini_cooldown_until = 0.0
 COOLDOWN_SECONDS = 15  # skip a provider for 15s after it fails (shorter = more resilient)
+NVIDIA_TIMEOUT = 30    # NVIDIA API responds in 5-15s normally; 30s is generous
+SLOW_TIMEOUT = 45      # For genuinely slow providers (Fireworks, Xiaomi)
 
 def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
          temperature: float = 0.3, provider: str = "auto") -> str | None:
@@ -746,7 +748,7 @@ def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
     if provider == "auto":
         # Full chain: NVIDIA → Kimi → DeepSeek V4 → DeepSeek R1 → MiMo → Cerebras → Groq → Gemini
         # Retry the whole chain up to 3 times if all providers fail
-        MAX_CHAIN_ATTEMPTS = 3
+        MAX_CHAIN_ATTEMPTS = 2
         for chain_attempt in range(MAX_CHAIN_ATTEMPTS):
             # NVIDIA Nemotron
             if _get_nvidia_config():
