@@ -912,6 +912,45 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
         report["errors"].append(f"Phase 3: {e}")
         gaps = []
 
+    # -- Domain-Relevance Filter for Gaps — remove gaps from cached cross-domain entities --
+    if gaps:
+        _domain_entity_keywords = {
+            "space_astronomy": ["star", "galaxy", "planet", "cmb", "cosmic", "inflation",
+                               "universe", "telescope", "supernova", "pulsar", "quasar",
+                               "black hole", "dark matter", "dark energy", "photon", "photon",
+                               "radiation", "spectrum", "redshift", "gravitational", "spacetime",
+                               "boson", "fermion", "particle", "quantum", "field", "asymmetry",
+                               "anisotropy", "power spectrum", "fluctuation", "perturbation",
+                               "nucleosynthesis", "baryon", "neutrino", "relic", "horizon"],
+            "drug_discovery": ["drug", "protein", "degrad", "ligase", "proteasom", "ubiquitin",
+                              "molecular glue", "cancer", "therapeutic", "pharmac", "receptor",
+                              "enzyme", "inhibitor", "substrate", "binding", "compound",
+                              "kinase", "transcription", "oncolog", "immuno", "pathway"],
+            "physics": ["quantum", "particle", "field", "energy", "gravity", "spacetime",
+                       "symmetry", "boson", "fermion", "entropy", "thermodynamic", "phase transition"],
+            "ecology": ["species", "ecosystem", "biodiversity", "population", "habitat",
+                       "conservation", "evolution", "adaptation", "trophic", "predator"],
+        }
+        _dek = _domain_entity_keywords.get(domain, [])
+        if _dek:
+            _pre_gap = len(gaps)
+            _domain_gaps = []
+            for g in gaps:
+                _gt = ((g.get("entity", "") or "") + " " + (g.get("reason", "") or "") +
+                       " " + (g.get("name", "") or "")).lower()
+                if any(kw in _gt for kw in _dek):
+                    _domain_gaps.append(g)
+            # Keep at least 3 gaps even if none match domain keywords
+            if len(_domain_gaps) >= 3:
+                gaps = _domain_gaps
+                if _pre_gap > len(gaps):
+                    print(f"  [Domain Filter] {_pre_gap} -> {len(gaps)} gaps (domain={domain})", flush=True)
+            elif _domain_gaps:
+                # Add domain-relevant gaps first, then fill with remaining
+                remaining = [g for g in gaps if g not in _domain_gaps]
+                gaps = _domain_gaps + remaining[:max(3, 5 - len(_domain_gaps))]
+                print(f"  [Domain Filter] {len(_domain_gaps)} domain-relevant gaps prioritized", flush=True)
+
     # -- Cross-Domain Transfer --
     if gaps:
         try:
@@ -1015,6 +1054,44 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
         print(f"  [ERROR] Anomaly detection failed: {e}")
         report["errors"].append(f"Phase 4: {e}")
         anomalies = []
+
+    # -- Domain-Relevance Filter for Anomalies — remove anomalies from cached cross-domain entities --
+    if anomalies:
+        _domain_entity_keywords_a = {
+            "space_astronomy": ["star", "galaxy", "planet", "cmb", "cosmic", "inflation",
+                               "universe", "telescope", "supernova", "pulsar", "quasar",
+                               "black hole", "dark matter", "dark energy", "photon",
+                               "radiation", "spectrum", "redshift", "gravitational", "spacetime",
+                               "boson", "fermion", "particle", "quantum", "field", "asymmetry",
+                               "anisotropy", "power spectrum", "fluctuation", "perturbation",
+                               "nucleosynthesis", "baryon", "neutrino", "relic", "horizon"],
+            "drug_discovery": ["drug", "protein", "degrad", "ligase", "proteasom", "ubiquitin",
+                              "molecular glue", "cancer", "therapeutic", "pharmac", "receptor",
+                              "enzyme", "inhibitor", "substrate", "binding", "compound",
+                              "kinase", "transcription", "oncolog", "immuno", "pathway"],
+            "physics": ["quantum", "particle", "field", "energy", "gravity", "spacetime",
+                       "symmetry", "boson", "fermion", "entropy", "thermodynamic", "phase transition"],
+            "ecology": ["species", "ecosystem", "biodiversity", "population", "habitat",
+                       "conservation", "evolution", "adaptation", "trophic", "predator"],
+        }
+        _dek_a = _domain_entity_keywords_a.get(domain, [])
+        if _dek_a:
+            _pre_anom = len(anomalies)
+            _domain_anomalies = []
+            for a in anomalies:
+                _at = ((a.get("entity", "") or "") + " " + (a.get("entity_name", "") or "") +
+                       " " + (a.get("reason", "") or "") + " " + (a.get("name", "") or "")).lower()
+                if any(kw in _at for kw in _dek_a):
+                    _domain_anomalies.append(a)
+            # Keep at least 2 anomalies even if none match
+            if len(_domain_anomalies) >= 2:
+                anomalies = _domain_anomalies
+                if _pre_anom > len(anomalies):
+                    print(f"  [Domain Filter] {_pre_anom} -> {len(anomalies)} anomalies (domain={domain})", flush=True)
+            elif _domain_anomalies:
+                remaining = [a for a in anomalies if a not in _domain_anomalies]
+                anomalies = _domain_anomalies + remaining[:max(2, 4 - len(_domain_anomalies))]
+                print(f"  [Domain Filter] {len(_domain_anomalies)} domain-relevant anomalies prioritized", flush=True)
 
     # ══════════════════════════════════════════════════════════════
     # PHASE 5: MISSING VARIABLES
