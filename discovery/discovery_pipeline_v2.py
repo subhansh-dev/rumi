@@ -3832,6 +3832,17 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
     txt_path.write_text(report_text, encoding="utf-8")
     print(f"  Text report: {txt_path}")
 
+    # Save STRUCTURED report (Nature/Science-style) alongside everything else
+    try:
+        from discovery.structured_report import generate_structured_report
+        structured_text = generate_structured_report(report)
+        structured_path = report_path.with_name(report_path.stem + "_structured.txt")
+        structured_path.write_text(structured_text, encoding="utf-8")
+        print(f"  Structured report: {structured_path}")
+        report["structured_report_path"] = str(structured_path)
+    except Exception as e:
+        print(f"  [WARN] Structured report generation skipped: {e}")
+
     # Update reports index for dashboard
     idx_path = data_dir / "reports_index.json"
     try:
