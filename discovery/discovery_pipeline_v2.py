@@ -476,6 +476,25 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
             elif "neuroscience" in topic_lower or "brain" in topic_lower:
                 sub_queries = ["neural network connectivity",
                                "brain-computer interface"]
+            elif domain == "drug_discovery":
+                # Extract specific targets from topic for deeper search
+                _dd_targets = []
+                for _target_kw in ["molecular glue", "PROTAC", "degrader", "targeted protein degradation",
+                                   "ubiquitin", "proteasome", "E3 ligase", "CRBN", "VHL", "cereblon",
+                                   "thalidomide", "lenalidomide", "cereblon", "neo-substrate"]:
+                    if _target_kw.lower() in topic_lower:
+                        _dd_targets.append(_target_kw)
+                if not _dd_targets:
+                    _dd_targets = ["molecular glue degrader", "targeted protein degradation"]
+                for _t in _dd_targets[:2]:
+                    sub_queries.append(f"{_t} selectivity mechanism")
+                    sub_queries.append(f"{_t} rational design")
+            elif domain == "physics":
+                # Extract physics-specific sub-topics
+                for _phys_kw in ["vacuum", "cosmological", "dark energy", "dark matter", "quantum gravity"]:
+                    if _phys_kw in topic_lower:
+                        sub_queries.append(f"{_phys_kw} theoretical framework")
+                        sub_queries.append(f"{_phys_kw} experimental evidence")
             existing_titles = {p["title"].lower()[:60] for p in papers}
             for sq in sub_queries[:3]:
                 r3 = fetch_papers(sq, max_arxiv=10, max_pubmed=10, max_s2=10, max_crossref=10)
@@ -520,6 +539,51 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
                 print(f"  [Retrieval Filter] {len(papers)} papers ranked by relevance", flush=True)
         except Exception as e:
             print(f"  [WARN] Retrieval filter skipped: {e}")
+
+    # -- Domain Relevance Gate — reject papers with ZERO domain-relevant keywords --
+    # Prevents cross-domain contamination (e.g. astronomy papers in drug_discovery runs)
+    if papers:
+        _domain_keywords = {
+            "drug_discovery": ["drug", "protein", "degrad", "ligase", "proteasom", "ubiquitin",
+                              "molecular glue", "targeted", "cancer", "therapeutic", "pharmac",
+                              "receptor", "enzyme", "inhibitor", "substrate", "binding",
+                              "clinical", "compound", "molecule", "screen", "assay",
+                              "kinase", "transcription", "oncolog", "immuno", "pathway",
+                              "CRBN", "VHL", "cereblon", "PROTAC", "thalidomide", "lenalidomide"],
+            "physics": ["quantum", "particle", "field", "energy", "gravity", "spacetime",
+                       "symmetry", "boson", "fermion", "lagrangian", "hamiltonian",
+                       "coupling", "vacuum", "renormalization", "gauge", "entropy",
+                       "thermodynamic", "statistical mechanics", "phase transition"],
+            "space_astronomy": ["star", "galaxy", "planet", "exoplanet", "telescope", "jwst",
+                               "supernova", "black hole", "pulsar", "nebula", "cosmic",
+                       "dark matter", "dark energy", "cosmolog", "astrophys", "orbit",
+                       "spectral", "luminosity", "redshift", "gravitational wave"],
+            "neuroscience": ["neuron", "synap", "brain", "neural", "cortex", "cogniti",
+                            "neurotransmit", "dopamine", "serotonin", "hippocampus",
+                       "cerebral", "axon", "dendrite", "fMRI", "EEG", "connectom"],
+            "materials_science": ["material", "crystal", "polymer", "nanoparticle", "composite",
+                                 "alloy", "semiconductor", "graphene", "ceramic", "metal",
+                       "mechanical", "thermal", "conductiv", "elastic", "deformation"],
+            "ecology": ["species", "ecosystem", "biodiversity", "population", "habitat",
+                       "conservation", "evolution", "natural selection", "adaptation",
+                       "trophic", "predator", "pollinator", "mutualism", "competition"],
+        }
+        _dkw = _domain_keywords.get(domain, [])
+        if _dkw:
+            _pre_filter_count = len(papers)
+            _domain_filtered = []
+            for p in papers:
+                _pt = ((p.get("title") or "") + " " + (p.get("abstract") or "")).lower()
+                _hits = sum(1 for kw in _dkw if kw in _pt)
+                if _hits >= 1:
+                    _domain_filtered.append(p)
+            # Keep at least 5 papers (even if none match — don't starve the pipeline)
+            if len(_domain_filtered) >= 5:
+                papers = _domain_filtered
+                if _pre_filter_count > len(papers):
+                    print(f"  [Domain Gate] {_pre_filter_count} -> {len(papers)} papers (domain={domain})", flush=True)
+            else:
+                print(f"  [Domain Gate] Only {len(_domain_filtered)} domain-relevant papers — keeping all {_pre_filter_count}", flush=True)
 
     # PHASE 1.5: CITATION NETWORK TRAVERSAL — 2-hop walk
     # ══════════════════════════════════════════════════════════════
@@ -1525,6 +1589,27 @@ Output JSON:
                     print(f"  [WARN] Counterfactual reasoning skipped: {e}")
             accepted_preds = validation.get("accepted", predictions)
 
+            # -- Content Validation — reject empty/placeholder predictions --
+            _pre_valid = len(accepted_preds)
+            _content_valid = []
+            for _pred in accepted_preds:
+                if isinstance(_pred, dict):
+                    _stmt = str(_pred.get("statement", "") or _pred.get("description", "") or "").strip()
+                    _ptype = str(_pred.get("type", "") or "").strip()
+                    # Accept if statement has real content (>15 chars, not just a type name)
+                    if _stmt and len(_stmt) > 15 and _stmt.lower() not in (
+                        "correlational", "interventional", "counterfactual", "causal", "testable"
+                    ):
+                        _content_valid.append(_pred)
+                    elif _pred.get("falsification") and len(str(_pred["falsification"])) > 15:
+                        _content_valid.append(_pred)
+                    # else: skip empty prediction
+                elif isinstance(_pred, str) and len(_pred.strip()) > 15:
+                    _content_valid.append({"statement": _pred, "type": "extracted"})
+            if len(_content_valid) < _pre_valid:
+                print(f"  [Prediction Gate] {_pre_valid} -> {len(_content_valid)} predictions (rejected {_pre_valid - len(_content_valid)} empty)", flush=True)
+                accepted_preds = _content_valid
+
             # -- Prediction Literature Validator — check predictions against real papers --
             if accepted_preds:
                 try:
@@ -1772,6 +1857,31 @@ Output JSON:
                 except Exception as e:
                     print(f"  [WARN] GFlowNet re-ranking skipped: {e}", flush=True)
 
+            # -- Theory Deduplication — remove duplicate theories (same name, different types) --
+            if theories:
+                _seen_names = {}
+                _deduped = []
+                for t in theories:
+                    _tname = t.get("name", "").strip().lower()
+                    if not _tname:
+                        _deduped.append(t)
+                        continue
+                    if _tname in _seen_names:
+                        # Keep the one with higher score
+                        _existing = _seen_names[_tname]
+                        _existing_score = _existing.get("scores", {}).get("overall", 0)
+                        _new_score = t.get("scores", {}).get("overall", 0)
+                        if _new_score > _existing_score:
+                            _deduped = [x for x in _deduped if x.get("name", "").strip().lower() != _tname]
+                            _deduped.append(t)
+                            _seen_names[_tname] = t
+                    else:
+                        _seen_names[_tname] = t
+                        _deduped.append(t)
+                if len(_deduped) < len(theories):
+                    print(f"  [Dedup] {len(theories)} -> {len(_deduped)} theories (removed {len(theories) - len(_deduped)} duplicates)", flush=True)
+                    theories = _deduped
+
             report["phases"]["theory_competition"] = {
                 "theories_compared": comp_results.get("theories_compared", len(theories)),
                 "theories": theories,
@@ -1977,7 +2087,7 @@ Output JSON:
 
         # ══════════════════════════════════════════════════════════════
 
-        # Convergence
+        # Convergence + Regression Detection
         _cw = winner or (theories[0] if theories else {})
         _cs = _cw.get("scores", {}).get("overall", 0) if _cw else 0
         if _li > 0:
@@ -1986,6 +2096,19 @@ Output JSON:
             if _d < _loop_threshold:
                 print("  CONVERGED at loop %d" % (_li+1), flush=True)
                 break
+            # Regression detection: if score dropped significantly, revert to best previous
+            if _cs < _loop_prev_score - 0.05:
+                print(f"  REGRESSION DETECTED: score dropped from {_loop_prev_score:.3f} to {_cs:.3f}", flush=True)
+                # Find the best previous loop
+                _best_loop = max(_loop_history, key=lambda h: h.get('score', 0))
+                if _best_loop.get('score', 0) > _cs:
+                    print(f"  REVERTING to loop {_best_loop['loop']} winner: '{_best_loop.get('winner', '?')[:50]}' (score={_best_loop['score']:.3f})", flush=True)
+                    # Restore best winner and theories from history
+                    if _best_loop.get('_saved_winner'):
+                        winner = _best_loop['_saved_winner']
+                        theories = _best_loop.get('_saved_theories', theories)
+                        mechanisms = _best_loop.get('_saved_mechanisms', mechanisms)
+                        _cs = _best_loop['score']
         _loop_prev_score = _cs
         _loop_history.append({
             'loop': _li+1,
@@ -1994,6 +2117,10 @@ Output JSON:
             'mechanisms': len(mechanisms),
             'theories': len(theories),
             'strategy': _lab,
+            # Save full objects for regression revert (not just counts)
+            '_saved_winner': winner,
+            '_saved_theories': theories[:],
+            '_saved_mechanisms': mechanisms[:],
         })
         if _li < _loop_max - 1:
             time.sleep(5)
@@ -2522,6 +2649,18 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
                 critical_eval=report.get("phases", {}).get("peer_review"),
             )
 
+            # Null Hypothesis Enforcement — if winner doesn't beat conventional, cap score
+            competition_analysis = report.get("phases", {}).get("theory_competition", {}).get("competition_analysis", "")
+            if "NULL HYPOTHESIS CHECK: WARNING" in str(competition_analysis):
+                current_score = score_result.get("discovery_score", 0)
+                capped = min(current_score, 64)
+                if capped < current_score:
+                    score_result["discovery_score"] = capped
+                    score_result.setdefault("adversarial_details", []).append(
+                        "Winner does NOT beat conventional explanation -> capped at B (64)"
+                    )
+                    print(f"  [Null Hypothesis] Winner doesn't beat conventional -> score capped at 64", flush=True)
+
             # Apply cross-validation robustness adjustment
             if cross_validation_result:
                 robustness = cross_validation_result.get("robustness_score", 0)
@@ -2569,18 +2708,87 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
                     conf = cs_result.get("confidence", 0)
                     print(f"  [Confidence] Evidence-weighted: {conf:.2f}")
                     report["phases"]["confidence_scoring"] = cs_result
-                    # If confidence is very low, cap the discovery score
-                    if conf < 0.1:
+                    # Tiered confidence caps — stricter for lower confidence
+                    if conf < 0.05:
+                        current_score = score_result.get("discovery_score", 0)
+                        capped = min(current_score, 35)
+                        if capped < current_score:
+                            score_result["discovery_score"] = capped
+                            score_result.setdefault("adversarial_details", []).append(
+                                f"Extremely low confidence ({conf:.2f}) -> capped at D (35)"
+                            )
+                            print(f"  [Confidence] Extremely low ({conf:.2f}) -> score capped at 35", flush=True)
+                    elif conf < 0.15:
                         current_score = score_result.get("discovery_score", 0)
                         capped = min(current_score, 55)
                         if capped < current_score:
                             score_result["discovery_score"] = capped
                             score_result.setdefault("adversarial_details", []).append(
-                                f"Very low confidence ({conf:.2f}) -> capped at 55"
+                                f"Very low confidence ({conf:.2f}) -> capped at C (55)"
                             )
-                            print(f"  [Confidence] Very low confidence -> score capped at 55", flush=True)
+                            print(f"  [Confidence] Very low ({conf:.2f}) -> score capped at 55", flush=True)
+                    elif conf < 0.30:
+                        current_score = score_result.get("discovery_score", 0)
+                        capped = min(current_score, 72)
+                        if capped < current_score:
+                            score_result["discovery_score"] = capped
+                            score_result.setdefault("adversarial_details", []).append(
+                                f"Low confidence ({conf:.2f}) -> capped at B (72)"
+                            )
+                            print(f"  [Confidence] Low ({conf:.2f}) -> score capped at 72", flush=True)
             except Exception as e:
                 print(f"  [WARN] Confidence scorer skipped: {e}")
+
+            # -- Mechanism Completeness Gate — cap score if mechanisms are hollow --
+            try:
+                from discovery.mechanism_completeness import MechanismCompletenessChecker
+                mcc = MechanismCompletenessChecker()
+                mc_result = mcc.check_mechanisms(mechanisms, domain=domain)
+                if mc_result:
+                    avg_completeness = mc_result.get("avg_completeness", 0)
+                    complete_count = mc_result.get("complete", 0)
+                    total_count = mc_result.get("total", 0)
+                    print(f"  [Mechanism Completeness] avg={avg_completeness:.2f}, complete={complete_count}/{total_count}")
+                    report["phases"]["mechanism_completeness"] = mc_result
+                    # Cap score if all mechanisms are hollow (completeness < 0.2)
+                    if avg_completeness < 0.2 and total_count > 0:
+                        current_score = score_result.get("discovery_score", 0)
+                        capped = min(current_score, 50)
+                        if capped < current_score:
+                            score_result["discovery_score"] = capped
+                            score_result.setdefault("adversarial_details", []).append(
+                                f"All mechanisms hollow (completeness {avg_completeness:.2f}) -> capped at 50"
+                            )
+                            print(f"  [Mechanism Completeness] Hollow mechanisms -> score capped at 50", flush=True)
+                    elif avg_completeness < 0.4 and total_count > 0:
+                        current_score = score_result.get("discovery_score", 0)
+                        capped = min(current_score, 65)
+                        if capped < current_score:
+                            score_result["discovery_score"] = capped
+                            score_result.setdefault("adversarial_details", []).append(
+                                f"Low mechanism completeness ({avg_completeness:.2f}) -> capped at B (65)"
+                            )
+                            print(f"  [Mechanism Completeness] Low completeness -> score capped at 65", flush=True)
+            except Exception as e:
+                print(f"  [WARN] Mechanism completeness check skipped: {e}")
+
+            # -- Claim Reliability Gate — cap score if most claims are unvalidated --
+            try:
+                claim_phase = report.get("phases", {}).get("claim_labeling", {})
+                reliability = claim_phase.get("reliability", 1.0)
+                validated = claim_phase.get("VALIDATED", 0)
+                total_claims = claim_phase.get("total_claims", 0)
+                if total_claims > 0 and reliability < 0.3:
+                    current_score = score_result.get("discovery_score", 0)
+                    capped = min(current_score, 55)
+                    if capped < current_score:
+                        score_result["discovery_score"] = capped
+                        score_result.setdefault("adversarial_details", []).append(
+                            f"Low claim reliability ({reliability:.0%}, {validated}/{total_claims} validated) -> capped at 55"
+                        )
+                        print(f"  [Claim Reliability] {reliability:.0%} -> score capped at 55", flush=True)
+            except Exception:
+                pass
 
         else:
             report["phases"]["discovery_scoring"] = {"discovery_score": 0, "grade": "F"}

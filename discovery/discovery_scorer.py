@@ -215,11 +215,22 @@ class DiscoveryScorer:
         if critical_eval:
             eval_score = critical_eval.get("overall_score", 10)
             if eval_score < 3:
-                adversarial_penalty += 5
-                adversarial_details.append(f"Critical eval {eval_score}/10 (-5)")
+                adversarial_penalty += 15
+                adversarial_details.append(f"Critical eval {eval_score}/10 (-15)")
             elif eval_score < 5:
-                adversarial_penalty += 2
-                adversarial_details.append(f"Critical eval {eval_score}/10 (-2)")
+                adversarial_penalty += 8
+                adversarial_details.append(f"Critical eval {eval_score}/10 (-8)")
+            elif eval_score < 7:
+                adversarial_penalty += 3
+                adversarial_details.append(f"Critical eval {eval_score}/10 (-3)")
+            # Hard cap: if critical eval says major_revision, cap at B
+            recommendation = critical_eval.get("recommendation", "")
+            if recommendation == "major_revision":
+                discovery_score = min(discovery_score, 64)
+                adversarial_details.append(f"Critical eval: major_revision -> capped at B (64)")
+            elif recommendation == "reject":
+                discovery_score = min(discovery_score, 34)
+                adversarial_details.append(f"Critical eval: reject -> capped at D (34)")
 
         # Tournament reliability — penalize algorithmic fallback
         if theory.get("tournament_status") == "algorithmic_fallback":
@@ -372,12 +383,29 @@ class DiscoveryScorer:
         # Count what it explicitly explains
         num_explains = len(explains)
 
-        # Also count predictions and hidden variables as implicit explanations
-        # A theory with predictions IS explaining what should be observed
+        # Count predictions with real content (not empty slots)
         predictions = theory.get("predictions") or []
+        real_preds = []
+        for p in predictions:
+            if isinstance(p, dict):
+                stmt = str(p.get("statement", "") or p.get("description", "") or "").strip()
+                if stmt and len(stmt) > 15:
+                    real_preds.append(p)
+            elif isinstance(p, str) and len(p.strip()) > 15:
+                real_preds.append(p)
+
+        # Count hidden variables with descriptions (not empty)
         hidden_vars = theory.get("hidden_variables") or []
+        real_hvs = [h for h in hidden_vars if isinstance(h, dict) and len(str(h.get("description", "")).strip()) > 10]
+        if isinstance(hidden_vars, list) and all(isinstance(h, str) for h in hidden_vars):
+            real_hvs = [h for h in hidden_vars if h.strip()]
+
+        # Count mechanism steps with content (not placeholders)
         mechanisms = theory.get("steps") or theory.get("causal_chain") or []
-        implicit_explains = len(predictions) + len(hidden_vars) + len(mechanisms)
+        real_steps = [s for s in mechanisms if isinstance(s, str) and len(s.strip()) > 15
+                      and s.strip().lower() not in ("mechanism to be determined", "equation to be derived")]
+
+        implicit_explains = len(real_preds) + len(real_hvs) + len(real_steps)
 
         # Bonus for explaining gaps and anomalies
         gap_bonus = min(20, len(gaps) * 4) if gaps else 0
@@ -393,11 +421,29 @@ class DiscoveryScorer:
         return max(15.0, min(100.0, base))
 
     def _score_predictive(self, predictions: list) -> float:
-        """Score predictive power."""
+        """Score predictive power — must have real content, not empty slots."""
         if not predictions:
             return 10.0
 
-        num_preds = len(predictions)
+        # Filter out empty/placeholder predictions before scoring
+        real_preds = []
+        for p in predictions:
+            if isinstance(p, dict):
+                stmt = str(p.get("statement", "") or p.get("description", "") or "").strip()
+                # Accept if statement has real content
+                if stmt and len(stmt) > 15 and stmt.lower() not in (
+                    "correlational", "interventional", "counterfactual", "causal", "testable"
+                ):
+                    real_preds.append(p)
+                elif p.get("falsification") and len(str(p["falsification"])) > 15:
+                    real_preds.append(p)
+            elif isinstance(p, str) and len(p.strip()) > 15:
+                real_preds.append(p)
+
+        if not real_preds:
+            return 10.0
+
+        num_preds = len(real_preds)
 
         # Quality bonus for specific prediction types
         type_bonus = {
@@ -408,7 +454,7 @@ class DiscoveryScorer:
         }
 
         quality_bonus = 0
-        for p in predictions:
+        for p in real_preds:
             ptype = p.get("type", "correlational") if isinstance(p, dict) else "correlational"
             quality_bonus += type_bonus.get(ptype, 5)
 
@@ -582,6 +628,16 @@ class DiscoveryScorer:
         desc = theory.get("description", theory.get("mechanism", ""))
         math_model = theory.get("mathematical_model", "")
         theory_type = theory.get("type", "")
+
+        # Detect placeholder math models — these should NOT count as having equations
+        _placeholder_math = [
+            "equation to be derived",
+            "quantitative model for",
+            "to be determined",
+            "equation or empty",
+        ]
+        if math_model and any(ph in math_model.lower() for ph in _placeholder_math):
+            math_model = ""  # treat as no math model
 
         # Theoretical discoveries get a baseline — not penalized for lacking equations
         if theory_type in ("theoretical", "conceptual", "framework", "hypothesis"):

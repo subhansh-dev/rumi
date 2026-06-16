@@ -387,6 +387,23 @@ Output JSON:
                         if len(m["steps"]) < 2:
                             desc = m.get("description", m.get("mechanism", ""))
                             m["steps"] = [desc] if desc else ["Mechanism to be determined"]
+                        # Reject mechanisms with empty descriptions (garbage placeholders)
+                        desc_check = (m.get("description", "") or "").strip()
+                        name_check = (m.get("name", "") or "").strip()
+                        if not desc_check and not m.get("mathematical_model"):
+                            print(f"    [WARN] Skipping mechanism '{name_check}': empty description and no math model", flush=True)
+                            continue
+                        # Reject mechanisms whose description is just a placeholder
+                        placeholder_patterns = [
+                            "equation to be derived",
+                            "quantitative model for",
+                            "mechanism to be determined",
+                        ]
+                        if desc_check.lower() in placeholder_patterns or (
+                            not desc_check and m.get("mathematical_model", "").lower().startswith("quantitative model for")
+                        ):
+                            print(f"    [WARN] Skipping mechanism '{name_check}': placeholder description only", flush=True)
+                            continue
                         # Enforce derivation structure — restructure shallow mechanisms
                         self._enforce_derivation(m)
                         # Validate epistemic labels on key_parameters
