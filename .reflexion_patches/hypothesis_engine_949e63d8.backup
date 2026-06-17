@@ -96,20 +96,7 @@ class HypothesisEngine:
         if not enriched:
             return self._fallback_hypothesis(topic, domain, "All hypotheses were duplicates")
 
-                # Score each hypothesis and keep only those meeting the confidence threshold
-        filtered = []
-        for h in enriched:
-            conf = self.scorer.score(h.get("description", ""), h.get("name", ""))
-            h["confidence"] = conf
-            if conf >= 0.7:
-                filtered.append(h)
-        # If none pass the threshold, fall back to the highest‑scoring hypothesis
-        if not filtered:
-            top = max(enriched, key=lambda x: self.scorer.score(x.get("description", ""), x.get("name", "")), default=None)
-            if top:
-                top["confidence"] = self.scorer.score(top.get("description", ""), top.get("name", ""))
-                filtered = [top]
-        return filtered
+        return enriched
 
     def _cap_novelty(self, h):
         """Track novelty assessment — no forced downrank.
