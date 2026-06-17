@@ -746,46 +746,44 @@ def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
     now = time.time()
 
     if provider == "auto":
-        # Primary chain: Cerebras (0.8s) → Groq (0.4s) → Kimi/GLM/DeepSeek (NVIDIA NIM, slow) → Gemini
-        # Cerebras and Groq are the fast providers — they should ALWAYS be tried first
-        # Kimi, GLM, DeepSeek all go through NVIDIA NIM endpoint (~30-70s each) — fallback only
+        # Primary chain: NVIDIA (DeepSeek V4 Pro) → Kimi → GLM → Cerebras → Groq → Gemini
+        # Quality over speed — DeepSeek V4 Pro produces the best scientific reasoning
         MAX_CHAIN_ATTEMPTS = 2
         for chain_attempt in range(MAX_CHAIN_ATTEMPTS):
-            # 1. Cerebras (6 keys, ~0.8s — fastest reliable)
+            # 1. NVIDIA DeepSeek V4 Pro (primary — best reasoning quality)
+            if _get_nvidia_config():
+                result = _call_nvidia(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+            # 2. Kimi K2.6 (via NVIDIA NIM — strong reasoning)
+            if _get_kimi_config():
+                result = _call_kimi(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+            # 3. GLM slot (Kimi K2.6 on 2nd NVIDIA NIM key)
+            if _get_glm_config():
+                result = _call_glm(prompt, json_mode, max_tokens, temperature)
+                if result:
+                    return result
+            # 4. Cerebras (6 keys, fast fallback)
             now = time.time()
             if now >= _cerebras_cooldown_until:
                 result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
                 if result:
                     return result
                 _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
-            # 2. Groq (3 keys, ~0.4s — fastest when available)
+            # 5. Groq (3 keys, fast fallback)
             if now >= _groq_cooldown_until:
                 result = _call_groq(prompt, json_mode, max_tokens, temperature)
                 if result:
                     return result
                 _groq_cooldown_until = time.time() + COOLDOWN_SECONDS
-            # 3. Gemini (3/4 keys, moderate speed)
+            # 6. Gemini (last resort)
             if now >= _gemini_cooldown_until:
                 result = _call_gemini(prompt, json_mode, max_tokens, temperature)
                 if result:
                     return result
                 _gemini_cooldown_until = time.time() + COOLDOWN_SECONDS
-            # --- NVIDIA NIM providers (slow, ~30-70s each) ---
-            # 4. Kimi K2.6 (via NVIDIA NIM)
-            if _get_kimi_config():
-                result = _call_kimi(prompt, json_mode, max_tokens, temperature)
-                if result:
-                    return result
-            # 5. GLM slot (Kimi K2.6 on 2nd NVIDIA NIM key)
-            if _get_glm_config():
-                result = _call_glm(prompt, json_mode, max_tokens, temperature)
-                if result:
-                    return result
-            # 6. DeepSeek V4 Pro (via NVIDIA NIM)
-            if _get_nvidia_config():
-                result = _call_nvidia(prompt, json_mode, max_tokens, temperature)
-                if result:
-                    return result
             # All failed — wait for cooldown then retry chain
             if chain_attempt < MAX_CHAIN_ATTEMPTS - 1:
                 soonest = min(_cerebras_cooldown_until, _groq_cooldown_until, _gemini_cooldown_until)
