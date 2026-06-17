@@ -69,11 +69,22 @@ def main():
             hypothesis = cause_data.get("question_hypothesis", "")
             questions = cause_data.get("questions", [])
 
+            def _truncate_at_word(s, maxlen):
+                """Truncate string at word boundary instead of mid-word."""
+                if not s or len(s) <= maxlen:
+                    return s
+                truncated = s[:maxlen]
+                # Find last space to avoid cutting mid-word
+                last_space = truncated.rfind(' ')
+                if last_space > maxlen * 0.6:  # only word-break if we keep 60%+ of content
+                    return truncated[:last_space]
+                return truncated
+
             print(f"  [Curious Engine] Questions generated: {len(questions)}")
             if core_question:
-                print(f"  [Curious Engine] Core Question: {core_question[:100]}")
+                print(f"  [Curious Engine] Core Question: {_truncate_at_word(core_question, 120)}")
             if hypothesis:
-                print(f"  [Curious Engine] Hypothesis: {hypothesis[:100]}")
+                print(f"  [Curious Engine] Hypothesis: {_truncate_at_word(hypothesis, 120)}")
             print()
 
             # Step 2: Transform into a research topic
@@ -81,7 +92,7 @@ def main():
             if core_question and len(core_question) > 20:
                 topic = core_question
             elif hypothesis and len(hypothesis) > 20:
-                topic = hypothesis[:200]
+                topic = _truncate_at_word(hypothesis, 250)
             else:
                 # Fallback: use the cause as the topic
                 topic = cause
@@ -92,7 +103,7 @@ def main():
                 domain = detect_domain(topic)
                 print(f"  [Auto-Detect] Domain: {domain}")
 
-            print(f"  [Topic Generated] {topic[:100]}")
+            print(f"  [Topic Generated] {_truncate_at_word(topic, 120)}")
             print()
 
         except Exception as e:
