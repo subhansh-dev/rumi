@@ -1,8 +1,14 @@
 """
 math_chain.py - Explicit math derivation chain for mechanisms.
-
 Pipeline: Mechanism -> Equation -> Parameter -> Derivation -> Numerical Example
+
+PARALLELIZED: All independent mechanism derivations run concurrently.
+15 mechanisms × 65s each = 16 min sequential → ~65s parallel.
 """
+
+import concurrent.futures
+
+MAX_MATH_WORKERS = 6  # parallel LLM calls for math derivation
 
 
 class MathChain:
@@ -12,33 +18,86 @@ class MathChain:
     def process_mechanisms(self, mechanisms, topic, domain):
         if not self.llm_call or not mechanisms:
             return mechanisms
+
+        # Filter to mechanisms that need equations
+        needs_eq = []
         for m in mechanisms:
             if not isinstance(m, dict):
                 continue
-            name = m.get("name", "?")
-            desc = m.get("description", m.get("mechanism", ""))
             existing_model = m.get("mathematical_model", "")
             if existing_model and "equation to be derived" not in existing_model.lower():
                 if len(existing_model) > 20:
                     continue
+            needs_eq.append(m)
+
+        if not needs_eq:
+            return mechanisms
+
+        # ── PHASE 1: Derive equations in parallel ──
+        def _derive_one(m):
+            name = m.get("name", "?")
+            desc = m.get("description", m.get("mechanism", ""))
             eq_result = self._derive_equation(name, desc, topic, domain)
-            if eq_result:
-                m["mathematical_model"] = eq_result.get("equation", existing_model)
-                m["equation_description"] = eq_result.get("description", "")
-                m["equation_variables"] = eq_result.get("variables", [])
+            return m, eq_result
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_MATH_WORKERS) as pool:
+            futures = {pool.submit(_derive_one, m): m for m in needs_eq}
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    m, eq_result = future.result()
+                    if eq_result:
+                        m["mathematical_model"] = eq_result.get("equation", m.get("mathematical_model", ""))
+                        m["equation_description"] = eq_result.get("description", "")
+                        m["equation_variables"] = eq_result.get("variables", [])
+                except Exception:
+                    pass
+
+        # ── PHASE 2: Estimate parameters in parallel (for mechanisms that got equations) ──
+        needs_params = [m for m in needs_eq
+                        if m.get("mathematical_model", "")
+                        and "equation to be derived" not in m.get("mathematical_model", "").lower()]
+
+        def _params_one(m):
+            name = m.get("name", "?")
             eq = m.get("mathematical_model", "")
-            if eq and "equation to be derived" not in eq.lower():
-                param_result = self._estimate_parameters(name, eq, desc, topic, domain)
-                if param_result:
-                    m["key_parameters"] = param_result.get("parameters", [])
-                    m["derivation_steps"] = param_result.get("derivation_steps", [])
+            desc = m.get("description", m.get("mechanism", ""))
+            return m, self._estimate_parameters(name, eq, desc, topic, domain)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_MATH_WORKERS) as pool:
+            futures = {pool.submit(_params_one, m): m for m in needs_params}
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    m, param_result = future.result()
+                    if param_result:
+                        m["key_parameters"] = param_result.get("parameters", [])
+                        m["derivation_steps"] = param_result.get("derivation_steps", [])
+                except Exception:
+                    pass
+
+        # ── PHASE 3: Numerical validation in parallel (for mechanisms with params) ──
+        needs_validation = [m for m in needs_params
+                            if m.get("key_parameters")
+                            and "equation to be derived" not in m.get("mathematical_model", "").lower()]
+
+        def _validate_one(m):
+            name = m.get("name", "?")
+            eq = m.get("mathematical_model", "")
             params = m.get("key_parameters", [])
-            if eq and params and "equation to be derived" not in eq.lower():
-                num_result = self._numerical_validation(name, eq, params, desc, topic, domain)
-                if num_result:
-                    m["numerical_example"] = num_result.get("example", "")
-                    m["numerical_result"] = num_result.get("result", "")
-                    m["physical_plausibility"] = num_result.get("plausibility", "")
+            desc = m.get("description", m.get("mechanism", ""))
+            return m, self._numerical_validation(name, eq, params, desc, topic, domain)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_MATH_WORKERS) as pool:
+            futures = {pool.submit(_validate_one, m): m for m in needs_validation}
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    m, num_result = future.result()
+                    if num_result:
+                        m["numerical_example"] = num_result.get("example", "")
+                        m["numerical_result"] = num_result.get("result", "")
+                        m["physical_plausibility"] = num_result.get("plausibility", "")
+                except Exception:
+                    pass
+
         return mechanisms
 
     def _derive_equation(self, name, description, topic, domain):

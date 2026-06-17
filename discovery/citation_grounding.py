@@ -29,10 +29,13 @@ except ImportError:
 def fetch_papers(query: str, max_arxiv: int = 20, max_pubmed: int = 20,
                  max_s2: int = 20, max_crossref: int = 20) -> list[dict]:
     """
-    Fetch real papers from arXiv + PubMed + Semantic Scholar.
+    Fetch real papers from 7 sources IN PARALLEL.
     Returns unified list sorted by date (newest first).
     Targets 50+ papers for comprehensive coverage.
+    All API calls run concurrently — 7 sources in ~time of slowest source.
     """
+    import concurrent.futures
+
     papers = []
     seen_titles = set()
 
@@ -43,124 +46,163 @@ def fetch_papers(query: str, max_arxiv: int = 20, max_pubmed: int = 20,
             seen_titles.add(title_key)
             papers.append(paper_dict)
 
-    # ── arXiv ──
-    try:
-        arxiv_results = arxiv_search(query, max_results=max_arxiv)
-        for p in arxiv_results:
-            _add_paper({
-                "source": "arxiv",
-                "id": p.get("arxiv_id", ""),
-                "title": p.get("title", "").strip(),
-                "abstract": p.get("abstract", "")[:600],
-                "authors": p.get("authors", []),
-                "year": p.get("published", "")[:4],
-                "url": p.get("url", ""),
-                "citation_key": f"arXiv:{p.get('arxiv_id', '')}",
-            })
-    except Exception as e:
-        print(f"  [arXiv] Error: {e}")
-
-    # ── PubMed ──
-    try:
-        pmids = pubmed_search(query, max_results=max_pubmed)
-        if pmids:
-            pm_results = pubmed_fetch(pmids)
-            for p in pm_results:
-                _add_paper({
-                    "source": "pubmed",
-                    "id": p.get("pmid", ""),
-                    "title": p.get("title", "").strip(),
-                    "abstract": p.get("abstract", "")[:600],
-                    "authors": p.get("authors", []),
-                    "year": p.get("year", ""),
-                    "url": f"https://pubmed.ncbi.nlm.nih.gov/{p.get('pmid', '')}/",
-                    "citation_key": f"PMID:{p.get('pmid', '')}",
-                })
-    except Exception as e:
-        print(f"  [PubMed] Error: {e}")
-
-    # ── Semantic Scholar (third source — fills gaps) ──
-    try:
-        s2_results = s2_search(query, limit=max_s2)
-        for p in s2_results:
-            if not isinstance(p, dict):
-                continue
-            _add_paper({
-                "source": "semantic_scholar",
-                "id": p.get("paperId", ""),
-                "title": p.get("title", "").strip(),
-                "abstract": p.get("abstract", "")[:600] if p.get("abstract") else "",
-                "authors": [a.get("name", "") if isinstance(a, dict) else str(a) for a in p.get("authors", [])[:5]],
-                "year": str(p.get("year", "")),
-                "link": f"https://www.semanticscholar.org/paper/{p.get('paperId', '')}",
-                "citation_key": f"S2:{p.get('paperId', '')[:8]}",
-                "citation_count": p.get("citationCount", 0),
-                "influential_citations": p.get("influentialCitationCount", 0),
-            })
-    except Exception as e:
-        print(f"  [SemanticScholar] Error: {e}")
-
-    # ── CrossRef (fourth source — broad academic coverage) ──
-    if crossref_search:
+    # Define all fetch tasks
+    def _fetch_arxiv():
+        results = []
         try:
-            cr_results = crossref_search(query, max_results=max_crossref)
-            for p in cr_results:
-                if not isinstance(p, dict):
-                    continue
-                _add_paper({
-                    "source": "crossref",
-                    "id": p.get("doi", ""),
+            arxiv_results = arxiv_search(query, max_results=max_arxiv)
+            for p in arxiv_results:
+                results.append({
+                    "source": "arxiv",
+                    "id": p.get("arxiv_id", ""),
                     "title": p.get("title", "").strip(),
                     "abstract": p.get("abstract", "")[:600],
                     "authors": p.get("authors", []),
-                    "year": str(p.get("year", "")),
+                    "year": p.get("published", "")[:4],
                     "url": p.get("url", ""),
-                    "citation_key": f"DOI:{p.get('doi', '')[:20]}",
-                    "citation_count": p.get("citation_count", 0),
+                    "citation_key": f"arXiv:{p.get('arxiv_id', '')}",
                 })
         except Exception as e:
-            print(f"  [CrossRef] Error: {e}")
+            print(f"  [arXiv] Error: {e}", flush=True)
+        return results
 
-    # ── INSPIRE HEP (fifth source — high-energy physics literature) ──
-    try:
-        from discovery.inspire_hep import search_papers as inspire_search
-        inspire_results = inspire_search(query, limit=10)
-        for p in inspire_results:
-            _add_paper(p)
-    except Exception as e:
-        print(f"  [INSPIRE HEP] Error: {e}")
+    def _fetch_pubmed():
+        results = []
+        try:
+            pmids = pubmed_search(query, max_results=max_pubmed)
+            if pmids:
+                pm_results = pubmed_fetch(pmids)
+                for p in pm_results:
+                    results.append({
+                        "source": "pubmed",
+                        "id": p.get("pmid", ""),
+                        "title": p.get("title", "").strip(),
+                        "abstract": p.get("abstract", "")[:600],
+                        "authors": p.get("authors", []),
+                        "year": p.get("year", ""),
+                        "url": f"https://pubmed.ncbi.nlm.nih.gov/{p.get('pmid', '')}/",
+                        "citation_key": f"PMID:{p.get('pmid', '')}",
+                    })
+        except Exception as e:
+            print(f"  [PubMed] Error: {e}", flush=True)
+        return results
 
-    # ── CORE (sixth source — open access papers) ──
-    try:
-        from discovery.core_api import search_papers as core_search
-        core_results = core_search(query, limit=10)
-        for p in core_results:
-            _add_paper(p)
-    except Exception as e:
-        print(f"  [CORE] Error: {e}")
+    def _fetch_s2():
+        results = []
+        try:
+            s2_results = s2_search(query, limit=max_s2)
+            for p in s2_results:
+                if not isinstance(p, dict):
+                    continue
+                results.append({
+                    "source": "semantic_scholar",
+                    "id": p.get("paperId", ""),
+                    "title": p.get("title", "").strip(),
+                    "abstract": p.get("abstract", "")[:600] if p.get("abstract") else "",
+                    "authors": [a.get("name", "") if isinstance(a, dict) else str(a) for a in p.get("authors", [])[:5]],
+                    "year": str(p.get("year", "")),
+                    "link": f"https://www.semanticscholar.org/paper/{p.get('paperId', '')}",
+                    "citation_key": f"S2:{p.get('paperId', '')[:8]}",
+                    "citation_count": p.get("citationCount", 0),
+                    "influential_citations": p.get("influentialCitationCount", 0),
+                })
+        except Exception as e:
+            print(f"  [SemanticScholar] Error: {e}", flush=True)
+        return results
 
-    # ── OpenAlex (seventh source — 250M+ scholarly works, free) ──
-    try:
-        from discovery.openalex_api import search_works as openalex_search
-        oa_results = openalex_search(query, limit=10)
-        for p in oa_results:
-            if not isinstance(p, dict):
-                continue
-            _add_paper({
-                "source": "openalex",
-                "id": p.get("doi", ""),
-                "title": p.get("title", "").strip(),
-                "abstract": "",  # OpenAlex search_works doesn't return abstracts
-                "authors": [],
-                "year": str(p.get("publication_year", "")),
-                "url": p.get("doi", ""),
-                "citation_key": f"OA:{p.get('doi', '')[:20]}",
-                "citation_count": p.get("cited_by_count", 0),
-                "open_access": p.get("open_access", False),
-                "concepts": p.get("concepts", []),
-            })
-    except Exception as e:
-        print(f"  [OpenAlex] Error: {e}")
+    def _fetch_crossref():
+        results = []
+        if crossref_search:
+            try:
+                cr_results = crossref_search(query, max_results=max_crossref)
+                for p in cr_results:
+                    if not isinstance(p, dict):
+                        continue
+                    results.append({
+                        "source": "crossref",
+                        "id": p.get("doi", ""),
+                        "title": p.get("title", "").strip(),
+                        "abstract": p.get("abstract", "")[:600],
+                        "authors": p.get("authors", []),
+                        "year": str(p.get("year", "")),
+                        "url": p.get("url", ""),
+                        "citation_key": f"DOI:{p.get('doi', '')[:20]}",
+                        "citation_count": p.get("citation_count", 0),
+                    })
+            except Exception as e:
+                print(f"  [CrossRef] Error: {e}", flush=True)
+        return results
+
+    def _fetch_inspire():
+        results = []
+        try:
+            from discovery.inspire_hep import search_papers as inspire_search
+            results = inspire_search(query, limit=10)
+        except Exception as e:
+            print(f"  [INSPIRE HEP] Error: {e}", flush=True)
+        return results
+
+    def _fetch_core():
+        results = []
+        try:
+            from discovery.core_api import search_papers as core_search
+            results = core_search(query, limit=10)
+        except Exception as e:
+            print(f"  [CORE] Error: {e}", flush=True)
+        return results
+
+    def _fetch_openalex():
+        results = []
+        try:
+            from discovery.openalex_api import search_works as openalex_search
+            oa_results = openalex_search(query, limit=10)
+            for p in oa_results:
+                if not isinstance(p, dict):
+                    continue
+                results.append({
+                    "source": "openalex",
+                    "id": p.get("doi", ""),
+                    "title": p.get("title", "").strip(),
+                    "abstract": "",
+                    "authors": [],
+                    "year": str(p.get("publication_year", "")),
+                    "url": p.get("doi", ""),
+                    "citation_key": f"OA:{p.get('doi', '')[:20]}",
+                    "citation_count": p.get("cited_by_count", 0),
+                    "open_access": p.get("open_access", False),
+                    "concepts": p.get("concepts", []),
+                })
+        except Exception as e:
+            print(f"  [OpenAlex] Error: {e}", flush=True)
+        return results
+
+    # Run ALL sources in parallel
+    fetch_tasks = {
+        "arxiv": _fetch_arxiv,
+        "pubmed": _fetch_pubmed,
+        "semantic_scholar": _fetch_s2,
+        "crossref": _fetch_crossref,
+        "inspire_hep": _fetch_inspire,
+        "core": _fetch_core,
+        "openalex": _fetch_openalex,
+    }
+
+    source_counts = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=7) as pool:
+        futures = {pool.submit(fn): name for name, fn in fetch_tasks.items()}
+        for future in concurrent.futures.as_completed(futures):
+            source_name = futures[future]
+            try:
+                results = future.result()
+                for p in results:
+                    _add_paper(p)
+                source_counts[source_name] = len(results)
+            except Exception as e:
+                print(f"  [{source_name}] Error: {e}", flush=True)
+
+    # Report source breakdown
+    active_sources = [f"{name}" for name, count in source_counts.items() if count > 0]
+    print(f"  Total: {len(papers)} papers from {len(active_sources)} sources: {', '.join(active_sources)}", flush=True)
 
     # Sort by year descending
     papers.sort(key=lambda p: p.get("year", "0000"), reverse=True)
