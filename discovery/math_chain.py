@@ -31,6 +31,13 @@ class MathChain:
                     skipped += 1
                     continue
             desc = m.get("description", m.get("mechanism", ""))
+            # Fallback: use steps as description if description is empty
+            if not desc or len(desc) < 20:
+                steps = m.get("steps", [])
+                if steps and isinstance(steps, list):
+                    desc = " ".join(str(s) for s in steps[:3])
+                elif steps and isinstance(steps, str):
+                    desc = steps
             if not desc or len(desc) < 20:
                 skipped += 1
                 print(f"    [MathChain] SKIP '{m.get('name', '?')[:40]}': desc len={len(desc)}, fields={list(m.keys())}", flush=True)
