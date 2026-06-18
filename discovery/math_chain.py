@@ -21,14 +21,23 @@ class MathChain:
 
         # Filter to mechanisms that need equations
         needs_eq = []
+        skipped = 0
         for m in mechanisms:
             if not isinstance(m, dict):
                 continue
             existing_model = m.get("mathematical_model", "")
             if existing_model and "equation to be derived" not in existing_model.lower():
                 if len(existing_model) > 20:
+                    skipped += 1
                     continue
+            desc = m.get("description", m.get("mechanism", ""))
+            if not desc or len(desc) < 20:
+                skipped += 1
+                print(f"    [MathChain] SKIP '{m.get('name', '?')[:40]}': desc len={len(desc)}, fields={list(m.keys())}", flush=True)
+                continue
             needs_eq.append(m)
+        if skipped:
+            print(f"    [MathChain] {skipped}/{len(mechanisms)} skipped (no desc or already has equation)", flush=True)
 
         if not needs_eq:
             return mechanisms

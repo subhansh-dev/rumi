@@ -54,13 +54,6 @@ class HypothesisEngine:
 
         enriched = []
         for h in hypotheses:
-            # Compute confidence score for the hypothesis
-            confidence = self.scorer.score(h)
-            if confidence < 0.7:
-                # Skip hypotheses that do not meet the confidence threshold
-                continue
-            h["confidence"] = confidence
-
             h["id"] = str(uuid.uuid4())
             h["topic"] = topic
             h["domain"] = domain
