@@ -30,7 +30,7 @@ class HypothesisEngine:
                                    backoff=[3, 5, 8, 12, 20], providers=["cerebras", "groq", "gemini"])
 
     async def generate(self, graph, topic, domain, run_id, contradictions=None, latent_candidates=None):
-        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=100)
+        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=300)
         prompt += f"\n\nDOMAIN CONTEXT: {domain}\n"
         prompt += "CRITICAL INSTRUCTIONS FOR HIGH-CONFIDENCE HYPOTHESES:\n"
         prompt += "1. Confidence Calibration: Only assign confidence >= 0.7 when the hypothesis is DIRECTLY SUPPORTED by specific evidence from 3+ papers in the literature graph.\n"
