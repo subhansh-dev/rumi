@@ -31,7 +31,14 @@ class HypothesisEngine:
 
     async def generate(self, graph, topic, domain, run_id, contradictions=None, latent_candidates=None):
         prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=100)
-        prompt += "\n\nCRITICAL: Generate hypotheses with confidence >= 0.7. Provide detailed mechanistic rationales citing specific evidence from the literature. Include testable predictions and potential falsification criteria. Avoid vague or overly broad statements."
+        prompt += f"\n\nDOMAIN CONTEXT: {domain}\n"
+        prompt += "CRITICAL INSTRUCTIONS FOR HIGH-CONFIDENCE HYPOTHESES:\n"
+        prompt += "1. Confidence Calibration: Only assign confidence >= 0.7 when the hypothesis is DIRECTLY SUPPORTED by specific evidence from 3+ papers in the literature graph.\n"
+        prompt += "2. Required Structure: Each hypothesis must have: (a) a clear causal mechanism, (b) specific molecular/cellular/system-level steps, (c) explicit evidence citations with paper IDs, (d) a concrete testable prediction with specified method.\n"
+        prompt += "3. Confidence Scoring Rules: 0.9-1.0 = established mechanism with human/experimental validation; 0.8-0.89 = strong in silico/in vitro support with clear pathway; 0.7-0.79 = plausible mechanism with partial evidence, some gaps acknowledged. NEVER assign >= 0.7 without citing specific supporting papers.\n"
+        prompt += "4. Avoid: restating facts, generic statements (e.g., 'further research is needed'), hypotheses without mechanistic detail, or confidence scores not grounded in explicit evidence counts.\n"
+        prompt += "5. Contradiction Handling: If contradictions exist, explicitly address them in the rationale and adjust confidence downward accordingly.\n"
+        prompt += "6. Output Format: Return ONLY valid JSON with fields: title, mechanistic_rationale (with [PaperID] citations), confidence (number 0.0-1.0), testable_prediction, falsification_criteria, supporting_papers (list of IDs), confidence_justification (1-2 sentences explaining the score)."
 
         # Use external LLM router if provided (preferred — has Cerebras primary)
         if self._llm_call:
