@@ -30,15 +30,23 @@ class HypothesisEngine:
                                    backoff=[3, 5, 8, 12, 20], providers=["cerebras", "groq", "gemini"])
 
     async def generate(self, graph, topic, domain, run_id, contradictions=None, latent_candidates=None):
+        # Build richer domain context from graph metadata if available
+        domain_context = self._extract_domain_context(graph, domain)
+        
         prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=300)
         prompt += f"\n\nDOMAIN CONTEXT: {domain}\n"
+        prompt += f"DOMAIN KNOWLEDGE BASE: {domain_context}\n"
         prompt += "CRITICAL INSTRUCTIONS FOR HIGH-CONFIDENCE HYPOTHESES:\n"
         prompt += "1. Confidence Calibration: Only assign confidence >= 0.7 when the hypothesis is DIRECTLY SUPPORTED by specific evidence from 3+ papers in the literature graph.\n"
         prompt += "2. Required Structure: Each hypothesis must have: (a) a clear causal mechanism, (b) specific molecular/cellular/system-level steps, (c) explicit evidence citations with paper IDs, (d) a concrete testable prediction with specified method.\n"
         prompt += "3. Confidence Scoring Rules: 0.9-1.0 = established mechanism with human/experimental validation; 0.8-0.89 = strong in silico/in vitro support with clear pathway; 0.7-0.79 = plausible mechanism with partial evidence, some gaps acknowledged. NEVER assign >= 0.7 without citing specific supporting papers.\n"
         prompt += "4. Avoid: restating facts, generic statements (e.g., 'further research is needed'), hypotheses without mechanistic detail, or confidence scores not grounded in explicit evidence counts.\n"
         prompt += "5. Contradiction Handling: If contradictions exist, explicitly address them in the rationale and adjust confidence downward accordingly.\n"
-        prompt += "6. Output Format: Return ONLY valid JSON with fields: title, mechanistic_rationale (with [PaperID] citations), confidence (number 0.0-1.0), testable_prediction, falsification_criteria, supporting_papers (list of IDs), confidence_justification (1-2 sentences explaining the score)."
+        prompt += "6. Output Format: Return ONLY valid JSON with fields: title, mechanistic_rationale (with [PaperID] citations), confidence (number 0.0-1.0), testable_prediction, falsification_criteria, supporting_papers (list of IDs), confidence_justification (1-2 sentences explaining the score).\n"
+        prompt += "\nFEW-SHOT EXAMPLES:\n"
+        prompt += "LOW CONFIDENCE (0.35): {'title': 'X may regulate Y', 'mechanistic_rationale': 'Some studies suggest X is involved in Y [PMID:123, PMID:456], but the mechanism is unclear', Consciousness of gaps.', 'confidence': 0.35, 'supporting_papers': ['PMID:123', 'PMID:456']}\n"
+        prompt += "HIGH CONFIDENCE (0.85): {'title': 'X phosphorylates Y at S473 to activate Z pathway', 'mechanistic_rationale': 'X directly phosphorylates Y at S473 in vitro (Kd=15nM) [PMID:789], X-Y complex crystal structure shows catalytic cleft engagement [PMID:790], S473A mutation abolishes Z activation in HEK293 cells [PMID:791], and Z pathway output correlates with pY-S473 in 3 independent cohorts [PMID:792].', 'confidence': 0.85, 'supporting_papers': ['PMID:789', 'PMID:790', 'PMID:791', 'PMID:792']}\n"
+        prompt += "\nRULE: Count explicit supporting papers BEFORE assigning confidence. Confidence = evidence_density / (evidence_density + 1) * max_evidence_score, capped by weakest link."
 
         # Use external LLM router if provided (preferred — has Cerebras primary)
         if self._llm_call:
