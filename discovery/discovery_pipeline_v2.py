@@ -2816,7 +2816,7 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
             except Exception as e:
                 print(f"  [WARN] Confidence scorer skipped: {e}")
 
-            # -- Mechanism Completeness Gate — cap score if mechanisms are hollow --
+            # -- Mechanism Completeness Gate — graduated proportional penalty --
             try:
                 from discovery.mechanism_completeness import MechanismCompletenessChecker
                 mcc = MechanismCompletenessChecker()
@@ -2827,25 +2827,20 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
                     total_count = mc_result.get("total", 0)
                     print(f"  [Mechanism Completeness] avg={avg_completeness:.2f}, complete={complete_count}/{total_count}")
                     report["phases"]["mechanism_completeness"] = mc_result
-                    # Cap score if all mechanisms are hollow (completeness < 0.2)
-                    if avg_completeness < 0.2 and total_count > 0:
+                    # Graduated proportional penalty instead of hard cliff:
+                    #   completeness 0.60+ → no cap
+                    #   completeness 0.00 → max score 30
+                    #   linearly interpolated between
+                    if avg_completeness < 0.6 and total_count > 0:
                         current_score = score_result.get("discovery_score", 0)
-                        capped = min(current_score, 50)
+                        max_allowed = 30 + 55 * (avg_completeness / 0.6)
+                        capped = min(current_score, max_allowed)
                         if capped < current_score:
                             score_result["discovery_score"] = capped
                             score_result.setdefault("adversarial_details", []).append(
-                                f"All mechanisms hollow (completeness {avg_completeness:.2f}) -> capped at 50"
+                                f"Mechanism completeness penalty ({avg_completeness:.2f}) -> score capped at {max_allowed:.0f}"
                             )
-                            print(f"  [Mechanism Completeness] Hollow mechanisms -> score capped at 50", flush=True)
-                    elif avg_completeness < 0.4 and total_count > 0:
-                        current_score = score_result.get("discovery_score", 0)
-                        capped = min(current_score, 65)
-                        if capped < current_score:
-                            score_result["discovery_score"] = capped
-                            score_result.setdefault("adversarial_details", []).append(
-                                f"Low mechanism completeness ({avg_completeness:.2f}) -> capped at B (65)"
-                            )
-                            print(f"  [Mechanism Completeness] Low completeness -> score capped at 65", flush=True)
+                            print(f"  [Mechanism Completeness] avg={avg_completeness:.2f} -> capped at {max_allowed:.0f}", flush=True)
             except Exception as e:
                 print(f"  [WARN] Mechanism completeness check skipped: {e}")
 

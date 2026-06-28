@@ -332,15 +332,20 @@ ANALYSIS:
 TOPIC: {topic}
 DOMAIN: {domain}
 
-Extract 3-5 mechanisms from the analysis above. Each mechanism must have:
+Extract 3-5 mechanisms from the analysis above. Each mechanism MUST have:
 - name: descriptive name
 - type: causal_pathway|feedback_loop|emergent_property|threshold_effect|cascade
 - description: how it works (from the analysis)
 - steps: list of causal steps
-- mathematical_model: governing equation if available
+- assumptions: explicit starting assumptions
+- mathematical_model: governing equation(s) — REQUIRED, do not leave empty
+- derivation: step-by-step derivation from assumptions to conclusion
+- key_parameters: list of {{name, expected_value, units, source}} dicts
+
+CRITICAL: Every mechanism MUST have a mathematical_model and derivation. Without these, the mechanism is INCOMPLETE and will be REJECTED.
 
 Output JSON:
-{{"mechanisms": [{{"name": "...", "type": "causal_pathway", "description": "...", "steps": ["step1", "step2"], "mathematical_model": "equation or empty"}}]}}"""
+{{"mechanisms": [{{"name": "...", "type": "causal_pathway", "description": "...", "steps": ["step1", "step2"], "assumptions": ["assumption1"], "mathematical_model": "equation", "derivation": "step-by-step", "key_parameters": [{{"name": "param", "expected_value": "value", "units": "units", "source": "estimated"}}]}}]}}"""
 
                         try:
                             retry_raw = self.llm_call(retry_prompt, max_tokens=4096)
@@ -409,6 +414,15 @@ Output JSON:
                         # Validate epistemic labels on key_parameters
                         self._validate_parameter_sources(m, papers or [])
                         valid_mechanisms.append(m)
+
+                    # Harden mechanisms — fill in missing fields for completeness
+                    if valid_mechanisms:
+                        avg_completeness = self._estimate_completeness(valid_mechanisms)
+                        if avg_completeness < 0.6:
+                            hardened = self._harden_mechanisms(valid_mechanisms, topic, domain)
+                            if hardened:
+                                valid_mechanisms = hardened
+                                print(f"    [HARDEN] Hardened {len(valid_mechanisms)} mechanisms ({avg_completeness:.2f} -> {self._estimate_completeness(valid_mechanisms):.2f})", flush=True)
                     result["mechanisms"] = valid_mechanisms
                     return result
 
@@ -750,3 +764,93 @@ Output JSON:
                     kp["source_detail"] = "Claimed derived but no derivation shown — downgraded to estimated"
 
             # 'estimated' is always valid — no validation needed
+
+    def _estimate_completeness(self, mechanisms: list) -> float:
+        scores = []
+        for m in mechanisms:
+            score = 0.0
+            if m.get("description"): score += 0.1
+            if m.get("mathematical_model"): score += 0.2
+            if m.get("derivation"): score += 0.2
+            if m.get("steps") and len(m.get("steps", [])) >= 2: score += 0.15
+            kp = m.get("key_parameters", [])
+            if isinstance(kp, list) and len(kp) >= 1: score += 0.1
+            if isinstance(kp, list) and any(p.get("expected_value") for p in kp if isinstance(p, dict)): score += 0.1
+            if m.get("predictions") and len(m.get("predictions", [])) >= 1: score += 0.15
+            scores.append(score)
+        return sum(scores) / max(1, len(scores))
+
+    def _harden_mechanisms(self, mechanisms: list, topic: str, domain: str) -> list:
+        if not self.llm_call:
+            return mechanisms
+        incomplete = []
+        for i, m in enumerate(mechanisms):
+            missing = []
+            if not m.get("mathematical_model"): missing.append("mathematical_model")
+            if not m.get("derivation"): missing.append("derivation")
+            if not m.get("key_parameters"): missing.append("key_parameters")
+            if not m.get("description"): missing.append("description")
+            if not m.get("predictions"): missing.append("predictions")
+            if len(missing) >= 2:
+                incomplete.append((i, m, missing))
+        if not incomplete:
+            return mechanisms
+        mech_text = ""
+        for idx, m, missing in incomplete:
+            steps_text = "\n".join(f"    {s}" for s in m.get("steps", []))
+            mech_text += f"\n--- Mechanism {idx} ---\n"
+            mech_text += f"Name: {m.get('name', '?')}\nType: {m.get('type', '?')}\n"
+            mech_text += f"Steps:\n{steps_text}\n"
+            mech_text += f"Existing fields: {list(m.keys())}\n"
+            mech_text += f"Missing fields: {', '.join(missing)}\n"
+        prompt = f"""You are a mechanism hardening assistant. Fill in missing scientific content for each mechanism.
+
+TOPIC: {topic}
+DOMAIN: {domain}
+
+For each mechanism below, the missing fields need to be filled. Use ONLY the mechanism's own steps/content — do NOT introduce external content.
+
+CRITICAL RULES:
+1. mathematical_model: Derive a governing equation from the steps. Use first-principles equations (diffusion, rate laws, conservation laws, etc.)
+2. derivation: Show step-by-step how the causal chain leads from step 1 to the final effect, with equations at each transition
+3. key_parameters: List 2-4 key parameters with: name, expected_value, units, source ("estimated" or "derived"), source_detail
+4. description: A 1-2 sentence scientific description synthesizing the mechanism
+5. predictions: 2-3 testable predictions following from the mechanism
+
+{mech_text}
+
+Output a JSON object with mechanism indices as keys:
+{{{{
+  "0": {{{{"mathematical_model": "...", "derivation": "...", "key_parameters": [...], "description": "...", "predictions": [...]}}}},
+  "1": {{{{"mathematical_model": "...", ...}}}}
+}}}}
+
+For key_parameters format:
+[{{{{"name": "param", "expected_value": "order 10^-X", "units": "units", "source": "estimated|derived", "source_detail": "reasoning"}}}}]"""
+
+        try:
+            raw = self.llm_call(prompt, max_tokens=4096)
+            if not raw:
+                return mechanisms
+            from discovery.json_extract import extract_json
+            result = extract_json(raw)
+            if not result or not isinstance(result, dict):
+                return mechanisms
+            for idx_str, fields in result.items():
+                try:
+                    idx = int(idx_str)
+                except (ValueError, TypeError):
+                    continue
+                if idx >= len(mechanisms):
+                    continue
+                m = mechanisms[idx]
+                if isinstance(fields, dict):
+                    for field in ["mathematical_model", "derivation", "description", "predictions", "key_parameters"]:
+                        if field in fields and fields[field]:
+                            if field in m and m[field]:
+                                continue
+                            m[field] = fields[field]
+            return mechanisms
+        except Exception as e:
+            print(f"    [HARDEN] Failed: {e}", flush=True)
+            return mechanisms

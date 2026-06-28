@@ -33,7 +33,7 @@ class HypothesisEngine:
         # Build richer domain context from graph metadata if available
         domain_context = self._extract_domain_context(graph, domain)
         
-        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=300)
+        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=1000)
         prompt += f"\n\nDOMAIN CONTEXT: {domain}\n"
         prompt += f"DOMAIN KNOWLEDGE BASE: {domain_context}\n"
         prompt += "CRITICAL INSTRUCTIONS FOR HIGH-CONFIDENCE HYPOTHESES:\n"

@@ -65,7 +65,10 @@ class MechanismCompletenessChecker:
                     param_text += " " + str(p.get("name", "")) + " " + str(p.get("expected_value", ""))
                     param_text += " " + " ".join(str(c) for c in p.get("derivation_chain", []))
 
+        causal_chain = mechanism.get("causal_chain", [])
         full_text = desc + " " + math_model + " " + derivation_text + " " + param_text + " " + " ".join(str(s) for s in steps)
+        if causal_chain and isinstance(causal_chain, list):
+            full_text += " " + " ".join(str(c) for c in causal_chain)
         full_lower = full_text.lower()
 
         # Check 1: Assumptions stated
@@ -107,14 +110,42 @@ class MechanismCompletenessChecker:
         bio_pathway_keywords = ["pathway", "receptor", "protein", "gene", "enzyme",
                                "biomarker", "clinical", "trial", "patient", "disease",
                                "mutation", "expression", "inhibition", "activation",
-                               "transcription", "signaling", "metabolism", "toxicity"]
+                               "transcription", "signaling", "metabolism", "toxicity",
+                               # -- BROADER PHYSIOLOGY/NEUROSCIENCE TERMS --
+                               "collagen", "extracellular", "matrix", "elastic", "compliance",
+                               "stiffness", "fluid", "flow", "clearance", "pump",
+                               "perivascular", "parenchyma", "interstitial",
+                               "cerebrospinal", "csf", "amyloid", "waste",
+                               "arterial", "pulsation", "cardiac", "respiratory",
+                               "transport", "diffusion", "convection", "permeability",
+                               "membrane", "channel", "gradient", "osmotic", "hydrostatic",
+                               "mechanical", "deformation", "pressure", "volume",
+                               "cell", "tissue", "organ", "vascular", "neural",
+                               "synapse", "dendrite", "axon", "cortex", "hippocampus",
+                               "glia", "astrocyte", "microglia", "oligodendrocyte",
+                               "neurotransmitter", "peptide", "metabolite", "aggregate",
+                               "fibril", "plaque", "tangle", "degeneration",
+                               "inflammation", "oxidative", "stress", "apoptosis",
+                               "mitochondria", "lysosome", "autophagy", "proteasome"]
         has_biological_mechanism = any(kw in full_lower for kw in bio_pathway_keywords)
         has_causal_chain = any(kw in full_lower for kw in
             ["causes", "leads to", "results in", "mediates", "drives",
-             "triggers", "induces", "promotes", "inhibits", "prevents"])
+             "triggers", "induces", "promotes", "inhibits", "prevents",
+             # -- BROADER CAUSAL VERBS --
+             "increase", "decrease", "reduce", "diminish", "enhance",
+             "amplify", "suppress", "block", "activate", "inactivate",
+             "upregulate", "downregulate", "modulate", "regulate",
+             "produces", "generates", "creates", "changes", "alters",
+             "depends on", "proportional", "correlated with",
+             "coupled", "linked", "associated with", "leads from",
+             "converts", "transforms", "transduces", "transmits"])
         has_testable = any(kw in full_lower for kw in
             ["testable", "predict", "measure", "observe", "detect",
-             "biomarker", "endpoint", "outcome", "efficacy", "response"])
+             "biomarker", "endpoint", "outcome", "efficacy", "response",
+             # -- BROADER TESTABILITY --
+             "experiment", "assay", "imaging", "mri", "pet", "spectroscopy",
+             "biopsy", "histology", "immunostain", "western", "elisa",
+             "quantif", "validate", "confirm", "reproduce"])
 
         # Compute completeness score (domain-aware)
         score = 0.0
