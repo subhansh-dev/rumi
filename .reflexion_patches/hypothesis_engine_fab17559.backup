@@ -1,0 +1,526 @@
+"""Hypothesis generation engine with retry chain, confidence scoring, and persistence."""
+import sys as _sys
+if _sys.platform == "win32":
+    try:
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+import json
+import asyncio
+import time
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+from discovery.hypothesis_memory import HypothesisMemory
+from discovery.contradiction_miner import ContradictionMiner
+from discovery.confidence_scorer import ConfidenceScorer
+from discovery.pipeline import LLMStage
+from discovery.json_extract import extract_json
+
+
+class HypothesisEngine:
+    def __init__(self, memory=None, llm_call=None):
+        self.memory = memory or HypothesisMemory()
+        self.scorer = ConfidenceScorer()
+        self.miner = ContradictionMiner()
+        self._llm_call = llm_call  # External LLM router (e.g. _truncated_llm)
+        self.llm_stage = LLMStage("hypothesis_generation", max_retries=5,
+                                   backoff=[3, 5, 8, 12, 20], providers=["cerebras", "groq", "gemini"])
+
+    async def generate(self, graph, topic, domain, run_id, contradictions=None, latent_candidates=None):
+        # Build richer domain context from graph metadata if available
+        domain_context = self._extract_domain_context(graph, domain)
+        
+        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=1000)
+        prompt += f"\n\nDOMAIN CONTEXT: {domain}\n"
+        prompt += f"DOMAIN KNOWLEDGE BASE: {domain_context}\n"
+        prompt += "CRITICAL INSTRUCTIONS FOR HIGH-CONFIDENCE HYPOTHESES:\n"
+        prompt += "1. Confidence Calibration: Only assign confidence >= 0.7 when the hypothesis is DIRECTLY SUPPORTED by specific evidence from 3+ papers in the literature graph.\n"
+        prompt += "2. Required Structure: Each hypothesis must have: (a) a clear causal mechanism, (b) specific molecular/cellular/system-level steps, (c) explicit evidence citations with paper IDs, (d) a concrete testable prediction with specified method.\n"
+        prompt += "3. Confidence Scoring Rules: 0.9-1.0 = established mechanism with human/experimental validation; 0.8-0.89 = strong in silico/in vitro support with clear pathway; 0.7-0.79 = plausible mechanism with partial evidence, some gaps acknowledged. NEVER assign >= 0.7 without citing specific supporting papers.\n"
+        prompt += "4. Avoid: restating facts, generic statements (e.g., 'further research is needed'), hypotheses without mechanistic detail, or confidence scores not grounded in explicit evidence counts.\n"
+        prompt += "5. Contradiction Handling: If contradictions exist, explicitly address them in the rationale and adjust confidence downward accordingly.\n"
+        prompt += "6. Output Format: Return ONLY valid JSON with fields: title, mechanistic_rationale (with [PaperID] citations), confidence (number 0.0-1.0), testable_prediction, falsification_criteria, supporting_papers (list of IDs), confidence_justification (1-2 sentences explaining the score).\n"
+        prompt += "\nFEW-SHOT EXAMPLES:\n"
+        prompt += "LOW CONFIDENCE (0.35): {'title': 'X may regulate Y', 'mechanistic_rationale': 'Some studies suggest X is involved in Y [PMID:123, PMID:456], but the mechanism is unclear', Consciousness of gaps.', 'confidence': 0.35, 'supporting_papers': ['PMID:123', 'PMID:456']}\n"
+        prompt += "HIGH CONFIDENCE (0.85): {'title': 'X phosphorylates Y at S473 to activate Z pathway', 'mechanistic_rationale': 'X directly phosphorylates Y at S473 in vitro (Kd=15nM) [PMID:789], X-Y complex crystal structure shows catalytic cleft engagement [PMID:790], S473A mutation abolishes Z activation in HEK293 cells [PMID:791], and Z pathway output correlates with pY-S473 in 3 independent cohorts [PMID:792].', 'confidence': 0.85, 'supporting_papers': ['PMID:789', 'PMID:790', 'PMID:791', 'PMID:792']}\n"
+        prompt += "\nRULE: Count explicit supporting papers BEFORE assigning confidence. Confidence = evidence_density / (evidence_density + 1) * max_evidence_score, capped by weakest link."
+
+        # Use external LLM router if provided (preferred — has Cerebras primary)
+        if self._llm_call:
+            raw = self._llm_call(prompt, max_tokens=8192)
+            provider = "external"
+        else:
+            raw, provider = await self.llm_stage.call_with_retry(prompt, json_mode=True, max_tokens=16384)
+
+        if not raw:
+            return self._fallback_hypothesis(topic, domain, f"LLM unavailable ({provider})")
+
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            raw = raw.rsplit("```", 1)[0].strip()
+
+        hypotheses = self._parse(raw)
+        if not hypotheses:
+            return self._fallback_hypothesis(topic, domain, "Failed to parse LLM output")
+
+        enriched = []
+        for h in hypotheses:
+            # Compute confidence score for the hypothesis
+            confidence = self.scorer.score(h)
+            if confidence < 0.7:
+                # Skip hypotheses that do not meet the confidence threshold
+                continue
+            h["confidence"] = confidence
+
+            h["id"] = str(uuid.uuid4())
+            h["topic"] = topic
+            h["domain"] = domain
+            h["provider"] = provider
+            h["created_at"] = datetime.utcnow().isoformat()
+            h["status"] = "draft"
+
+            # Normalize field names — LLM returns title/mechanistic_rationale,
+            # pipeline expects name/description
+            if "name" not in h and "title" in h:
+                h["name"] = h["title"]
+            if "description" not in h and "mechanistic_rationale" in h:
+                h["description"] = h["mechanistic_rationale"]
+
+            # Apply scientific formatting cleanup
+            h = _clean_scientific_notation(h)
+
+            # Algorithmic confidence scoring
+            score_result = self.scorer.score(h, graph, contradictions)
+            h["confidence"] = score_result["confidence"]
+            h["confidence_components"] = score_result["components"]
+
+            # Dedup against memory
+            similar = self.memory.find_similar(h.get("title", ""))
+            if similar:
+                h["novelty"] = "low"
+                h["similar_existing"] = similar
+            # Cap default — LLM consistently overestimates novelty
+            self._cap_novelty(h)
+
+            # Final validation — skip if name is still empty after normalization
+            if not h.get("name", "").strip():
+                print(f"    [WARN] Skipping hypothesis with empty name after enrichment", flush=True)
+                continue
+
+            # Persist
+            self.memory.save_hypothesis(h, run_id)
+            enriched.append(h)
+
+        if not enriched:
+            return self._fallback_hypothesis(topic, domain, "All hypotheses were duplicates")
+
+                # Score each hypothesis and keep only those meeting the confidence threshold
+        filtered = []
+        for h in enriched:
+            conf = self.scorer.score(h.get("description", ""), h.get("name", ""))
+            h["confidence"] = conf
+            if conf >= 0.7:
+                filtered.append(h)
+        # If none pass the threshold, fall back to the highest‑scoring hypothesis
+        if not filtered:
+            top = max(enriched, key=lambda x: self.scorer.score(x.get("description", ""), x.get("name", "")), default=None)
+            if top:
+                top["confidence"] = self.scorer.score(top.get("description", ""), top.get("name", ""))
+                filtered = [top]
+        return filtered
+
+    def _cap_novelty(self, h):
+        """Track novelty assessment — no forced downrank.
+
+        Previously this forced high→medium. Removed: the LLM's novelty
+        assessment stands. We track the source for transparency.
+        """
+        n = h.get("novelty", "medium")
+        h["novelty_source"] = "llm_assessed"
+        if n == "high":
+            h["novelty_override"] = "accepted_high"
+        elif n == "medium":
+            h["novelty_override"] = "accepted_medium"
+
+    def _build_prompt(self, graph, topic, domain, contradictions, latent_candidates):
+        from discovery.domains import get_domain
+        domain_cfg = get_domain(domain) or get_domain("general")
+        entity_types = ", ".join(sorted(domain_cfg["entity_types"].keys()))
+        domain_label = domain_cfg["label"]
+
+        stats = graph.stats() if hasattr(graph, "stats") else {}
+        graph_summary = json.dumps({
+            "entities": {k: {"type": v["type"], "name": v["name"]} for k, v in
+                        (list(graph.entities.items())[:30]) if hasattr(graph, "entities")},
+            "relationships": graph.relationships[:30] if hasattr(graph, "relationships") else [],
+        }, indent=2, default=str)[:4000]
+
+        contradiction_text = ""
+        if contradictions:
+            capped_contra = contradictions[:5]
+            contradiction_text = "\n=== DETECTED CONTRADICTIONS ===\n" + json.dumps(capped_contra, indent=2, default=str)[:2000]
+
+        latent_text = ""
+        if latent_candidates:
+            # Cap at top 5 to save prompt space
+            capped = sorted(latent_candidates, key=lambda x: x.get("shared_papers", 0), reverse=True)[:5]
+            latent_text = "\n=== LATENT CANDIDATES ===\n" + json.dumps(capped, default=str)[:1000]
+
+        # Compress graph summary — only top 15 entities
+        graph_summary_compressed = graph_summary[:2000]
+
+        prompt = f"""You are a rigorous AI research scientist in {domain_label}.
+
+Topic: {topic}
+Domain: {domain_label}
+Entity types: {entity_types}
+
+=== KNOWLEDGE GRAPH (top entities) ===
+{graph_summary_compressed}
+{contradiction_text}
+{latent_text}
+
+=== HYPOTHESIS GENERATION RULES ===
+Generate 2-4 GENUINELY NOVEL hypotheses. For EACH hypothesis you MUST produce ALL 12 fields below.
+
+CRITICAL: DO NOT propose mechanisms already established in the literature. The papers above represent EXISTING knowledge. A hidden variable must be something NOT yet discovered or explained in the provided papers. If a mechanism is already well-known (e.g., UV photolysis, greenhouse effect, standard biosignatures), it is NOT a valid hidden variable.
+
+SCIENTIFIC HUMILITY RULES:
+- NEVER claim a hypothesis is "high" novelty unless you are certain it contradicts established literature
+- ALWAYS include contradictory evidence and alternative explanations
+- NEVER present speculative mechanisms as established fact
+- NEVER restate known science as a "hidden variable" — it must be genuinely unknown
+- BE CONSERVATIVE with confidence estimates
+- PREFER "medium" or "low" novelty over "high"
+- Every hypothesis MUST have a non-empty title and mechanistic_rationale
+
+MECHANISTIC REASONING REQUIREMENTS:
+You MUST reason about:
+- WHY each relationship exists (causal mechanism, not just correlation)
+- HOW environmental conditions modulate the mechanism
+- WHEN the mechanism breaks down or reverses
+- WHICH variables dominate the system behavior
+
+CROSS-PAPER SYNTHESIS:
+Combine evidence from MULTIPLE papers in the graph. Look for:
+- Entities that co-occur across papers but have no direct relationship edge
+- Chains: A→B in paper 1, B→C in paper 2 → hypothesize A→C
+- Contradictory findings that suggest unexplored boundary conditions
+- Environmental or contextual variables that might resolve contradictions
+
+TWO GENERATION STRATEGIES — USE BOTH:
+
+STRATEGY A: CONSTRUCT NEW EXPLANATORY VARIABLES (primary, 2-3 hypotheses)
+Build a NEW quantity that doesn't exist in any paper. Ask:
+- What MEASURABLE PARAMETER would distinguish between competing explanations?
+- What QUANTITY is currently unconstrained that, if measured, would resolve the anomaly?
+- What EFFECTIVE COEFFICIENT emerges from combining known physics in a new way?
+
+BAD (retrieving existing theory):
+"Dark photon mediated cooling" — this is a well-known speculative framework
+"Sterile neutrino decay" — this is already proposed in hundreds of papers
+
+GOOD (constructing new variable):
+"Gravitational-wave memory coupling field (GWMCF)" — a new parameter quantifying how GW memory interacts with the environment
+"Conformational expansion factor (CEF)" — a new measurable quantity describing protein structural changes
+
+STRATEGY B: CONNECT EXISTING THEORIES (secondary, 1-2 hypotheses)
+Take two SEPARATE observations or theories and ask: what HIDDEN VARIABLE connects them?
+- Paper A says X, Paper B says Y — what parameter Z determines when X vs Y applies?
+- Theory 1 predicts A, Theory 2 predicts B — what condition makes A and B BOTH true?
+
+BAD (combining popular ideas):
+"Dark matter + dark energy + dark photon coupling" — just combining popular speculative ideas
+
+GOOD (connecting specific observations):
+"The 3.5 keV line intensity varies by cluster — what parameter controls this variation?"
+"Both mechanism A and mechanism B are proposed — what measurement would distinguish them?"
+
+NOVELTY TEST — BEFORE PROPOSING EACH HYPOTHESIS, ASK YOURSELF:
+1. Would a domain expert say "we already know this"? If yes, it's NOT novel.
+2. Does this use a well-known speculative framework (dark photons, sterile neutrinos, dark energy, etc.) as the PRIMARY explanation? If yes, it's probably NOT novel — it's "exotic physics soup."
+3. Is this a NEW quantity/parameter that could be MEASURED? If yes, it's likely novel.
+4. Does this RESOLVE a specific contradiction between papers? If yes, it's likely novel.
+
+BAD (shallow):
+"X may be associated with Y in condition Z."
+
+GOOD (mechanistic):
+"X phosphorylates Y at residue S473 via PI3K-AKT pathway activation, but only under hypoxic conditions (<5% O2) where HIF-1alpha stabilizes the X-Y complex — this suggests an unexplored O2-dependent regulatory checkpoint."
+
+MATHEMATICAL FORMALISM REQUIREMENT:
+Every hypothesis MUST include at least ONE equation, formula, or quantitative relationship.
+BAD: "The coupling coefficient quantifies how efficiently..."
+GOOD: "mu_ec = sigma_s / (rho_B * v_A^2) where sigma_s ~ 10^15 dyn/cm^2"
+BAD: "The binding affinity is low"
+GOOD: "Kd = k_off / k_on ~ 10 nM where k_on ~ 10^6 M^-1 s^-1"
+
+Include:
+- At least one equation relating variables
+- Numerical values with units for key parameters
+- Order-of-magnitude estimates where exact values are unknown
+
+OPERATIONAL DEFINITION REQUIREMENT:
+Every new variable or quantity MUST have a clear operational definition — how would you MEASURE it?
+BAD: "CETMI is a modulation factor" — how do you measure it?
+GOOD: "CETMI = tau_coherence / tau_transfer, where tau_coherence is measurable via 2D electronic spectroscopy and tau_transfer via ultrafast fluorescence"
+BAD: "PMFCC is a coupling constant" — what instrument measures it?
+GOOD: "PMFCC = delta_E / delta_theta, where delta_E is the energy shift measured by STM and delta_theta is the angular displacement measured by nano-ARPES"
+
+A variable without a measurement method is a LABEL, not a SCIENTIFIC QUANTITY.
+Every new variable must specify:
+- What instrument or technique measures it
+- What units it has
+- What range of values is physically reasonable
+
+=== OUTPUT FIELDS (produce ALL 12) ===
+
+1. title: Short, specific testable claim
+2. mechanistic_rationale: Deep causal explanation (why, how, when, which conditions)
+3. supporting_evidence: List of specific evidence items from the graph papers
+4. contradictory_evidence: Evidence AGAINST the hypothesis (must always include at least 1)
+5. alternative_explanations: 2-3 alternative mechanistic explanations
+6. novelty: "low" | "medium" — never "high" (be conservative)
+7. confidence: 0.0-1.0 estimate (be conservative)
+8. environmental_constraints: Conditions under which the hypothesis holds vs breaks
+9. failure_conditions: Specific scenarios where the mechanism would fail
+10. experimental_validation: Detailed experimental design to test
+11. observational_requirements: Specific measurements, instruments, detection limits needed
+12. source_traceability: PMIDs or specific papers supporting each claim
+
+=== OUTPUT SCHEMA ===
+Output ONLY valid JSON as a list:
+[{{"title": "string", "mechanistic_rationale": "string", "pattern_type": "bridge_node|contradiction|low_cooccurrence|novel_mechanism|latent_link", "nodes": [{{"name": "string", "type": "{entity_types.replace(', ', '|')}", "definition": "string", "conditions": "string"}}], "edges": [{{"source": "string", "relation": "string", "target": "string", "definition": "string", "papers": ["PMID..."]}}], "supporting_evidence": ["string"], "contradictory_evidence": ["string"], "alternative_explanations": ["string"], "papers": ["PMIDs"], "environmental_constraints": "string", "failure_conditions": ["string"], "experimental_validation": "string", "observational_requirements": "string", "source_traceability": {{"claim": "string", "source": "PMID"}}[], "novelty": "low|medium", "confidence": 0.0}}]"""
+
+        return prompt
+
+    def _parse(self, text):
+        try:
+            from discovery.json_extract import extract_json
+            data = extract_json(text)
+            if data is None:
+                # Try raw JSON parse
+                data = json.loads(text)
+            # extract_json may wrap arrays in {"items": [...]} — unwrap
+            if isinstance(data, dict):
+                for key in ("hypotheses", "results", "items", "data"):
+                    if key in data and isinstance(data[key], list):
+                        data = data[key]
+                        break
+            if isinstance(data, list):
+                # Validate: reject empty/missing name/description
+                validated = []
+                for h in data:
+                    if isinstance(h, dict):
+                        title = h.get("title", h.get("name", "")).strip()
+                        desc = h.get("mechanistic_rationale", h.get("description", "")).strip()
+                        if title and desc:
+                            validated.append(h)
+                        else:
+                            print(f"    [WARN] Skipping hypothesis with empty title or description", flush=True)
+                return validated
+            if isinstance(data, dict):
+                lst = data.get("hypotheses", data.get("results", []))
+                if isinstance(lst, list):
+                    return [h for h in lst if isinstance(h, dict) and h.get("title", h.get("name", "")).strip()]
+                return [data] if data.get("title", data.get("name", "")).strip() else []
+        except (json.JSONDecodeError, Exception):
+            pass
+        return []
+
+    def _fallback_hypothesis(self, topic, domain, reason):
+        return [{
+            "id": str(uuid.uuid4()),
+            "title": f"Fallback analysis: {topic[:60]}",
+            "mechanistic_rationale": f"Hypothesis generation encountered an issue: {reason}. "
+                                     f"The graph still contains valid entities and relationships — "
+                                     f"consider exploring {topic} manually via the knowledge graph.",
+            "pattern_type": "fallback",
+            "confidence": 0.0,
+            "nodes": [],
+            "edges": [],
+            "supporting_evidence": [f"Error: {reason}"],
+            "contradictory_evidence": [],
+            "alternative_explanations": [],
+            "papers": [],
+            "environmental_constraints": "",
+            "failure_conditions": [],
+            "experimental_validation": "N/A — generation failed",
+            "observational_requirements": "",
+            "source_traceability": [],
+            "novelty": "low",
+            "topic": topic,
+            "domain": domain,
+            "provider": "fallback",
+            "status": "error",
+            "created_at": datetime.utcnow().isoformat(),
+        }]
+
+    async def reflect(self, hypothesis, graph=None):
+        """Scientific reflection — critique a hypothesis."""
+        prompt = f"""You are a skeptical AI scientist reviewing a hypothesis. Be adversarial — try to FALSIFY it.
+
+HYPOTHESIS:
+Title: {hypothesis.get('title')}
+Mechanistic Rationale: {hypothesis.get('mechanistic_rationale') or hypothesis.get('description')}
+Pattern type: {hypothesis.get('pattern_type')}
+Confidence: {hypothesis.get('confidence')}
+Novelty: {hypothesis.get('novelty')}
+
+Supporting Evidence: {json.dumps(hypothesis.get('supporting_evidence', []), indent=2)}
+Contradictory Evidence: {json.dumps(hypothesis.get('contradictory_evidence', []), indent=2)}
+Alternative Explanations: {json.dumps(hypothesis.get('alternative_explanations', []), indent=2)}
+Environmental Constraints: {hypothesis.get('environmental_constraints')}
+Failure Conditions: {json.dumps(hypothesis.get('failure_conditions', []), indent=2)}
+Experimental Validation: {hypothesis.get('experimental_validation') or hypothesis.get('testability')}
+Observational Requirements: {hypothesis.get('observational_requirements')}
+
+Critique for:
+1. Logical coherence — does the causal chain hold?
+2. Evidence strength — rate each claim strong/weak/absent
+3. Alternative mechanisms — what important alternatives are MISSING?
+4. Confounders — what unaccounted variables could invalidate the hypothesis?
+5. Testability — is the proposed experiment genuinely feasible?
+6. Novelty — is this genuinely underexplored or just rephrasing known concepts?
+7. Weaknesses — top 3 specific flaws
+
+Output JSON:
+{{"critique": "detailed adversarial critique", "weaknesses": ["flaw1", "flaw2", "flaw3"], "revised_confidence": 0.0-1.0, "alternative_explanations": ["alt1", "alt2"], "suggested_fixes": ["fix1", "fix2"], "evidence_rating": "strong|moderate|weak", "recommendation": "accept|revise|reject"}}"""
+
+        if self._llm_call:
+            raw = self._llm_call(prompt, max_tokens=4096)
+        else:
+            critique_stage = LLMStage("skeptic_review", max_retries=2, backoff=[3, 10],
+                                      providers=["cerebras", "groq", "gemini"])
+            raw, _ = await critique_stage.call_with_retry(prompt, json_mode=True)
+        if not raw:
+            return {"critique": "Reflection unavailable", "weaknesses": ["LLM error"], "revised_confidence": hypothesis.get("confidence", 0.0)}
+
+        try:
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                raw = raw.rsplit("```", 1)[0].strip()
+            result = extract_json(raw)
+            self.memory.update_critique(hypothesis["id"],
+                                         result.get("critique", ""),
+                                         json.dumps(result.get("weaknesses", [])))
+            return result
+        except json.JSONDecodeError:
+            return {"critique": "Failed to parse reflection", "weaknesses": [], "revised_confidence": hypothesis.get("confidence", 0.0)}
+
+    async def refine(self, hypothesis, critique, graph=None, domain="general"):
+        """Iterative refinement: take a hypothesis + critique, produce a revised hypothesis.
+
+        This is the core of real scientific method — falsification drives revision.
+        """
+        refine_stage = LLMStage("hypothesis_refinement", max_retries=2, backoff=[3, 10],
+                                 providers=["cerebras", "groq", "gemini"])
+
+        prompt = f"""You are a rigorous AI research scientist. A hypothesis was reviewed and critiqued.
+Your job is to produce a REVISED hypothesis that addresses the critique's weaknesses.
+
+ORIGINAL HYPOTHESIS:
+Title: {hypothesis.get('title')}
+Rationale: {hypothesis.get('mechanistic_rationale') or hypothesis.get('description', '')}
+Confidence: {hypothesis.get('confidence')}
+Pattern type: {hypothesis.get('pattern_type')}
+
+CRITIQUE:
+{json.dumps(critique, indent=2)}
+
+RULES FOR REVISION:
+1. Address EACH weakness identified in the critique
+2. If the critique says "reject", you must fundamentally rethink the hypothesis
+3. If the critique says "revise", fix the specific flaws while keeping the core idea
+4. Incorporate suggested fixes from the critique
+5. Add alternative explanations that address confounders
+6. Strengthen the experimental validation plan
+7. Update failure conditions based on weaknesses found
+
+Output ONLY valid JSON with the SAME structure as the original hypothesis:
+{{
+  "title": "revised concise hypothesis title",
+  "mechanistic_rationale": "detailed mechanistic explanation addressing critique weaknesses",
+  "pattern_type": "bridge_node|contradiction|low_cooccurrence|novel_mechanism",
+  "confidence": 0.0-1.0,
+  "supporting_evidence": ["evidence1", "evidence2"],
+  "contradictory_evidence": ["counter1"],
+  "alternative_explanations": ["alt1 addressing critique confounders"],
+  "failure_conditions": ["condition1"],
+  "experimental_validation": "how to test this hypothesis",
+  "novelty": "high|medium|low",
+  "refinement_notes": "what was changed and why based on critique"
+}}"""
+
+        if self._llm_call:
+            raw = self._llm_call(prompt, max_tokens=8192)
+        else:
+            raw, provider = await refine_stage.call_with_retry(prompt, json_mode=True, max_tokens=8192)
+        if not raw:
+            return hypothesis  # Return original if refinement fails
+
+        try:
+            raw = raw.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                raw = raw.rsplit("```", 1)[0].strip()
+            refined = extract_json(raw)
+
+            # Preserve metadata from original
+            refined["id"] = hypothesis.get("id", "")
+            refined["topic"] = hypothesis.get("topic", "")
+            refined["domain"] = domain
+            refined["provider"] = provider
+            refined["created_at"] = hypothesis.get("created_at", "")
+            refined["status"] = "refined"
+            refined["parent_id"] = hypothesis.get("id", "")
+            refined["refinement_count"] = hypothesis.get("refinement_count", 0) + 1
+
+            # Re-score confidence algorithmically
+            score_result = self.scorer.score(refined, graph, None)
+            refined["confidence"] = score_result["confidence"]
+            refined["confidence_components"] = score_result["components"]
+
+            # Clean formatting
+            refined = _clean_scientific_notation(refined)
+
+            # Persist the refined version
+            self.memory.save_hypothesis(refined, hypothesis.get("topic", ""))
+
+            return refined
+        except (json.JSONDecodeError, KeyError):
+            return hypothesis  # Return original on parse failure
+
+
+def _clean_scientific_notation(h):
+    """Clean Unicode/scientific formatting in all text fields of a hypothesis."""
+    import re
+    replacements = {
+        "??m": "μm",
+        "??": "'",
+        "??": "'",
+        "—": " — ",
+        "–": "-",
+        "−": "-",
+    }
+    def _clean(text):
+        if not isinstance(text, str):
+            return text
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        return text
+
+    def _walk(obj):
+        if isinstance(obj, dict):
+            return {k: _walk(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_walk(item) for item in obj]
+        if isinstance(obj, str):
+            return _clean(obj)
+        return obj
+
+    return _walk(h)

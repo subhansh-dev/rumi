@@ -746,11 +746,11 @@ def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
     now = time.time()
 
     if provider == "auto":
-        # Primary chain: NVIDIA (DeepSeek V4 Pro) → Kimi → GLM → Cerebras → Groq → Gemini
-        # Quality over speed — DeepSeek V4 Pro produces the best scientific reasoning
+        # Primary chain: NVIDIA (MiniMax M3) → Kimi (Nemotron Super) → GLM (DeepSeek Flash) → Cerebras → Groq → Gemini
+        # Quality over speed — MiniMax M3 produces the best scientific reasoning
         MAX_CHAIN_ATTEMPTS = 2
         for chain_attempt in range(MAX_CHAIN_ATTEMPTS):
-            # 1. NVIDIA DeepSeek V4 Pro (primary — best reasoning quality)
+            # 1. NVIDIA MiniMax M3 (primary — best reasoning quality)
             if _get_nvidia_config():
                 result = _call_nvidia(prompt, json_mode, max_tokens, temperature)
                 if result:
@@ -849,14 +849,14 @@ def call_json(prompt: str, max_tokens: int = 8192,
 
 def call_math(prompt: str, max_tokens: int = 8192,
               temperature: float = 0.3, json_mode: bool = False) -> str | None:
-    """Call with math-optimized routing: DeepSeek V4 Pro → Kimi → Cerebras → general chain.
+    """Call with math-optimized routing: MiniMax M3 → Nemotron Super → Cerebras → general chain.
 
     Use for: Math Chain (Phase 6.5), Math Engine (Phase 9), derivation tasks.
-    DeepSeek V4 Pro (NVIDIA) is strong at mathematical reasoning — primary for equations.
+    MiniMax M3 (NVIDIA) is strong at mathematical reasoning — primary for equations.
     """
     # Math-optimized chain: reasoning models first
     math_providers = [
-        ("nvidia", _get_nvidia_config, _call_nvidia),   # DeepSeek V4 Pro (strong reasoning)
+        ("nvidia", _get_nvidia_config, _call_nvidia),   # MiniMax M3 (strong reasoning)
         ("kimi", _get_kimi_config, _call_kimi),         # Kimi K2.6 (good math)
         ("cerebras", None, _call_cerebras),             # Cerebras (fast fallback)
     ]
