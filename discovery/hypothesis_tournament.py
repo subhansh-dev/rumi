@@ -17,8 +17,8 @@ class HypothesisTournament:
     def __init__(self, memory=None, llm_call=None):
         self.memory = memory or HypothesisMemory()
         self._llm_call = llm_call
-        self.evolve_stage = LLMStage("tournament_evolution", max_retries=2, providers=["cerebras", "groq", "gemini"])
-        self.crossover_stage = LLMStage("tournament_crossover", max_retries=2, providers=["cerebras", "groq", "gemini"])
+        self.evolve_stage = LLMStage("tournament_evolution", max_retries=2, providers=["cerebras", "groq"])
+        self.crossover_stage = LLMStage("tournament_crossover", max_retries=2, providers=["cerebras", "groq"])
         self.skeptic = SkepticAgent()
         self.novelty = NoveltyDetector(memory)
 

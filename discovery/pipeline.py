@@ -33,7 +33,7 @@ class LLMStage(Stage):
     def __init__(self, name, description="", depends_on=None, optional=False,
                  max_retries=3, backoff=None, critical=True, providers=None):
         super().__init__(name, description, depends_on, optional, max_retries, backoff, critical)
-        self.providers = providers or ["groq", "gemini"]
+        self.providers = providers or ["cerebras", "groq"]
 
     async def call_llm(self, prompt, json_mode=False, max_tokens=32768, provider="groq"):
         from discovery.llm_client import call as llm_call

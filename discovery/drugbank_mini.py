@@ -11,4 +11,10 @@ def search_drug_targets(drug_name):
         pass
     return None
 
+
+def search_drug(drug_name: str) -> dict | None:
+    """Search for drug info via PubChem proxy."""
+    return search_drug_targets(drug_name)
+
+
 def enrich_entities(graph): return 0

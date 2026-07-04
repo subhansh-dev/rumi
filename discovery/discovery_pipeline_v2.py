@@ -81,6 +81,9 @@ from discovery.literature_contradiction_scorer import LiteratureContradictionSco
 from discovery.resilient_llm import ResilientLLM
 from discovery.hypothesis_memory import HypothesisMemory
 from discovery.cross_validation import CrossValidator
+from discovery.theory_revision import TheoryRevisionEngine
+from brain.causal_reasoner import get_causal_reasoner, CausalEdge
+from brain.analogy_engine import get_analogy_engine, RelationalStructure
 
 
 # Domain detection (reused from run_full_pipeline.py)
@@ -161,13 +164,6 @@ Extract 10-25 entities and 10-30 relationships. Be specific, not generic."""
 
     try:
         result = call_json(prompt, max_tokens=4096)
-        # Fallback to Gemini if Groq fails
-        if not result:
-            print("    [DEBUG] Groq returned None, trying Gemini...")
-            try:
-                result = call_json(prompt, max_tokens=4096, provider="gemini")
-            except Exception as e:
-                print(f"    [DEBUG] Gemini failed: {e}")
         if result:
             print(f"    [DEBUG] Got result type={type(result)}, len={len(str(result))}")
         else:
@@ -1098,31 +1094,33 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
     # ══════════════════════════════════════════════════════════════
     print("\n[Phase 5/12] MISSING VARIABLES — Proposing hidden factors...", flush=True)
 
-    # Phase-specific LLM routing — spread work across ALL providers
-    # Each provider has internal fallback: Cerebras → Groq → Gemini
+    # Phase-specific LLM routing — smart routing like Luka
+    # Cerebras GPT-OSS-120B primary for most phases (fast, generous rate limits)
+    # Groq for extraction phases (3 keys, high throughput)
+    # NVIDIA reasoning model as fallback for deep reasoning phases only
     PHASE_PROVIDERS = {
-        # Groq (3 keys) — fast extraction, volume
+        # Groq — fast extraction, volume
         "literature": "groq",
         "knowledge_graph": "groq",
         "gap_detection": "groq",
         "anomaly_detection": "groq",
-        "prediction_engine": "groq",
-        "adversarial_test": "groq",
+        "theory_competition": "groq",
         "scoring": "groq",
-        # Auto-routing (Cerebras→Groq→Gemini) — creative/reasoning phases
-        # Lets the system pick the best available model for complex tasks
-        "missing_variables": "auto",
+        # Cerebras GPT-OSS-120B — primary for creative/adversarial phases
+        "missing_variables": "cerebras",
+        "adversarial_test": "cerebras",
+        "gap_discovery": "cerebras",
+        # Auto (Cerebras→Groq→NVIDIA) — deep reasoning phases use NVIDIA as fallback
         "mechanism_generation": "auto",
-        "theory_competition": "auto",
+        "prediction_engine": "auto",
         "critical_evaluation": "auto",
         "skeptic_review": "auto",
-        # Gemini — available as fallback in auto routing
     }
     _current_phase = {"name": "missing_variables"}  # mutable for closure
 
     # Direct LLM wrapper — multi-layer fallback using ALL providers
     # Layer 1: Phase-specific provider (with its own internal fallback chain)
-    # Layer 2: Auto (Cerebras→Groq→Gemini with cooldown-aware retry)
+    # Layer 2: Auto (Cerebras→Groq with cooldown-aware retry)
     # Layer 3: Wait for cooldown, retry auto one more time
     def _math_llm(prompt, max_tokens=4096, **kwargs):
         """LLM call optimized for math/derivation tasks.
@@ -1510,6 +1508,82 @@ Output JSON:
                             print(f"  [Math Check] {mech.get('name', '?')[:30]}: issues found", flush=True)
                 except Exception as e:
                     print(f"  [WARN] Math consistency check skipped: {e}")
+
+            # -- Causal Reasoning Enhancement --
+            if mechanisms:
+                try:
+                    cr = get_causal_reasoner()
+                    # Build causal graph from discovery observations
+                    for hv in (hidden_variables or []):
+                        name = hv.get("name", hv.get("variable", ""))
+                        if name:
+                            cr.graph.get_or_create_node(name)
+                    for gap in (gaps or []):
+                        desc = gap.get("description", gap.get("reason", ""))
+                        if desc:
+                            node = cr.graph.get_or_create_node(f"gap:{desc[:40]}")
+                            node.domain.add("gap")
+                    for anomaly in (anomalies or []):
+                        desc = anomaly.get("description", anomaly.get("name", ""))
+                        if desc:
+                            node = cr.graph.get_or_create_node(f"anomaly:{desc[:40]}")
+                            node.domain.add("anomaly")
+
+                    # Add proposed mechanism edges to causal graph and validate
+                    causal_enhanced = 0
+                    for mech in mechanisms[:5]:
+                        steps = mech.get("steps", mech.get("causal_chain", []))
+                        if not steps:
+                            continue
+                        # Trace causal chain through the graph
+                        chain_valid = True
+                        weak_links = []
+                        for i in range(len(steps) - 1):
+                            step_a = steps[i] if isinstance(steps[i], str) else str(steps[i])
+                            step_b = steps[i + 1] if isinstance(steps[i + 1], str) else str(steps[i + 1])
+                            # Check if path exists in causal graph
+                            cause_name = step_a[:60]
+                            effect_name = step_b[:60]
+                            cr.graph.get_or_create_node(cause_name)
+                            cr.graph.get_or_create_node(effect_name)
+                            path = cr.graph.find_path(cause_name, effect_name)
+                            if not path:
+                                # Add the proposed edge
+                                edge = CausalEdge(
+                                    cause=cause_name,
+                                    effect=effect_name,
+                                    strength=0.6,
+                                    mechanism=mech.get("name", "proposed_mechanism"),
+                                    confidence=0.4,
+                                )
+                                cr.graph.add_edge(edge)
+                            else:
+                                # Path exists — check strength
+                                edge = cr.graph.edges.get((cause_name, effect_name))
+                                if edge and edge.strength < 0.3:
+                                    weak_links.append(f"{cause_name}→{effect_name} (strength={edge.strength:.2f})")
+
+                        # Counterfactual test: what if the first step didn't happen?
+                        if len(steps) >= 2:
+                            first_step = steps[0] if isinstance(steps[0], str) else str(steps[0])
+                            observation = {s if isinstance(s, str) else str(s): 1.0 for s in steps[:3]}
+                            intervention = {first_step[:60]: 0.0}
+                            cf_result = cr.counterfactual(observation, intervention)
+                            cf_differences = cf_result.get("differences", {})
+                            # If counterfactual shows large changes, mechanism is sensitive
+                            sensitivity = sum(abs(v) for v in cf_differences.values())
+                            mech["causal_analysis"] = {
+                                "chain_length": len(steps),
+                                "weak_links": weak_links[:3],
+                                "counterfactual_sensitivity": round(sensitivity, 3),
+                                "robustness": "high" if sensitivity < 0.5 else "medium" if sensitivity < 1.5 else "low",
+                            }
+                            causal_enhanced += 1
+
+                    if causal_enhanced > 0:
+                        print(f"  [Causal Reasoner] Enhanced {causal_enhanced}/{len(mechanisms)} mechanisms with causal analysis", flush=True)
+                except Exception as e:
+                    print(f"  [WARN] Causal reasoning enhancement skipped: {e}")
 
             # Validate mechanisms — allow descriptions without explicit steps
             validated_mechanisms = []
@@ -2163,6 +2237,60 @@ Output JSON:
             report["errors"].append(f"Phase 8.6: {e}")
 
         # ══════════════════════════════════════════════════════════════
+        # PHASE 8.7: THEORY REVISION — Feed review feedback into improvements
+        # ══════════════════════════════════════════════════════════════
+        print("\n[Phase 8.7/12] THEORY REVISION — Revising based on review feedback...", flush=True)
+        _current_phase["name"] = "theory_revision"
+        try:
+            revision_engine = TheoryRevisionEngine(llm_call=_truncated_llm)
+            rev_result = revision_engine.revise_theories(
+                theories=theories,
+                winner=winner or {},
+                adversarial_results=report.get("phases", {}).get("adversarial_test", {}),
+                critical_eval=report.get("phases", {}).get("peer_review", {}),
+                mechanisms=mechanisms,
+                predictions=accepted_preds,
+                domain=domain,
+                topic=topic,
+                papers=papers,
+                revision_round=_li + 1,
+            )
+            rev_summary = rev_result.get("summary", {})
+            rev_count = rev_summary.get("revised", 0)
+            targeted_count = rev_summary.get("targeted", 0)
+            if rev_count > 0:
+                print(f"  [Theory Revision] {targeted_count} targeted -> {rev_count} revised", flush=True)
+                for rev in rev_result.get("revisions", []):
+                    orig_name = rev.get("original_name", "?")[:40]
+                    revised_name = rev.get("revised", {}).get("name", "?")[:40]
+                    delta = rev.get("delta_score", 0)
+                    delta_str = f"+{delta:.3f}" if delta >= 0 else f"{delta:.3f}"
+                    print(f"    {orig_name} -> {revised_name} (delta: {delta_str})", flush=True)
+            else:
+                print(f"  [Theory Revision] No revisions needed (all survived or no actionable feedback)", flush=True)
+
+            revised_theories = rev_result.get("revised_theories", [])
+            if revised_theories:
+                theories.extend(revised_theories)
+
+            if "theory_revision" not in report.get("phases", {}):
+                report["phases"]["theory_revision"] = {
+                    "revision_rounds": [],
+                    "all_revisions": [],
+                }
+            report["phases"]["theory_revision"]["revision_rounds"].append({
+                "loop": _li + 1,
+                "strategy": _lab,
+                "theories_targeted": targeted_count,
+                "theories_revised": rev_count,
+                "winner_was_revised": rev_result.get("winner_replaced", False),
+            })
+            report["phases"]["theory_revision"]["all_revisions"].extend(rev_result.get("revisions", []))
+
+        except Exception as e:
+            print(f"  [WARN] Theory revision failed: {e}", flush=True)
+
+        # ══════════════════════════════════════════════════════════════
 
         # Convergence + Regression Detection
         _cw = winner or (theories[0] if theories else {})
@@ -2203,6 +2331,101 @@ Output JSON:
             time.sleep(5)
 
     report["loop_history"] = _loop_history
+
+    # PHASE 8.8: CROSS-DOMAIN ANALOGY — Transfer insights from related fields
+    # ══════════════════════════════════════════════════════════════
+    if theories or mechanisms:
+        print("\n[Phase 8.8/12] CROSS-DOMAIN ANALOGY — Searching for structural matches...", flush=True)
+        try:
+            ae = get_analogy_engine()
+            # Build relational structure from current domain discoveries
+            source = RelationalStructure(domain)
+            for hv in (hidden_variables or [])[:10]:
+                name = hv.get("name", hv.get("variable", ""))
+                if name:
+                    attrs = set()
+                    if hv.get("type"):
+                        attrs.add(hv["type"])
+                    if hv.get("domain"):
+                        attrs.add(hv["domain"])
+                    source.add_object(name, attrs)
+            for mech in (mechanisms or [])[:5]:
+                steps = mech.get("steps", mech.get("causal_chain", []))
+                if len(steps) >= 2:
+                    for i in range(len(steps) - 1):
+                        s_a = steps[i] if isinstance(steps[i], str) else str(steps[i])
+                        s_b = steps[i + 1] if isinstance(steps[i + 1], str) else str(steps[i + 1])
+                        source.add_relation("causes", (s_a[:50], s_b[:50]), 0.7)
+            # Add paper-derived relations
+            for p in (papers or [])[:8]:
+                title = p.get("title", "")
+                if title:
+                    source.add_object(title[:50], {"paper"})
+                abstract = p.get("abstract", "")
+                if "correlat" in abstract.lower():
+                    source.add_relation("correlates_with", (title[:50], topic[:50]), 0.5)
+
+            if not source.is_empty():
+                # Build candidate target domains from related scientific fields
+                target_domains = []
+                related_fields = {
+                    "physics": ["quantum_mechanics", "thermodynamics", "statistical_mechanics"],
+                    "biology": ["evolution", "ecology", "biochemistry"],
+                    "chemistry": ["organic_chemistry", "physical_chemistry", "materials_science"],
+                    "neuroscience": ["cognitive_science", "psychology", "computer_science"],
+                    "climate_energy": ["earth_science", "atmospheric_physics", "oceanography"],
+                    "space_astronomy": ["astrophysics", "cosmology", "planetary_science"],
+                }
+                for related in related_fields.get(domain, ["general_science"]):
+                    target = RelationalStructure(related)
+                    # Add generic relational patterns for the related field
+                    target.add_object("mechanism", {"concept"})
+                    target.add_object("observation", {"concept"})
+                    target.add_relation("explains", ("mechanism", "observation"), 0.8)
+                    target.add_relation("predicts", ("mechanism", "observation"), 0.6)
+                    target_domains.append(target)
+
+                # Find analogies
+                mappings = ae.find_analogy(source, target_domains, top_k=3)
+                if mappings:
+                    analogies_found = []
+                    for m in mappings:
+                        score_data = ae.score_analogy(m)
+                        # Transfer inferences from source to target
+                        source_facts = [f"{r[0]} causes {r[1][0]}→{r[1][1]}"
+                                        for r in source.relations[:5]]
+                        inferences = ae.transfer_inference(m, source_facts)
+                        if inferences:
+                            analogies_found.append({
+                                "source_domain": m.source_name,
+                                "target_domain": m.target_name,
+                                "score": score_data["total_score"],
+                                "inferences": [inf["target_inference"] for inf in inferences[:3]],
+                            })
+                            # Enrich winner with cross-domain insight
+                            if winner and analogies_found:
+                                insights = winner.get("cross_domain_insights", [])
+                                insights.append({
+                                    "analogy": f"{m.source_name} ↔ {m.target_name}",
+                                    "score": score_data["total_score"],
+                                    "key_transfer": inferences[0]["target_inference"] if inferences else "",
+                                })
+                                winner["cross_domain_insights"] = insights[-5:]
+
+                    report["phases"]["cross_domain_analogy"] = {
+                        "source_domain": domain,
+                        "analogies_found": len(analogies_found),
+                        "analogies": analogies_found,
+                    }
+                    print(f"  [Analogy] Found {len(analogies_found)} cross-domain matches", flush=True)
+                    for a in analogies_found[:2]:
+                        print(f"    {a['source_domain']} ↔ {a['target_domain']} (score: {a['score']:.3f})", flush=True)
+                else:
+                    print("  [Analogy] No significant cross-domain matches found", flush=True)
+            else:
+                print("  [Analogy] Insufficient structure for analogy search", flush=True)
+        except Exception as e:
+            print(f"  [WARN] Cross-domain analogy skipped: {e}", flush=True)
 
     # PHASE 9: COMPUTATIONAL VERIFICATION
     # ══════════════════════════════════════════════════════════════
@@ -2320,8 +2543,8 @@ Output JSON:
     # ══════════════════════════════════════════════════════════════
     # PHASE 9.5: EXPERIMENTAL VALIDATION PLANNING
     # ══════════════════════════════════════════════════════════════
-    print("\n[Phase 9.5/12] EXPERIMENTAL VALIDATION — Designing experiments...", flush=True)
-    _current_phase["name"] = "critical_evaluation"  # use gemini for experiment design
+        print("\n[Phase 9.5/12] EXPERIMENTAL VALIDATION — Designing experiments...", flush=True)
+    _current_phase["name"] = "critical_evaluation"
     try:
         from discovery.experiment_planner import ExperimentPlanner
         planner = ExperimentPlanner(llm_call=_truncated_llm)
@@ -2365,7 +2588,7 @@ Output JSON:
     # ══════════════════════════════════════════════════════════════
     # PHASE 9.7: DATA ANALYSIS — Fetch & analyze real datasets
     # ══════════════════════════════════════════════════════════════
-    print("\n[Phase 9.7/12] DATA ANALYSIS — Fetching public datasets...", flush=True)
+        print("\n[Phase 9.7/12] DATA ANALYSIS — Fetching public datasets...", flush=True)
     try:
         from discovery.data_analysis import DataAnalyzer
         analyzer = DataAnalyzer()
@@ -2663,6 +2886,37 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
     except Exception as e:
         print(f"  [ERROR] Skeptic review failed: {e}")
         skeptic_result = {"recommendation": "unknown", "weaknesses": ["Review failed"]}
+
+    # ══════════════════════════════════════════════════════════════
+    # PHASE 11.5: POST-SKEPTIC REVISION — Final polish on winner
+    # ══════════════════════════════════════════════════════════════
+    print("\n[Phase 11.5/12] POST-SKEPTIC REVISION — Final refinement...", flush=True)
+    try:
+        revision_engine = TheoryRevisionEngine(llm_call=_truncated_llm)
+        post_skeptic = revision_engine.post_skeptic_revision(
+            winner=winner or (theories[0] if theories else {}),
+            skeptic_result=skeptic_result,
+            domain=domain,
+            topic=topic,
+        )
+        if post_skeptic.get("winner_updated"):
+            revised_theory = post_skeptic["revised_theory"]
+            print(f"  [Skeptic Revision] Winner refined: {revised_theory.get('name', '?')[:50]}", flush=True)
+            if winner:
+                if "theory_revision" not in report.get("phases", {}):
+                    report["phases"]["theory_revision"] = {"revision_rounds": [], "all_revisions": []}
+                report["phases"]["theory_revision"]["all_revisions"].append(post_skeptic["revision"])
+                winner = revised_theory
+                for i, t in enumerate(theories):
+                    if t.get("name") == winner.get("_revision_source"):
+                        theories[i] = revised_theory
+                        break
+            else:
+                winner = revised_theory
+        else:
+            print(f"  [Skeptic Revision] No revision needed", flush=True)
+    except Exception as e:
+        print(f"  [WARN] Post-skeptic revision failed: {e}", flush=True)
 
     # ══════════════════════════════════════════════════════════════
     # PHASE 11.6: CROSS-VALIDATION — Test theory against held-out papers
@@ -3558,6 +3812,44 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
                 L.append(f"    ✗ {tname} (score: {score:.2f}) — {str(reason)[:80]}")
             if len(eliminated) > 5:
                 L.append(f"    ... and {len(eliminated) - 5} more")
+        L.append("")
+
+    # ── Theory Revisions ──
+    rev_data = phases.get("theory_revision", {})
+    all_revisions = rev_data.get("all_revisions", [])
+    if all_revisions:
+        L.append("─" * 70)
+        L.append(f"  THEORY REVISIONS ({len(all_revisions)} revisions across loops)")
+        L.append("─" * 70)
+        for round_info in rev_data.get("revision_rounds", []):
+            loop_num = round_info.get("loop", "?")
+            strategy = round_info.get("strategy", "?")
+            targeted = round_info.get("theories_targeted", 0)
+            revised = round_info.get("theories_revised", 0)
+            L.append(f"\n  Loop {loop_num} ({strategy}): {targeted} targeted -> {revised} revised")
+        for rev in all_revisions:
+            orig_name = rev.get("original_name", "?")[:45]
+            revised_name = rev.get("revised", {}).get("name", "?")[:45]
+            orig_score = rev.get("original_score", 0)
+            delta = rev.get("delta_score", 0)
+            delta_pending = rev.get("delta_pending", False)
+            if delta_pending:
+                delta_str = "pending"
+                score_str = f"{orig_score:.3f} -> ? (pending)"
+            else:
+                delta_str = f"+{delta:.3f}" if delta >= 0 else f"{delta:.3f}"
+                score_str = f"{orig_score:.3f} -> {orig_score + delta:.3f} ({delta_str})"
+            improvements = rev.get("improvements_made", [])
+            unresolved = rev.get("unresolved_issues", [])
+            L.append(f"\n  {orig_name}")
+            L.append(f"    -> {revised_name}")
+            L.append(f"    Score: {score_str}")
+            if improvements:
+                for imp in improvements[:2]:
+                    L.append(f"      + {imp[:70]}")
+            if unresolved:
+                for iss in unresolved[:1]:
+                    L.append(f"      - {iss[:70]}")
         L.append("")
 
     # ── Curious Questioning Results (if available) ──

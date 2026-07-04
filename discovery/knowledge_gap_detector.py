@@ -441,7 +441,7 @@ Example:
             if not raw:
                 try:
                     from discovery.llm_client import call_json
-                    raw = call_json(prompt, max_tokens=4096, provider="gemini")
+                    raw = call_json(prompt, max_tokens=4096)
                 except Exception:
                     pass
             if raw:

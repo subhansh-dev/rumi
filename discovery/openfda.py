@@ -57,3 +57,17 @@ def _join_field(field: list) -> str:
     if not field:
         return ""
     return " ".join(field)[:500]
+
+
+def search_drug(drug_name: str) -> dict | None:
+    """Search for drug info combining side effects and labeling."""
+    labeling = get_labeling(drug_name)
+    side_effects = get_side_effects(drug_name, limit=10)
+    if not labeling and not side_effects:
+        return None
+    result = {"name": drug_name}
+    if labeling:
+        result.update(labeling)
+    if side_effects:
+        result["side_effects"] = [s["reaction"] for s in side_effects[:5]]
+    return result

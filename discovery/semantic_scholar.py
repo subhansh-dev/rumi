@@ -12,6 +12,7 @@ import urllib.parse
 S2_BASE = "https://api.semanticscholar.org/graph/v1"
 _LAST_CALL = 0.0
 _HIT_429_THIS_RUN = False
+_429_COOLDOWN_UNTIL = 0.0  # timestamp when we can retry after 429 exhaustion
 
 
 def _rate_limit():
@@ -23,7 +24,12 @@ def _rate_limit():
 
 
 def _fetch(url: str) -> dict | None:
-    global _HIT_429_THIS_RUN
+    global _HIT_429_THIS_RUN, _429_COOLDOWN_UNTIL
+    now = time.time()
+    # Reset kill switch after 5 minute cooldown
+    if _HIT_429_THIS_RUN and now >= _429_COOLDOWN_UNTIL:
+        _HIT_429_THIS_RUN = False
+        print("  [S2] Cooldown expired, retrying S2 API...", flush=True)
     if _HIT_429_THIS_RUN:
         return None
     _rate_limit()
@@ -35,7 +41,7 @@ def _fetch(url: str) -> dict | None:
             if e.code == 429:
                 if attempt == 0:
                     print(f"  [S2] 429 rate limited, will retry...", flush=True)
-                wait = 10 * (attempt + 1)
+                wait = 10 * (2 ** attempt)  # exponential: 10s, 20s, 40s
                 time.sleep(wait)
                 continue
             return None
@@ -45,7 +51,8 @@ def _fetch(url: str) -> dict | None:
                 continue
             return None
     _HIT_429_THIS_RUN = True
-    print("  [S2] 429 exhausted — skipping remaining calls this run", flush=True)
+    _429_COOLDOWN_UNTIL = time.time() + 300  # 5 minute cooldown
+    print("  [S2] 429 exhausted — pausing for 5 minutes", flush=True)
     return None
 
 

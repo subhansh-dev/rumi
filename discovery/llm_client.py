@@ -1,7 +1,7 @@
 """
 discovery/llm_client.py — Unified LLM Client for RUMI
 
-Cerebras→Groq→Gemini auto-fallback with key rotation.
+Cerebras→Groq auto-fallback with key rotation.
 Drop-in replacement for all LLM calls.
 
 Usage:
@@ -20,22 +20,16 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "api_keys.json
 
 # ── Defaults ──
 GROQ_MODEL = "llama-3.3-70b-versatile"
-GEMINI_MODEL = "gemini-2.5-flash"
-GEMINI_THINKING_MODEL = "gemini-2.5-flash"  # for complex reasoning
+
 
 # ── Rate limiting with backoff ──
 _last_groq_call = 0.0
-_last_gemini_call = 0.0
 _last_cerebras_call = 0.0
 _groq_backoff_until = 0.0
-_gemini_backoff_until = 0.0
 _cerebras_backoff_until = 0.0
 
 # ── Groq limits (free tier: 30 req/min) ──
 GROQ_MIN_INTERVAL = 2.0  # 2s between calls to stay under limits
-
-# ── Gemini limits (free tier: 15 req/min) ──
-GEMINI_MIN_INTERVAL = 4.0  # 4s between calls for free tier
 
 # ── Cerebras limits (free tier) ──
 CEREBRAS_MIN_INTERVAL = 2.0
@@ -52,17 +46,6 @@ def _get_groq_keys() -> list[str]:
     cfg = _load_config()
     keys = []
     for k in ["groq_api_key", "groq_api_key2", "groq_api_key3"]:
-        v = cfg.get(k, "")
-        if v:
-            keys.append(v)
-    return keys
-
-
-def _get_gemini_keys() -> list[str]:
-    cfg = _load_config()
-    keys = []
-    for k in ["gemini_api_key", "gemini_api_key_fallback", "gemini_api_key3",
-              "gemini_api_key4"]:
         v = cfg.get(k, "")
         if v:
             keys.append(v)
@@ -155,73 +138,6 @@ def _call_groq(prompt: str, json_mode: bool = False,
                 return None
 
     _groq_key_idx = (_groq_key_idx + 1) % max(1, len(keys))
-    return None
-
-
-# ── Gemini ────────────────────────────────────────────────────────────
-
-_gemini_key_idx = 0
-
-
-def _rate_limit_gemini(max_tokens: int = 4096):
-    global _last_gemini_call
-    now = time.time()
-    elapsed = now - _last_gemini_call
-    if elapsed < GEMINI_MIN_INTERVAL:
-        time.sleep(GEMINI_MIN_INTERVAL - elapsed)
-    _last_gemini_call = time.time()
-
-
-def _call_gemini(prompt: str, json_mode: bool = False,
-                 max_tokens: int = 4096, temperature: float = 0.3,
-                 model: str = GEMINI_MODEL) -> str | None:
-    """Call Gemini API. Rotates keys on 429."""
-    global _gemini_key_idx
-    keys = _get_gemini_keys()
-    if not keys:
-        return None
-
-    try:
-        from google import genai
-        from google.genai import types
-    except ImportError:
-        return None
-
-    # Try each key on 429 before giving up
-    for key_attempt in range(len(keys)):
-        key = keys[(_gemini_key_idx + key_attempt) % len(keys)]
-
-        for attempt in range(2):
-            _rate_limit_gemini(max_tokens)
-            try:
-                client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=SLOW_TIMEOUT * 1000))
-                kwargs = dict(
-                    temperature=temperature,
-                    max_output_tokens=min(max_tokens, 65536),
-                )
-                if json_mode:
-                    kwargs["response_mime_type"] = "application/json"
-                resp = client.models.generate_content(
-                    model=model, contents=prompt,
-                    config=types.GenerateContentConfig(**kwargs),
-                )
-                text = resp.text
-                if text and len(text) > 2:
-                    _gemini_key_idx = (_gemini_key_idx + key_attempt) % len(keys)
-                    return text.strip()
-            except Exception as e:
-                err = str(e)
-                if "429" in err or "rate" in err.lower() or "quota" in err.lower():
-                    # This key exhausted — wait then try next key
-                    time.sleep(5)
-                    break
-                elif "401" in err or "403" in err or "invalid" in err.lower():
-                    break  # bad key, try next
-                else:
-                    print(f"    [LLM] Gemini error: {err[:100]}", flush=True)
-                return None
-
-    _gemini_key_idx = (_gemini_key_idx + 1) % max(1, len(keys))
     return None
 
 
@@ -734,59 +650,43 @@ def _call_xiaomi(prompt: str, json_mode: bool = False,
 # Provider cooldown — skip providers that recently failed
 _cerebras_cooldown_until = 0.0
 _groq_cooldown_until = 0.0
-_gemini_cooldown_until = 0.0
+
 COOLDOWN_SECONDS = 15  # skip a provider for 15s after it fails (shorter = more resilient)
 NVIDIA_TIMEOUT = 30    # NVIDIA API responds in 5-15s normally; 30s is generous
 SLOW_TIMEOUT = 45      # For genuinely slow providers (Fireworks, Xiaomi)
 
 def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
          temperature: float = 0.3, provider: str = "auto") -> str | None:
-    """Call with auto-routing. Cerebras (fastest) → Groq → Gemini fallback."""
-    global _cerebras_cooldown_until, _groq_cooldown_until, _gemini_cooldown_until
+    """Call with auto-routing. Cerebras (fastest) → Groq fallback."""
+    global _cerebras_cooldown_until, _groq_cooldown_until
     now = time.time()
 
     if provider == "auto":
-        # Primary chain: NVIDIA (MiniMax M3) → Kimi (Nemotron Super) → GLM (DeepSeek Flash) → Cerebras → Groq → Gemini
-        # Quality over speed — MiniMax M3 produces the best scientific reasoning
+        # Primary chain: Cerebras (fastest, GPT-OSS-120B) → Groq → NVIDIA fallback
         MAX_CHAIN_ATTEMPTS = 2
         for chain_attempt in range(MAX_CHAIN_ATTEMPTS):
-            # 1. NVIDIA MiniMax M3 (primary — best reasoning quality)
-            if _get_nvidia_config():
-                result = _call_nvidia(prompt, json_mode, max_tokens, temperature)
-                if result:
-                    return result
-            # 2. Kimi K2.6 (via NVIDIA NIM — strong reasoning)
-            if _get_kimi_config():
-                result = _call_kimi(prompt, json_mode, max_tokens, temperature)
-                if result:
-                    return result
-            # 3. GLM slot (Kimi K2.6 on 2nd NVIDIA NIM key)
-            if _get_glm_config():
-                result = _call_glm(prompt, json_mode, max_tokens, temperature)
-                if result:
-                    return result
-            # 4. Cerebras (6 keys, fast fallback)
+            # 1. Cerebras GPT-OSS-120B (primary — fast, generous rate limits)
             now = time.time()
             if now >= _cerebras_cooldown_until:
                 result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
                 if result:
                     return result
                 _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
-            # 5. Groq (3 keys, fast fallback)
+            # 2. Groq (3 keys, fast fallback)
+            now = time.time()
             if now >= _groq_cooldown_until:
                 result = _call_groq(prompt, json_mode, max_tokens, temperature)
                 if result:
                     return result
                 _groq_cooldown_until = time.time() + COOLDOWN_SECONDS
-            # 6. Gemini (last resort)
-            if now >= _gemini_cooldown_until:
-                result = _call_gemini(prompt, json_mode, max_tokens, temperature)
+            # 3. NVIDIA MiniMax M3 (slow fallback — only if others fail)
+            if _get_nvidia_config():
+                result = _call_nvidia(prompt, json_mode, max_tokens, temperature)
                 if result:
                     return result
-                _gemini_cooldown_until = time.time() + COOLDOWN_SECONDS
             # All failed — wait for cooldown then retry chain
             if chain_attempt < MAX_CHAIN_ATTEMPTS - 1:
-                soonest = min(_cerebras_cooldown_until, _groq_cooldown_until, _gemini_cooldown_until)
+                soonest = min(_cerebras_cooldown_until, _groq_cooldown_until)
                 wait = max(0, soonest - time.time())
                 if wait > 0 and wait < 60:
                     print(f"    [LLM] All providers failed, retrying chain in {wait:.0f}s (attempt {chain_attempt + 1}/{MAX_CHAIN_ATTEMPTS})...", flush=True)
@@ -797,36 +697,25 @@ def call(prompt: str, json_mode: bool = False, max_tokens: int = 4096,
         if result:
             return result
         _cerebras_cooldown_until = time.time() + COOLDOWN_SECONDS
-        # Cerebras failed — try Groq then Gemini
+        # Cerebras failed — try Groq
         if now >= _groq_cooldown_until:
             result = _call_groq(prompt, json_mode, max_tokens, temperature)
             if result:
                 return result
-        if now >= _gemini_cooldown_until:
-            return _call_gemini(prompt, json_mode, max_tokens, temperature)
         return None
     if provider == "groq":
         result = _call_groq(prompt, json_mode, max_tokens, temperature)
         if result:
             return result
         _groq_cooldown_until = time.time() + COOLDOWN_SECONDS
-        # Groq failed — try Cerebras then Gemini
+        # Groq failed — try Cerebras
         if now < _cerebras_cooldown_until:
             pass  # skip cerebras
         else:
             result = _call_cerebras(prompt, json_mode, max_tokens, temperature)
             if result:
                 return result
-        if now < _gemini_cooldown_until:
-            pass  # skip gemini
-        else:
-            return _call_gemini(prompt, json_mode, max_tokens, temperature)
         return None
-    if provider == "gemini":
-        result = _call_gemini(prompt, json_mode, max_tokens, temperature)
-        if not result:
-            _gemini_cooldown_until = time.time() + COOLDOWN_SECONDS
-        return result
     if provider == "nvidia":
         return _call_nvidia(prompt, json_mode, max_tokens, temperature)
     if provider == "kimi":
@@ -874,12 +763,7 @@ def call_math(prompt: str, max_tokens: int = 8192,
 def call_thinking(prompt: str, max_tokens: int = 32768,
                   temperature: float = 0.7, provider: str = "auto") -> str | None:
     """Call with higher token limit for complex reasoning tasks."""
-    # For thinking tasks, prefer Gemini's larger context if available
     if provider == "auto":
-        result = _call_gemini(prompt, False, max_tokens, temperature,
-                              model=GEMINI_THINKING_MODEL)
-        if result:
-            return result
         result = _call_cerebras(prompt, False, min(max_tokens, 8192), temperature)
         if result:
             return result
@@ -891,8 +775,6 @@ def is_available(provider: str = "auto") -> bool:
     """Check if any LLM provider is configured."""
     if provider == "groq":
         return bool(_get_groq_keys())
-    if provider == "gemini":
-        return bool(_get_gemini_keys())
     if provider == "cerebras":
         return bool(_get_cerebras_keys())
     if provider == "nvidia":
@@ -905,20 +787,19 @@ def is_available(provider: str = "auto") -> bool:
         return bool(_get_fireworks_config())
     if provider == "xiaomi":
         return bool(_get_xiaomi_config())
-    return bool(_get_nvidia_config()) or bool(_get_kimi_config()) or bool(_get_glm_config()) or bool(_get_fireworks_config()) or bool(_get_xiaomi_config()) or bool(_get_cerebras_keys()) or bool(_get_groq_keys()) or bool(_get_gemini_keys())
+    return bool(_get_nvidia_config()) or bool(_get_kimi_config()) or bool(_get_glm_config()) or bool(_get_fireworks_config()) or bool(_get_xiaomi_config()) or bool(_get_cerebras_keys()) or bool(_get_groq_keys())
 
 
 def get_status() -> dict:
     """Return provider availability status."""
     groq_keys = _get_groq_keys()
-    gemini_keys = _get_gemini_keys()
     cerebras_keys = _get_cerebras_keys()
     nvidia_config = _get_nvidia_config()
     kimi_config = _get_kimi_config()
     glm_config = _get_glm_config()
     fireworks_config = _get_fireworks_config()
     xiaomi_config = _get_xiaomi_config()
-    primary = "nvidia" if nvidia_config else "kimi" if kimi_config else "glm" if glm_config else "fireworks" if fireworks_config else "xiaomi" if xiaomi_config else "cerebras" if cerebras_keys else "groq" if groq_keys else "gemini" if gemini_keys else "none"
+    primary = "cerebras" if cerebras_keys else "groq" if groq_keys else "nvidia" if nvidia_config else "kimi" if kimi_config else "glm" if glm_config else "fireworks" if fireworks_config else "xiaomi" if xiaomi_config else "none"
     return {
         "nvidia": {"available": bool(nvidia_config), "model": nvidia_config.get("model", "N/A")} if nvidia_config else {"available": False},
         "kimi": {"available": bool(kimi_config), "model": kimi_config.get("model", "N/A")} if kimi_config else {"available": False},
@@ -929,7 +810,5 @@ def get_status() -> dict:
                      "model": CEREBRAS_MODEL},
         "groq": {"available": bool(groq_keys), "keys": len(groq_keys),
                  "model": GROQ_MODEL},
-        "gemini": {"available": bool(gemini_keys), "keys": len(gemini_keys),
-                   "model": GEMINI_MODEL},
         "primary": primary,
     }

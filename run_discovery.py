@@ -34,6 +34,18 @@ if sys.platform == "win32":
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# ANSI colors for terminal output
+R = "\033[0m"
+B = "\033[1m"
+D = "\033[2m"
+CYAN = "\033[38;2;0;204;204m"
+GREEN = "\033[38;2;78;186;101m"
+AMBER = "\033[38;2;255;193;7m"
+RED = "\033[38;2;255;107;128m"
+PURPLE = "\033[38;2;177;185;249m"
+DIM = "\033[38;2;153;153;153m"
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="RUMI Full Discovery Runner")
@@ -114,10 +126,11 @@ def main():
     if not topic:
         parser.error("Please provide a topic or --cause observation")
 
-    print(f"{'='*70}")
-    print(f"RUMI DISCOVERY — {topic}")
-    print(f"Domain: {domain or 'auto-detect'} | Mode: {mode}")
-    print(f"{'='*70}\n")
+    print(f"\n{B}{CYAN}{'='*70}{R}")
+    print(f"{B}{CYAN}  RUMI DISCOVERY{R} {DIM}— {topic[:50]}{R}")
+    print(f"{B}{CYAN}{'='*70}{R}")
+    print(f"  {DIM}Domain:{R} {domain or 'auto-detect'}  {DIM}Mode:{R} {mode}")
+    print(f"{B}{CYAN}{'='*70}{R}\n")
 
     report = {}
     total_start = time.time()
@@ -321,55 +334,59 @@ def main():
 
     # ── Save Report ──
     total_time = time.time() - total_start
-    print(f"\n{'='*70}")
-    print(f"TOTAL TIME: {total_time:.0f}s")
-    print(f"{'='*70}")
+    print(f"\n{B}{CYAN}{'='*70}{R}")
+    print(f"{B}{CYAN}  TOTAL TIME: {total_time:.0f}s{R}")
+    print(f"{B}{CYAN}{'='*70}{R}")
 
     report_path = _save_report(report, topic)
     
     # Print summary
     phases = report.get("phases", {})
-    print(f"\n{'='*70}")
-    print("RESULTS SUMMARY")
-    print(f"{'='*70}")
-    print(f"  Topic: {topic}")
-    print(f"  Domain: {report.get('domain', 'unknown')}")
-    print(f"  Papers: {phases.get('literature', {}).get('papers_found', 0)}")
-    print(f"  Entities: {phases.get('knowledge_graph', {}).get('entities', 0)}")
-    print(f"  Relationships: {phases.get('knowledge_graph', {}).get('relationships', 0)}")
-    print(f"  Gaps: {phases.get('gap_detection', {}).get('total_gaps', 0)}")
-    print(f"  Anomalies: {phases.get('anomaly_detection', {}).get('total_anomalies', 0)}")
-    print(f"  Hidden Variables: {phases.get('missing_variables', {}).get('proposed', 0)}")
-    print(f"  Mechanisms: {phases.get('mechanism_generation', {}).get('mechanisms_generated', 0)}")
-    print(f"  Predictions: {phases.get('prediction_engine', {}).get('total_predictions', 0)}")
-    print(f"  Theories: {phases.get('theory_competition', {}).get('theories_compared', 0)}")
+    print(f"\n{B}{CYAN}{'='*70}{R}")
+    print(f"{B}{CYAN}  RESULTS SUMMARY{R}")
+    print(f"{B}{CYAN}{'='*70}{R}")
+    print(f"  {DIM}Topic:{R} {B}{topic}{R}")
+    print(f"  {DIM}Domain:{R} {report.get('domain', 'unknown')}")
+    print()
+    print(f"  {CYAN}Papers:{R}      {phases.get('literature', {}).get('papers_found', 0)}")
+    print(f"  {CYAN}Entities:{R}    {phases.get('knowledge_graph', {}).get('entities', 0)}")
+    print(f"  {CYAN}Relationships:{R} {phases.get('knowledge_graph', {}).get('relationships', 0)}")
+    print(f"  {CYAN}Gaps:{R}        {phases.get('gap_detection', {}).get('total_gaps', 0)}")
+    print(f"  {CYAN}Anomalies:{R}   {phases.get('anomaly_detection', {}).get('total_anomalies', 0)}")
+    print(f"  {CYAN}Hidden Vars:{R} {phases.get('missing_variables', {}).get('proposed', 0)}")
+    print(f"  {CYAN}Mechanisms:{R}  {phases.get('mechanism_generation', {}).get('mechanisms_generated', 0)}")
+    print(f"  {CYAN}Predictions:{R} {phases.get('prediction_engine', {}).get('total_predictions', 0)}")
+    print(f"  {CYAN}Theories:{R}    {phases.get('theory_competition', {}).get('theories_compared', 0)}")
     # New phases
     citation_hop1 = phases.get('citation_network', {}).get('citation_hop1', 0)
     citation_hop2 = phases.get('citation_network', {}).get('citation_hop2', 0)
     if citation_hop1 or citation_hop2:
-        print(f"  Citation Walk: +{citation_hop1} hop1, +{citation_hop2} hop2 papers")
+        print(f"  {CYAN}Citation Walk:{R} +{citation_hop1} hop1, +{citation_hop2} hop2 papers")
     exp_plans = phases.get('experimental_validation', {}).get('plans_generated', 0)
     if exp_plans:
-        print(f"  Experiment Plans: {exp_plans}")
+        print(f"  {CYAN}Experiment Plans:{R} {exp_plans}")
     data_results = phases.get('data_analysis', {}).get('datasets_fetched', 0)
     if data_results:
-        print(f"  Datasets Analyzed: {data_results}")
+        print(f"  {CYAN}Datasets:{R}    {data_results}")
     hyp_saved = report.get('hypothesis_memory', {}).get('saved', 0)
     if hyp_saved:
-        print(f"  Hypotheses Saved: {hyp_saved} to memory")
+        print(f"  {CYAN}Hypotheses:{R}  {hyp_saved} saved to memory")
+    print()
     score = phases.get('discovery_scoring', {}).get('discovery_score', 0)
     grade = phases.get('discovery_scoring', {}).get('grade', 'F')
+    score_color = GREEN if score >= 70 else AMBER if score >= 40 else RED
     domain_score = phases.get('discovery_scoring', {}).get('domain_weighted_score', 0)
     if domain_score:
-        print(f"  Score: {score:.0f}/100 (domain-weighted: {domain_score:.0f}/100) ({grade})")
+        print(f"  {B}Score:{R} {score_color}{score:.0f}/100{R} (domain: {domain_score:.0f}/100) {B}({grade}){R}")
     else:
-        print(f"  Score: {score:.0f}/100 ({grade})")
+        print(f"  {B}Score:{R} {score_color}{score:.0f}/100{R} {B}({grade}){R}")
     if report.get("refinement"):
-        print(f"  Refinement: complete")
+        print(f"  {GREEN}Refinement:{R} complete")
     if report.get("reflexion"):
-        print(f"  Reflexion: {report['reflexion'].get('patches_applied', 0)} patches applied")
-    print(f"  Report: {report_path}")
-    print(f"  Time: {total_time:.0f}s")
+        print(f"  {GREEN}Reflexion:{R} {report['reflexion'].get('patches_applied', 0)} patches applied")
+    print(f"  {DIM}Report:{R} {report_path}")
+    print(f"  {DIM}Time:{R} {total_time:.0f}s")
+    print(f"{B}{CYAN}{'='*70}{R}")
 
 
 def _save_report(report, topic):

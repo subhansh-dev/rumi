@@ -4,7 +4,7 @@ resilient_llm.py — LLM calls that NEVER fail silently.
 Every phase in the pipeline should complete, even if the LLM is slow,
 rate-limited, or returns garbage. This wrapper:
 1. Tries Groq first
-2. Falls back to Gemini
+2. Falls back
 3. Falls back to shorter prompt
 4. Falls back to non-JSON mode
 5. Returns partial results with error info (never empty)
@@ -24,7 +24,6 @@ class ResilientLLM:
 
     def __init__(self):
         self._groq_client = None
-        self._gemini_client = None
         self._call_count = 0
         self._errors = []
 
@@ -36,7 +35,7 @@ class ResilientLLM:
         Returns:
             {
                 "content": str or None,
-                "provider": "cerebras|groq|gemini|fallback",
+                "provider": "cerebras|groq|fallback",
                 "degraded": bool,
                 "error": str or None,
                 "attempts": int
@@ -96,33 +95,7 @@ class ResilientLLM:
         except Exception as e:
             last_error = str(e)
 
-        # Strategy 3: Try Gemini (fallback)
-        attempts += 1
-        time.sleep(2)  # rate limit buffer
-        try:
-            from discovery.llm_client import call_json, call as llm_call
-            result = call_json(prompt, max_tokens=max_tokens, provider="gemini")
-            if result and len(str(result)) > 20:
-                return {
-                    "content": str(result),
-                    "provider": "gemini",
-                    "degraded": False,
-                    "error": None,
-                    "attempts": attempts,
-                }
-            result = llm_call(prompt, max_tokens=max_tokens, provider="gemini")
-            if result and len(str(result)) > 20:
-                return {
-                    "content": str(result),
-                    "provider": "gemini",
-                    "degraded": True,
-                    "error": "JSON mode failed, used text mode",
-                    "attempts": attempts,
-                }
-        except Exception as e:
-            last_error = str(e)
-
-        # Strategy 4: Try auto routing (lets llm_client handle rotation)
+        # Strategy 3: Try auto routing (lets llm_client handle rotation)
         attempts += 1
         try:
             from discovery.llm_client import call_json

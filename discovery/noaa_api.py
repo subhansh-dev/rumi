@@ -89,3 +89,18 @@ def enrich_entities(graph, entity_types: set[str] = {"ocean_region", "current", 
             graph.entities[eid].setdefault("noaa", stations[0])
             enriched += 1
     return enriched
+
+
+def search_datasets(query: str, limit: int = 3) -> list[dict]:
+    """Search NOAA datasets matching query."""
+    stations = search_tide_stations(query, limit=limit)
+    results = []
+    for s in stations:
+        data = get_ocean_data(s["id"])
+        results.append({
+            "station": s["name"],
+            "station_id": s["id"],
+            "location": f"{s.get('state', 'Unknown')}",
+            "data": data,
+        })
+    return results

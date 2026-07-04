@@ -81,6 +81,25 @@ def search_countries(query: str = "", limit: int = 5) -> list[dict]:
     return results
 
 
+def search_indicators(query: str, limit: int = 3) -> list[dict]:
+    """Search for economic indicators matching query."""
+    results = []
+    query_lower = query.lower()
+    for key, code in INDICATORS.items():
+        if key in query_lower or query_lower in key:
+            val = get_indicator(key)
+            if val:
+                results.append(val)
+                if len(results) >= limit:
+                    break
+    # Also try as country
+    if not results:
+        countries = search_countries(query, limit=limit)
+        for c in countries:
+            results.append({"indicator": "country", "country": c["name"], "code": c["code"]})
+    return results
+
+
 def enrich_entities(graph, entity_types: set[str] = {"economic_indicator", "market", "country", "institution", "sector"}) -> int:
     """Enrich economics entities with World Bank data."""
     enriched = 0

@@ -27,13 +27,13 @@ class HypothesisEngine:
         self.miner = ContradictionMiner()
         self._llm_call = llm_call  # External LLM router (e.g. _truncated_llm)
         self.llm_stage = LLMStage("hypothesis_generation", max_retries=5,
-                                   backoff=[3, 5, 8, 12, 20], providers=["cerebras", "groq", "gemini"])
+                                   backoff=[3, 5, 8, 12, 20], providers=["cerebras", "groq"])
 
     async def generate(self, graph, topic, domain, run_id, contradictions=None, latent_candidates=None):
         # Build richer domain context from graph metadata if available
         domain_context = self._extract_domain_context(graph, domain)
         
-        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=5000)
+        prompt = self._build_prompt(graph, topic, domain, contradictions, latent_candidates, max_papers=20000)
         prompt += f"\n\nDOMAIN CONTEXT: {domain}\n"
         prompt += f"DOMAIN KNOWLEDGE BASE: {domain_context}\n"
         prompt += "CRITICAL INSTRUCTIONS FOR HIGH-CONFIDENCE HYPOTHESES:\n"
@@ -395,7 +395,7 @@ Output JSON:
             raw = self._llm_call(prompt, max_tokens=4096)
         else:
             critique_stage = LLMStage("skeptic_review", max_retries=2, backoff=[3, 10],
-                                      providers=["cerebras", "groq", "gemini"])
+                                      providers=["cerebras", "groq"])
             raw, _ = await critique_stage.call_with_retry(prompt, json_mode=True)
         if not raw:
             return {"critique": "Reflection unavailable", "weaknesses": ["LLM error"], "revised_confidence": hypothesis.get("confidence", 0.0)}
@@ -418,7 +418,7 @@ Output JSON:
         This is the core of real scientific method — falsification drives revision.
         """
         refine_stage = LLMStage("hypothesis_refinement", max_retries=2, backoff=[3, 10],
-                                 providers=["cerebras", "groq", "gemini"])
+                                 providers=["cerebras", "groq"])
 
         prompt = f"""You are a rigorous AI research scientist. A hypothesis was reviewed and critiqued.
 Your job is to produce a REVISED hypothesis that addresses the critique's weaknesses.
