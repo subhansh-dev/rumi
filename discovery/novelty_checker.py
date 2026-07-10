@@ -61,12 +61,15 @@ class NoveltyChecker:
         # 4. Compute novelty score
         novelty_score = self._compute_novelty_score(theory, similar_work, llm_assessment)
 
-        # 5. Determine verdict (adjusted thresholds — more permissive for novelty)
-        if novelty_score > 0.55:
+        # 5. Determine verdict (stricter thresholds to reduce false novelty)
+        # Apply penalty if many similar works are found
+        if similar_work and len(similar_work) > 3:
+            novelty_score *= 0.7
+        if novelty_score > 0.75:
             verdict = "novel"
-        elif novelty_score > 0.40:
+        elif novelty_score > 0.60:
             verdict = "refinement"
-        elif novelty_score > 0.20:
+        elif novelty_score > 0.40:
             verdict = "rediscovery"
         else:
             verdict = "well_known"
