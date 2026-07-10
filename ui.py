@@ -2045,35 +2045,52 @@ class RumiUI:
 
         detected = _detect_os()
 
-        console.print(Text("  Enter your Gemini API key:", style=ACCENT_CYAN))
-        console.print(Text("  (Get one at: https://aistudio.google.com/apikey)", style=TXT_SECOND))
-        gemini_key = input("  ❯ ").strip()
-        while not gemini_key:
-            console.print(Text("  API key cannot be empty.", style=f"bold {ACCENT_RED}"))
-            gemini_key = input("  ❯ ").strip()
+        # --- Cerebras keys (4 required) ---
+        console.print(Text("  Cerebras API keys (get them at: https://cloud.cerebras.ai)", style=ACCENT_CYAN))
+        console.print(Text("  Enter at least 1 key. Press Enter with no input when done.", style=TXT_SECOND))
+        cerebras_keys = []
+        for i in range(1, 5):
+            label = f"  Cerebras key #{i}" + (" (required)" if i == 1 else " (optional)")
+            console.print(Text(label, style=ACCENT_CYAN if i == 1 else TXT_SECOND))
+            key = input("  ❯ ").strip()
+            if not key and i == 1:
+                while not key:
+                    console.print(Text("  At least 1 Cerebras key is required.", style=f"bold {ACCENT_RED}"))
+                    key = input("  ❯ ").strip()
+            if not key:
+                break
+            cerebras_keys.append(key)
 
         console.print()
 
-        console.print(Text("  Enter your Groq API key:", style=ACCENT_CYAN))
-        console.print(Text("  (Get one at: https://console.groq.com/keys)", style=TXT_SECOND))
-        groq_key = input("  ❯ ").strip()
-        while not groq_key:
-            console.print(Text("  API key cannot be empty.", style=f"bold {ACCENT_RED}"))
-            groq_key = input("  ❯ ").strip()
+        # --- Groq keys (2 required) ---
+        console.print(Text("  Groq API keys (get them at: https://console.groq.com/keys)", style=ACCENT_CYAN))
+        console.print(Text("  Enter at least 1 key. Press Enter with no input when done.", style=TXT_SECOND))
+        groq_keys = []
+        for i in range(1, 3):
+            label = f"  Groq key #{i}" + (" (required)" if i == 1 else " (optional)")
+            console.print(Text(label, style=ACCENT_CYAN if i == 1 else TXT_SECOND))
+            key = input("  ❯ ").strip()
+            if not key and i == 1:
+                while not key:
+                    console.print(Text("  At least 1 Groq key is required.", style=f"bold {ACCENT_RED}"))
+                    key = input("  ❯ ").strip()
+            if not key:
+                break
+            groq_keys.append(key)
 
         console.print()
 
-        console.print(Text("  Enter your Cerebras API key:", style=ACCENT_CYAN))
-        console.print(Text("  (Get one at: https://cloud.cerebras.ai)", style=TXT_SECOND))
-        cerebras_key = input("  ❯ ").strip()
-        if not cerebras_key:
-            console.print(Text("  Skipped — Cerebras will not be available.", style=TXT_SECOND))
-            cerebras_key = ""
-
-        console.print()
-
-        console.print(Text("  Second Groq key (optional, for rate limiting)", style=TXT_SECOND))
-        groq_key2 = input("  ❯ ").strip()
+        # --- Gemini keys (2 optional) ---
+        console.print(Text("  Gemini API keys (optional, get them at: https://aistudio.google.com/apikey)", style=TXT_SECOND))
+        console.print(Text("  Press Enter to skip.", style=TXT_SECOND))
+        gemini_keys = []
+        for i in range(1, 3):
+            console.print(Text(f"  Gemini key #{i} (optional):", style=TXT_SECOND))
+            key = input("  ❯ ").strip()
+            if not key:
+                break
+            gemini_keys.append(key)
 
         console.print()
 
@@ -2096,17 +2113,6 @@ class RumiUI:
         self._personality = chosen_pers
 
         console.print()
-        console.print(Text("  Telegram bot? (y/N)", style=TXT_SECOND))
-        tg_choice = input("  ❯ ").strip().lower()
-        tg_token = ""
-        tg_user = ""
-        if tg_choice in ("y", "yes"):
-            console.print(Text("  Bot token:", style=TXT_PRIMARY))
-            tg_token = input("  ❯ ").strip()
-            console.print(Text("  User ID:", style=TXT_PRIMARY))
-            tg_user = input("  ❯ ").strip()
-
-        console.print()
         console.print(Text("  Optional enrichment keys (enter to skip):", style=TXT_SECOND))
 
         console.print(Text("  NASA API key:", style=TXT_SECOND))
@@ -2123,16 +2129,17 @@ class RumiUI:
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(API_FILE, "w", encoding="utf-8") as f:
             json.dump({
-                "primary_provider": "groq",
-                "gemini_api_key": gemini_key,
-                "gemini_api_key_fallback": "",
-                "groq_api_key": groq_key,
-                "groq_api_key2": groq_key2,
-                "cerebras_api_key": cerebras_key,
+                "primary_provider": "cerebras",
+                "cerebras_api_key": cerebras_keys[0] if len(cerebras_keys) > 0 else "",
+                "cerebras_api_key2": cerebras_keys[1] if len(cerebras_keys) > 1 else "",
+                "cerebras_api_key3": cerebras_keys[2] if len(cerebras_keys) > 2 else "",
+                "cerebras_api_key4": cerebras_keys[3] if len(cerebras_keys) > 3 else "",
+                "groq_api_key": groq_keys[0] if len(groq_keys) > 0 else "",
+                "groq_api_key2": groq_keys[1] if len(groq_keys) > 1 else "",
+                "gemini_api_key": gemini_keys[0] if len(gemini_keys) > 0 else "",
+                "gemini_api_key_fallback": gemini_keys[1] if len(gemini_keys) > 1 else "",
                 "os_system": detected,
                 "camera_index": 0,
-                "telegram_bot_token": tg_token,
-                "telegram_allowed_user": tg_user,
                 "user_name": user_name,
                 "personality": chosen_pers,
                 "voice_enabled": voice_enabled,

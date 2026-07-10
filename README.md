@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/dashboard.png" alt="RUMI Discovery Dashboard" width="900" />
+  <img src="assets/rumi-readme.PNG" alt="RUMI Discovery Dashboard" width="900" />
 </p>
 
 ---
@@ -133,7 +133,7 @@ Post:     Provenance Tracking Trace every claim back to its source paper
 
 ### Intelligence Features
 
-|| Feature | Description |
+| Feature | Description |
 |---------|-------------|
 | **Hypothesis Memory** | SQLite-backed cross-run persistence — remembers past hypotheses, builds on them |
 | **Phase-Specific LLM Routing** | Cerebras (fast) for extraction, Gemini (best reasoning) for mechanisms/theories |
@@ -243,7 +243,7 @@ Classification: extension
 
 ### 17 Supported Domains
 
-|| Domain | Key | Enrichment APIs |
+| Domain | Key | Enrichment APIs |
 |--------|-----|-----------------|
 | Drug Discovery | `drug_discovery` | PubChem + OpenFDA + PDB |
 | Materials Science | `materials_science` | PubChem + Materials Project |
@@ -265,7 +265,7 @@ Classification: extension
 
 ### Key Discovery Modules
 
-|| Module | Purpose |
+| Module | Purpose |
 |--------|---------|
 | `knowledge_gap_detector` | Find structural holes, orphan observations, missing mechanisms |
 | `anomaly_detector` | Find conflicting evidence, outliers, prediction violations |
@@ -409,35 +409,36 @@ Every output is classified to prevent inflation:
 - **Extension**: New application of known mechanisms
 - **Novel Theory**: Requires new mechanism, new prediction, new mathematics, and not present in literature
 
-### 7. Mathematical Rigor Scoring
+### 12. Mathematical Rigor Scoring
 Theories without equations receive a penalty. Scoring checks for:
 - Equations/formulas present
 - Quantitative content (numbers)
 - Derivation stated (derived from, follows from)
 - Assumptions stated
 
-### 8. Recursive Self-Improvement (Reflexion)
+### 13. Recursive Self-Improvement (Reflexion)
 After every discovery run, RUMI analyzes its own performance:
 - Identifies which modules underperformed
 - Generates concrete code patches via LLM
 - Tests patches in sandbox (syntax, compile, import)
 - Applies safe patches with git-backed rollback
 - Maximum 3 patches per cycle to prevent runaway
-### 9. Theory Tournament
+
+### 14. Theory Tournament
 RUMI generates 20 competing theories and forces them to compete:
 - Round 1: 20 candidates (10 standard + 10 creative/cross-domain)
 - Round 2: Score all on 7 dimensions, eliminate bottom half
 - Round 3: Head-to-head elimination ranking (pairwise matchups)
 - Final: Top 7 survivors with discriminating experiments
 
-### 10. Adversarial Testing (Phase 8.5)
+### 15. Adversarial Testing (Phase 8.5)
 Every discovery gets attacked with three questions:
 - What existing theory already explains this?
 - Can any new variable be removed?
 - What observation would falsify it?
 Each gets a verdict: validated / challenged / superseded
 
-### 11. Critical Evaluation (Phase 8.6)
+### 16. Critical Evaluation (Phase 8.6)
 Formal 6-dimension assessment of the top discovery:
 - Novelty, Methodology, Significance, Clarity, Limitations, Reproducibility
 - Overall score (0-10) with recommendation: accept / minor_revision / major_revision / reject
@@ -663,7 +664,6 @@ RUMI's architecture is grounded in peer-reviewed research:
 git clone https://github.com/subhansh-dev/rumi
 cd rumi
 pip install -e .
-playwright install chromium
 rumi
 ```
 
@@ -675,7 +675,6 @@ On first launch, RUMI prompts for your Cerebras, Gemini, and Groq API keys and s
 |---------|----------|
 | `ModuleNotFoundError` | Run `pip install -e .` from project root |
 | First launch doesn't appear | Delete `config/api_keys.json` and restart |
-| `playwright not found` | Run `playwright install chromium` |
 | `sounddevice` fails on Linux | `sudo apt install portaudio19-dev` |
 | `pip install -e .` fails on macOS | `pip3 install -e .` + `xcode-select --install` |
 
@@ -755,7 +754,7 @@ The dashboard shows:
 - **Run History** — all past discovery runs with scores
 
 <p align="center">
-  <img src="assets/dashboard.png" alt="RUMI Discovery Dashboard" width="900" />
+  <img src="assets/rumi-readme.PNG" alt="RUMI Discovery Dashboard" width="900" />
 </p>
 
 ### Slash Commands
@@ -864,7 +863,6 @@ rumi/
 ├── main.py                      # Entry point (~9000 lines)
 ├── run_discovery.py             # Standalone discovery runner (CLI)
 ├── ui.py
-├── rumi_launcher.py             # Console entry point
 ├── rumi_llm.py                  # Unified LLM helper (Cerebras→Groq→Gemini)
 ├── thinking_loop.py             # Multi-pass reasoning engine
 ├── telegram_bot.py              # Telegram bridge
@@ -976,13 +974,10 @@ python run_discovery.py "YOUR TOPIC" --domain DOMAIN_KEY --mode full
 ### Example Prompt (works for any agent)
 
 ```
-I have a scientific discovery engine at C:\Users\Admin\Desktop
-umi.
-Run a discovery on "anomalous stellar dimming and technosignature
-detection" in the space_astronomy domain.
+I have a scientific discovery engine at C:\Users\Admin\Desktop\rumi.
+Run a discovery on "anomalous stellar dimming and technosignature detection" in the space_astronomy domain.
 
-Command: cd C:\Users\Admin\Desktop
-umi && python run_discovery.py "anomalous stellar dimming and technosignature detection" --domain space_astronomy --mode full
+Command: cd C:\Users\Admin\Desktop\rumi && python run_discovery.py "anomalous stellar dimming and technosignature detection" --domain space_astronomy --mode full
 
 Read the JSON report from data/ and summarize the top theories,
 discovery score, and key gaps found.
