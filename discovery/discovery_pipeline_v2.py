@@ -1098,6 +1098,12 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
     # Cerebras GPT-OSS-120B primary for most phases (fast, generous rate limits)
     # Groq for extraction phases (3 keys, high throughput)
     # NVIDIA reasoning model as fallback for deep reasoning phases only
+    # Neutral evaluators (critics) are pinned to a model family the generator
+    # NEVER uses, so a model is not asked to judge its own output (self-preference
+    # bias). Generation runs on cerebras(gpt-oss) / groq(llama), with nvidia in the
+    # auto fallback chain — so glm (deepseek-v4-flash) is the one fully disjoint
+    # family available. If it is unavailable, _truncated_llm falls back to auto.
+    CRITIC_PROVIDER = "glm"
     PHASE_PROVIDERS = {
         # Groq — fast extraction, volume
         "literature": "groq",
@@ -1106,15 +1112,16 @@ def run_discovery_pipeline(topic: str, domain: str = "", mode: str = "full",
         "anomaly_detection": "groq",
         "theory_competition": "groq",
         "scoring": "groq",
-        # Cerebras GPT-OSS-120B — primary for creative/adversarial phases
+        # Cerebras GPT-OSS-120B — primary for creative phases
         "missing_variables": "cerebras",
-        "adversarial_test": "cerebras",
         "gap_discovery": "cerebras",
+        # Disjoint-family critics (see CRITIC_PROVIDER)
+        "adversarial_test": CRITIC_PROVIDER,
+        "critical_evaluation": CRITIC_PROVIDER,
+        "skeptic_review": CRITIC_PROVIDER,
         # Auto (Cerebras→Groq→NVIDIA) — deep reasoning phases use NVIDIA as fallback
         "mechanism_generation": "auto",
         "prediction_engine": "auto",
-        "critical_evaluation": "auto",
-        "skeptic_review": "auto",
     }
     _current_phase = {"name": "missing_variables"}  # mutable for closure
 
