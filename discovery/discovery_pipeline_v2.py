@@ -2978,6 +2978,7 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
                 adversarial_results=report.get("phases", {}).get("adversarial_test"),
                 skeptic_result=report.get("phases", {}).get("skeptic_review"),
                 critical_eval=report.get("phases", {}).get("peer_review"),
+                computational_result=report.get("phases", {}).get("computational_verification"),
             )
 
             # Null Hypothesis Enforcement — if winner doesn't beat conventional, cap score

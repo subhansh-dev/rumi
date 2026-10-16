@@ -117,7 +117,8 @@ def _compute_flags(metrics: dict, cfg: dict) -> list[str]:
 
 
 def run_external_eval(report: dict, papers: list | None = None, domain: str | None = None,
-                      use_judge: bool | None = None, ledger_path: Path | None = None) -> dict:
+                      use_judge: bool | None = None, ledger_path: Path | None = None,
+                      stamp_archive: bool = True, archive_path: Path | None = None) -> dict:
     """Compute the external score for one report. Never raises for a valid dict."""
     cfg = load_config()
     domain = domain or report.get("domain", "")
@@ -125,7 +126,8 @@ def run_external_eval(report: dict, papers: list | None = None, domain: str | No
     metrics = {
         "citation_validity": M.citation_validity(report, papers),
         "claim_support_rate": M.claim_support_rate(report, papers),
-        "novelty_vs_archive": M.novelty_vs_archive(report, report.get("topic", "")),
+        "novelty_vs_archive": M.novelty_vs_archive(report, report.get("topic", ""),
+                                                   archive_path=archive_path),
         "score_consistency": M.score_consistency(
             report, cfg.get("thresholds", {}).get("score_inflation_tolerance", 3.0)
         ),
@@ -179,7 +181,8 @@ def run_external_eval(report: dict, papers: list | None = None, domain: str | No
     }
 
     _append_ledger(result, ledger_path or LEDGER_PATH)
-    _stamp_archive(report.get("topic", ""), external_score)
+    if stamp_archive:
+        _stamp_archive(report.get("topic", ""), external_score)
     return result
 
 

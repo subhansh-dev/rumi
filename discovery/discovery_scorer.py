@@ -62,7 +62,8 @@ class DiscoveryScorer:
               graph=None,
               adversarial_results: dict = None,
               skeptic_result: dict = None,
-              critical_eval: dict = None) -> dict:
+              critical_eval: dict = None,
+              computational_result: dict = None) -> dict:
         """
         Score a theory/hypothesis on all discovery dimensions.
 
@@ -76,6 +77,7 @@ class DiscoveryScorer:
             adversarial_results: Results from Phase 8.5 adversarial test
             skeptic_result: Results from Phase 11 skeptic review
             critical_eval: Results from Phase 8.6 critical evaluation
+            computational_result: Results from Phase 9 computational verification
 
         Returns:
             {
@@ -134,7 +136,7 @@ class DiscoveryScorer:
         simplicity = self._score_simplicity(hidden_vars, assumptions, mechanism_steps)
 
         # 6. EVIDENCE STRENGTH
-        evidence = self._score_evidence(theory, papers, graph, theory_scores)
+        evidence = self._score_evidence(theory, papers, graph, theory_scores, computational_result)
 
         # 7. MATHEMATICAL RIGOR — penalize theories without equations
         math_rigor = self._score_mathematical_rigor(theory, mechanism_steps)
@@ -301,11 +303,12 @@ class DiscoveryScorer:
         A theory that builds on known work but introduces a new mechanism,
         new prediction, or new variable IS novel in those components.
         We reward novelty where it exists, not penalize for building on foundations.
-        """
-        # Use competition scores if available
-        if "novelty" in theory_scores:
-            return theory_scores["novelty"] * 100
 
+        NOTE (B2): this used to short-circuit to the competition's SELF-REPORTED
+        novelty (theory_scores["novelty"] * 100), which made the entire dimension
+        an LLM output that Reflexion could inflate. Removed — the dimension is
+        now MEASURED from theory components, then capped by the verdict below.
+        """
         novelty_verdict = theory.get("is_novel_vs_known", theory.get("novelty_verdict", ""))
         novelty_score = theory.get("novelty_score", 0)
 
@@ -507,11 +510,16 @@ class DiscoveryScorer:
         return max(10.0, min(100.0, base))
 
     def _score_evidence(self, theory: dict, papers: list, graph,
-                        theory_scores: dict) -> float:
-        """Score evidence strength — quality-weighted, includes predictions."""
-        # Use competition scores if available
+                        theory_scores: dict, computational_result: dict = None) -> float:
+        """Score evidence strength — quality-weighted, includes predictions.
+
+        B1: Phase-9 computational verification is folded in here (it was computed
+        and then discarded). The competition's self-report is now only a BASE that
+        computational verification can modify — it no longer bypasses the scorer.
+        """
         if "evidence_support" in theory_scores:
-            return theory_scores["evidence_support"] * 100
+            return self._apply_computational_evidence(
+                theory_scores["evidence_support"] * 100, computational_result)
 
         base = 25
 
@@ -549,7 +557,42 @@ class DiscoveryScorer:
         hvs = theory.get("hidden_variables") or []
         base += min(5, len(hvs) * 2)
 
-        return min(100.0, base)
+        return self._apply_computational_evidence(min(100.0, base), computational_result)
+
+    @staticmethod
+    def _apply_computational_evidence(base: float,
+                                      computational_result: dict = None) -> float:
+        """B1: fold Phase-9 computational verification into evidence strength.
+
+        The verifier runs real computations (graph analysis, statistical tests,
+        simulations, consistency checks) and reports support_score (0-1) and a
+        support_level. That result used to be computed and then thrown away; it
+        now adjusts the evidence_strength dimension.
+
+        Applied to the DIMENSION, not the final score, on purpose: it keeps the
+        stored dimension scores consistent with the reported discovery_score, so
+        the external harness's inflation audit stays meaningful.
+        """
+        if not computational_result:
+            return base
+        level = computational_result.get("support_level", "")
+        try:
+            support = float(computational_result.get("support_score", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            support = 0.0
+        try:
+            total = int(computational_result.get("total_computations", 0) or 0)
+        except (TypeError, ValueError):
+            total = 0
+        if total <= 0 or not level:
+            return base
+        if level == "strong":
+            return min(100.0, base + 5 + support * 12)   # up to ~+17
+        if level == "moderate":
+            return min(100.0, base + support * 6)        # up to ~+6
+        if level == "weak":
+            return max(10.0, base - 4)
+        return max(10.0, base - 8)                        # insufficient
 
     @staticmethod
     def _score_literature_quality(papers: list) -> float:

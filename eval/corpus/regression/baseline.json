@@ -1,0 +1,734 @@
+{
+  "harness_version": "1.0.0",
+  "count": 51,
+  "entries": [
+    {
+      "id": "discovery_v2_1780871296",
+      "file": "reports/discovery_v2_1780871296.json",
+      "sha256": "e1a5cd3788682e89911d2c48365001b6605e5c570b9307ae7f2d20535b581673",
+      "topic": "What if the gravitational effects attributed to dark matter are actually caused by a modification of gravity at galactic",
+      "domain": "physics",
+      "external_score": 28.6,
+      "grade": "F",
+      "internal_score": 70.7,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780915462",
+      "file": "reports/discovery_v2_1780915462.json",
+      "sha256": "98a97580dcfc4b6a13b8fbdff2087c9a932bc7f6c7d080814eeb173e9eeeafa7",
+      "topic": "dark matter gravitational effects",
+      "domain": "space_astronomy",
+      "external_score": 60.4,
+      "grade": "C",
+      "internal_score": 21.4,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780916329",
+      "file": "reports/discovery_v2_1780916329.json",
+      "sha256": "2083c65fe695693cd3c32b57cddde93e1d43b773de4dc2455acc21297eed36f7",
+      "topic": "dark matter gravitational effects",
+      "domain": "space_astronomy",
+      "external_score": 51.8,
+      "grade": "C",
+      "internal_score": 62.1,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780941862",
+      "file": "reports/discovery_v2_1780941862.json",
+      "sha256": "af3e4b9d139b39a79d9675093fddb2883c93185a763422faa765685ef0d4a61e",
+      "topic": "What physical mechanism caused the universe to transition from a pre‑big‑bang quantum state to the rapid expansion we ob",
+      "domain": "physics",
+      "external_score": 60.1,
+      "grade": "C",
+      "internal_score": 63.3,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780946356",
+      "file": "reports/discovery_v2_1780946356.json",
+      "sha256": "30a5171deaa6b5f4bce633f74d0faeccda59b351080593721ada346c164e74b6",
+      "topic": "What physical mechanism caused the transition from a pre‑big‑bang quantum vacuum (or pre‑existing state) to the hot, exp",
+      "domain": "physics",
+      "external_score": 59.8,
+      "grade": "C",
+      "internal_score": 74.8,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780947260",
+      "file": "reports/discovery_v2_1780947260.json",
+      "sha256": "f01cd579e164c4d62d337aa93ae03df8b562e598c08d9891eb4bccdeb31a40ca",
+      "topic": "What physical mechanism caused the transition from a pre‑big‑bang quantum vacuum (or pre‑existing state) to the hot, exp",
+      "domain": "physics",
+      "external_score": 51.7,
+      "grade": "C",
+      "internal_score": 60.9,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780951235",
+      "file": "reports/discovery_v2_1780951235.json",
+      "sha256": "a7e485d25e81827d248b025056a6bda514f565c89ccf4196b2ad2f30e17afea2",
+      "topic": "What specific neural computations during REM sleep generate the narrative content of dreams, and how do they differ from",
+      "domain": "neuroscience",
+      "external_score": 59.6,
+      "grade": "C",
+      "internal_score": 77.0,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780951926",
+      "file": "reports/discovery_v2_1780951926.json",
+      "sha256": "8c646ac0ddc01b2ebfd06c360951a0ac1c6a9677f31ce391dc8d2c21b8b2bd4f",
+      "topic": "What specific neural computations during REM sleep generate the narrative content of dreams, and how do they differ from",
+      "domain": "neuroscience",
+      "external_score": 54.5,
+      "grade": "C",
+      "internal_score": 72.5,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780956383",
+      "file": "reports/discovery_v2_1780956383.json",
+      "sha256": "5e9a2da507ea73b7e4048f9711e71efbcd3fb67fa218577306249047e3cd1a55",
+      "topic": "What fundamental property of space‑time (e.g., a varying dark energy equation of state or a new interaction) causes the ",
+      "domain": "space_astronomy",
+      "external_score": 59.2,
+      "grade": "C",
+      "internal_score": 76.8,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1780957057",
+      "file": "reports/discovery_v2_1780957057.json",
+      "sha256": "e1f954f70456cdc1e432ae2a7c5d34c6a8d0f56e2ac3c642e009d8fac80e7d13",
+      "topic": "What fundamental property of space‑time (e.g., a varying dark energy equation of state or a new interaction) causes the ",
+      "domain": "space_astronomy",
+      "external_score": 55.3,
+      "grade": "C",
+      "internal_score": 75.2,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781105405",
+      "file": "reports/discovery_v2_1781105405.json",
+      "sha256": "dfb2f5caadf094eab7e438183bd84428770faa627274139491910d112040fcb0",
+      "topic": "What is the nature of the substrate or meta-reality that hosts our simulated universe, and can we detect any interaction",
+      "domain": "general",
+      "external_score": 59.6,
+      "grade": "C",
+      "internal_score": 75.0,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781106760",
+      "file": "reports/discovery_v2_1781106760.json",
+      "sha256": "d09f16b26e207ad36812253869ed15a392f5339edd1218e7983ba3653d915b2f",
+      "topic": "What is the nature of the substrate or meta-reality that hosts our simulated universe, and can we detect any interaction",
+      "domain": "general",
+      "external_score": 58.2,
+      "grade": "C",
+      "internal_score": 75.6,
+      "flags": [
+        "no_citations",
+        "no_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781111534",
+      "file": "reports/discovery_v2_1781111534.json",
+      "sha256": "86d57d42af27fb9951f1ef2ef1c841b9fe0a45102a4d31749f387ba1b0585e7f",
+      "topic": "Does the information that falls into a black‑hole event horizon remain preserved, and if so, how is it encoded in the ou",
+      "domain": "space_astronomy",
+      "external_score": 60.5,
+      "grade": "C",
+      "internal_score": 79.1,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781119609",
+      "file": "reports/discovery_v2_1781119609.json",
+      "sha256": "8d66e5fdee254f8d89d3c0e89af0f0104eb0e29c30487520e410c350562599ad",
+      "topic": "What assumption does everyone accept about What happens to information when it crosses a blac? What if it's wrong?",
+      "domain": "general",
+      "external_score": 60.2,
+      "grade": "C",
+      "internal_score": 76.9,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781123454",
+      "file": "reports/discovery_v2_1781123454.json",
+      "sha256": "575db84610d4b23362c1656662983a5fa1ad2777614dce0c1a77f27917fa01ec",
+      "topic": "What assumption does everyone accept about What happens to information when it crosses a blac? What if it's wrong?",
+      "domain": "general",
+      "external_score": 57.8,
+      "grade": "C",
+      "internal_score": 61,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781146480",
+      "file": "reports/discovery_v2_1781146480.json",
+      "sha256": "678d339c3d7cc254fd32f215b84f4942d807d3e6ae68b3e0c3f2d0033dfbe947",
+      "topic": "What assumption does everyone accept about Why do most Alzheimer drug candidates fail in late? What if it's wrong?",
+      "domain": "drug_discovery",
+      "external_score": 60.7,
+      "grade": "C",
+      "internal_score": 74.3,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781163664",
+      "file": "reports/discovery_v2_1781163664.json",
+      "sha256": "6daa3aa73fdc6b22e0e58525e7508d3db0b78778921a1ec06080826858cb6591",
+      "topic": "What assumption does everyone accept about Why do most Alzheimer drug candidates fail in late? What if it's wrong?",
+      "domain": "drug_discovery",
+      "external_score": 57.9,
+      "grade": "C",
+      "internal_score": 75.3,
+      "flags": [
+        "no_citations",
+        "no_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781201416",
+      "file": "reports/discovery_v2_1781201416.json",
+      "sha256": "063aef5ae1b8b37428ee6b9684ec076c8fd55e518ab41573c1ad16326e2df7b4",
+      "topic": "Does the equivalence principle actually apply to vacuum fluctuations — i.e., do virtual particle zero-point energies cou",
+      "domain": "physics",
+      "external_score": 60.4,
+      "grade": "C",
+      "internal_score": 66.6,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781216474",
+      "file": "reports/discovery_v2_1781216474.json",
+      "sha256": "0f6b95621a2835fc856c21801be13546f1f8389c99002e786dbbbc72288cb1b9",
+      "topic": "Does the equivalence principle actually apply to vacuum fluctuations — i.e., do virtual particle zero-point energies cou",
+      "domain": "physics",
+      "external_score": 60.6,
+      "grade": "C",
+      "internal_score": 82.8,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781444646",
+      "file": "reports/discovery_v2_1781444646.json",
+      "sha256": "5f89d1119459edf57dcf10404a25f725bcc5f5979587ddf32ab5a19e38b1d3c7",
+      "topic": "Does the spatial topology of immune cell infiltration—not just its presence or density—determine whether immunotherapy c",
+      "domain": "drug_discovery",
+      "external_score": 50.2,
+      "grade": "C",
+      "internal_score": 56,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781508494",
+      "file": "reports/discovery_v2_1781508494.json",
+      "sha256": "cf67fe5d718cbb8eb07657ce2a471de073ef3495348bde5d33a01ac71658e4ce",
+      "topic": "Why does the ubiquitin-proteasome system possess cryptic, conditionally activatable substrate receptor sites that only m",
+      "domain": "drug_discovery",
+      "external_score": 59.3,
+      "grade": "C",
+      "internal_score": 65,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781510798",
+      "file": "reports/discovery_v2_1781510798.json",
+      "sha256": "d8f0321376d5631957ac296e7ce75df84c394efe2e8c194740f2ab714679c6d7",
+      "topic": "Why do molecular glues selectively recruit neo-substrates to E3 ligases despite the vast excess of competing cellular pr",
+      "domain": "drug_discovery",
+      "external_score": 58.5,
+      "grade": "C",
+      "internal_score": 83.8,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781548520",
+      "file": "reports/discovery_v2_1781548520.json",
+      "sha256": "3f64ba6a778805c4c36e8bd78755fa1db50187d70bae6bfb3c1c8a8166c08c3b",
+      "topic": "Why does the ubiquitin-proteasome system possess cryptic, conditionally activatable substrate receptor sites that only m",
+      "domain": "drug_discovery",
+      "external_score": 59.7,
+      "grade": "C",
+      "internal_score": 80.1,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781551202",
+      "file": "reports/discovery_v2_1781551202.json",
+      "sha256": "a70c161013f94f2aeb7712ff2c94f1006379eff07065780a0dcb3899c4a4307d",
+      "topic": "Why do molecular glues selectively recruit neo-substrates to E3 ligases despite the vast excess of competing cellular pr",
+      "domain": "drug_discovery",
+      "external_score": 57.1,
+      "grade": "C",
+      "internal_score": 65.2,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781699903",
+      "file": "reports/discovery_v2_1781699903.json",
+      "sha256": "f4b9c9560f937098027273833125d1a2abd1b65ceead93215ccc6245f4090b28",
+      "topic": "What specific molecular features of gut bacterial species—beyond their bulk metabolic profiles—enable them to prime the ",
+      "domain": "drug_discovery",
+      "external_score": 59.3,
+      "grade": "C",
+      "internal_score": 55,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781702777",
+      "file": "reports/discovery_v2_1781702777.json",
+      "sha256": "c78ed95a008527b96c148bd3a03228fa5fc337b6f71f8b04bde4789d8223c996",
+      "topic": "What specific molecular features of gut bacterial species—beyond their bulk metabolic profiles—enable them to prime the ",
+      "domain": "drug_discovery",
+      "external_score": 54.7,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781709481",
+      "file": "reports/discovery_v2_1781709481.json",
+      "sha256": "39e437f7e0f6cfb32d4c6cbcf5f3f87cf3215538a45534e54e97713166ea2a40",
+      "topic": "Does the immunomodulatory effect of specific gut bacteria depend not on their metabolic output but on strain-specific mo",
+      "domain": "drug_discovery",
+      "external_score": 52.2,
+      "grade": "C",
+      "internal_score": 47,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781712632",
+      "file": "reports/discovery_v2_1781712632.json",
+      "sha256": "d63fdd27411900d3a4dedf284af6facddd3575f08baa43130ea04c7b0d04d381",
+      "topic": "Do specific gut bacteria enhance checkpoint inhibitor response through species-unique molecular patterns that directly e",
+      "domain": "drug_discovery",
+      "external_score": 58.6,
+      "grade": "C",
+      "internal_score": 55,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781751343",
+      "file": "reports/discovery_v2_1781751343.json",
+      "sha256": "6e729b97d9e7ff156e80a2d76bd9f598b68c96da7d8c00959b09852d13e7148a",
+      "topic": "Does the spatial organization of bacterial-derived metabolites withinamy within the gut mucosa create localized immune t",
+      "domain": "drug_discovery",
+      "external_score": 59.6,
+      "grade": "C",
+      "internal_score": 55,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781755143",
+      "file": "reports/discovery_v2_1781755143.json",
+      "sha256": "aa566bd4f3fe077bf913c87303c471755db26f0fb0613f74177ae0881976e579",
+      "topic": "Does the immunomodulatory effect of specific gut bacteria depend not on their metabolic output but on strain-specific mo",
+      "domain": "drug_discovery",
+      "external_score": 55.7,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781776685",
+      "file": "reports/discovery_v2_1781776685.json",
+      "sha256": "39f89f29da2520ec25bc96812e5271e92912251adeee38aeb725f395a1061c0f",
+      "topic": "Do specific gut bacteria enhance checkpoint inhibitor response through species-unique molecular patterns that directly e",
+      "domain": "drug_discovery",
+      "external_score": 53.6,
+      "grade": "C",
+      "internal_score": 59,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781789821",
+      "file": "reports/discovery_v2_1781789821.json",
+      "sha256": "7c9195d37615d39fff414f31118b443770c1c279b387c6fef35a16584472ac1a",
+      "topic": "What microscopic electronic or structural feature distinguishes topological superconductors that host non‑abelian anyons",
+      "domain": "materials_science",
+      "external_score": 60.6,
+      "grade": "C",
+      "internal_score": 50,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781790378",
+      "file": "reports/discovery_v2_1781790378.json",
+      "sha256": "64b8317a62ee262f93cdfe563e53b0fd22f7b659f72fc45ddf2161367fd268db",
+      "topic": "Does the spatial organization of bacterial-derived metabolites withinamy within the gut mucosa create localized immune t",
+      "domain": "drug_discovery",
+      "external_score": 53.9,
+      "grade": "C",
+      "internal_score": 61,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1781837642",
+      "file": "reports/discovery_v2_1781837642.json",
+      "sha256": "3abbaf9ca7f0fe00581437c2543587427ee2982f44773ebeabecfc7c9a63d9cd",
+      "topic": "What microscopic electronic or structural feature distinguishes topological superconductors that host non‑abelian anyons",
+      "domain": "materials_science",
+      "external_score": 59.9,
+      "grade": "C",
+      "internal_score": 55,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782587116",
+      "file": "reports/discovery_v2_1782587116.json",
+      "sha256": "e035db5e702b4e43002cc2c8335654af89ed4167403e5016a9505e28d3a9bb11",
+      "topic": "Is the cosmological principle—the assumption that the universe is homogeneous and isotropic on large scales—actually vio",
+      "domain": "space_astronomy",
+      "external_score": 59.9,
+      "grade": "C",
+      "internal_score": 19,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782587432",
+      "file": "reports/discovery_v2_1782587432.json",
+      "sha256": "91745324481d3a4f51729da898826924a18bbcb925818f8f3852e49e4e9017cb",
+      "topic": "Does the glymphatic system's failure to clear amyloid-beta and tau represent a loss of intrinsic pump function due to ag",
+      "domain": "neuroscience",
+      "external_score": 60.1,
+      "grade": "C",
+      "internal_score": 50,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782618742",
+      "file": "reports/discovery_v2_1782618742.json",
+      "sha256": "0771e63a7aca2fdab023cddf9645667be2013d4197e4d906038c796ae902dd9a",
+      "topic": "Does the glymphatic system's failure to clear amyloid-beta and tau represent a loss of intrinsic pump function due to ag",
+      "domain": "neuroscience",
+      "external_score": 58.2,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782628619",
+      "file": "reports/discovery_v2_1782628619.json",
+      "sha256": "aa6ac32a9f5aa01c1210e063200f92145c9bb7bdd3411389f893d8dd8cc12e6a",
+      "topic": "Is the cosmological principle—the assumption that the universe is homogeneous and isotropic on large scales—actually vio",
+      "domain": "space_astronomy",
+      "external_score": 52.8,
+      "grade": "C",
+      "internal_score": 0,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782654718",
+      "file": "reports/discovery_v2_1782654718.json",
+      "sha256": "70e6ff5917c57e20672c31520b2aa57099badd293865e1076b12d91f1239531b",
+      "topic": "Targeted protein degradation - substrate specificity determinants for molecular glues vs PROTACs in cancer therapy",
+      "domain": "drug_discovery",
+      "external_score": 2.9,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782656774",
+      "file": "reports/discovery_v2_1782656774.json",
+      "sha256": "5f6c159b49bd65ed3d61f35beac2482100958142f239368114baaae35bbfcf89",
+      "topic": "Targeted protein degradation - substrate specificity determinants for molecular glues vs PROTACs in cancer therapy",
+      "domain": "drug_discovery",
+      "external_score": 2.9,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782669838",
+      "file": "reports/discovery_v2_1782669838.json",
+      "sha256": "61b50e649bbd46db4c5bdfc298e38b6779aec1f830eb757ac2be939b029f32b7",
+      "topic": "Targeted protein degradation - substrate specificity determinants for molecular glues vs PROTACs in cancer therapy",
+      "domain": "drug_discovery",
+      "external_score": 59.9,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782717591",
+      "file": "reports/discovery_v2_1782717591.json",
+      "sha256": "c63c7744a6ad1e0de1345ba45bf6434aef257b7f801c5c62353f06c7f8f5f4bf",
+      "topic": "Senolytic drug development: mechanisms of selective elimination of senescent cells in age-related diseases",
+      "domain": "drug_discovery",
+      "external_score": 60.5,
+      "grade": "C",
+      "internal_score": 39,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782734028",
+      "file": "reports/discovery_v2_1782734028.json",
+      "sha256": "968bb3662c1913d278cca99090303ea5369ff85ab712b758063a713a78046bd5",
+      "topic": "Senolytic drug development: mechanisms of selective elimination of senescent cells in age-related diseases",
+      "domain": "drug_discovery",
+      "external_score": 55.4,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782835856",
+      "file": "reports/discovery_v2_1782835856.json",
+      "sha256": "c4d9af0b9a1a2b3330a9aefbb7e10b57c9ca0b90fde14c43b24eb222712d9cb3",
+      "topic": "drug resistance mechanisms in cancer",
+      "domain": "drug_discovery",
+      "external_score": 2.9,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1782840559",
+      "file": "reports/discovery_v2_1782840559.json",
+      "sha256": "77b57e1a18d5dc592d71da108643930cf8e02d048f44fbfb4636c24b5d27cdde",
+      "topic": "what are prime numbers and how can we predict them",
+      "domain": "mathematics",
+      "external_score": 2.9,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ]
+    },
+    {
+      "id": "discovery_v2_1783186090",
+      "file": "reports/discovery_v2_1783186090.json",
+      "sha256": "b27167f308d9c0c01327c36fcdcf0b62e4c3a4f182ec76ab0a7c53e4d72f7ab4",
+      "topic": "What specific neural processes during REM sleep encode, consolidate, and integrate recent experiences into long‑term mem",
+      "domain": "neuroscience",
+      "external_score": 54.7,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1783188279",
+      "file": "reports/discovery_v2_1783188279.json",
+      "sha256": "15529cb34f98b738b13358a7f29bc42a2cc86cac24758d03545c84c3a39ad1aa",
+      "topic": "What specific neural processes during REM sleep transform transient episodic memories into long‑term predictive models, ",
+      "domain": "neuroscience",
+      "external_score": 32.7,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1783189697",
+      "file": "reports/discovery_v2_1783189697.json",
+      "sha256": "f40c2bb871e58e16a2360b08245ae2c08b580afa78df5a72ac523491ad451187",
+      "topic": "What specific neural processes during REM sleep transform transient episodic memories into long‑term predictive models, ",
+      "domain": "neuroscience",
+      "external_score": 57.1,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1783547303",
+      "file": "reports/discovery_v2_1783547303.json",
+      "sha256": "005ff9ea9bb46430f2e47d61838295604fd60fb0277b40726b83ba2e12f81ac2",
+      "topic": "Does dreaming function as an active predictive simulation that integrates new experiences with existing memory networks ",
+      "domain": "general",
+      "external_score": 54.6,
+      "grade": "C",
+      "internal_score": 49,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1783708951",
+      "file": "reports/discovery_v2_1783708951.json",
+      "sha256": "1ba0db41552085aa57192934d9d41a75d623baffa323a8cb0d312493815ed570",
+      "topic": "Can we define and empirically detect an affective state in artificial agents that is functionally equivalent to human em",
+      "domain": "general",
+      "external_score": 55.0,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ]
+    },
+    {
+      "id": "discovery_v2_1783710709",
+      "file": "reports/discovery_v2_1783710709.json",
+      "sha256": "8d1bd04995f8cd5e2c5262f263bdac48ebc926350d0710c8ee9933824f42887b",
+      "topic": "Can we engineer a unified affective architecture that endows AI systems with genuine, context-sensitive emotional states",
+      "domain": "computer_science",
+      "external_score": 51.0,
+      "grade": "C",
+      "internal_score": 12.1,
+      "flags": [
+        "no_citations",
+        "no_claims"
+      ]
+    }
+  ]
+}

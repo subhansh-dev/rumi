@@ -1,0 +1,631 @@
+{
+  "count": 51,
+  "rows": [
+    {
+      "id": "discovery_v2_1781146480",
+      "external_score": 60.7,
+      "grade": "C",
+      "internal_score": 74.3,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "What assumption does everyone accept about Why do most Alzheimer drug candidates fail in late? What "
+    },
+    {
+      "id": "discovery_v2_1781216474",
+      "external_score": 60.6,
+      "grade": "C",
+      "internal_score": 82.8,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "physics",
+      "topic": "Does the equivalence principle actually apply to vacuum fluctuations — i.e., do virtual particle zer"
+    },
+    {
+      "id": "discovery_v2_1781789821",
+      "external_score": 60.6,
+      "grade": "C",
+      "internal_score": 50,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "materials_science",
+      "topic": "What microscopic electronic or structural feature distinguishes topological superconductors that hos"
+    },
+    {
+      "id": "discovery_v2_1781111534",
+      "external_score": 60.5,
+      "grade": "C",
+      "internal_score": 79.1,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "space_astronomy",
+      "topic": "Does the information that falls into a black‑hole event horizon remain preserved, and if so, how is "
+    },
+    {
+      "id": "discovery_v2_1782717591",
+      "external_score": 60.5,
+      "grade": "C",
+      "internal_score": 39,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Senolytic drug development: mechanisms of selective elimination of senescent cells in age-related di"
+    },
+    {
+      "id": "discovery_v2_1780915462",
+      "external_score": 60.4,
+      "grade": "C",
+      "internal_score": 21.4,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "space_astronomy",
+      "topic": "dark matter gravitational effects"
+    },
+    {
+      "id": "discovery_v2_1781201416",
+      "external_score": 60.4,
+      "grade": "C",
+      "internal_score": 66.6,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "physics",
+      "topic": "Does the equivalence principle actually apply to vacuum fluctuations — i.e., do virtual particle zer"
+    },
+    {
+      "id": "discovery_v2_1781119609",
+      "external_score": 60.2,
+      "grade": "C",
+      "internal_score": 76.9,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "general",
+      "topic": "What assumption does everyone accept about What happens to information when it crosses a blac? What "
+    },
+    {
+      "id": "discovery_v2_1780941862",
+      "external_score": 60.1,
+      "grade": "C",
+      "internal_score": 63.3,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "physics",
+      "topic": "What physical mechanism caused the universe to transition from a pre‑big‑bang quantum state to the r"
+    },
+    {
+      "id": "discovery_v2_1782587432",
+      "external_score": 60.1,
+      "grade": "C",
+      "internal_score": 50,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "neuroscience",
+      "topic": "Does the glymphatic system's failure to clear amyloid-beta and tau represent a loss of intrinsic pum"
+    },
+    {
+      "id": "discovery_v2_1781837642",
+      "external_score": 59.9,
+      "grade": "C",
+      "internal_score": 55,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "materials_science",
+      "topic": "What microscopic electronic or structural feature distinguishes topological superconductors that hos"
+    },
+    {
+      "id": "discovery_v2_1782587116",
+      "external_score": 59.9,
+      "grade": "C",
+      "internal_score": 19,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "space_astronomy",
+      "topic": "Is the cosmological principle—the assumption that the universe is homogeneous and isotropic on large"
+    },
+    {
+      "id": "discovery_v2_1782669838",
+      "external_score": 59.9,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Targeted protein degradation - substrate specificity determinants for molecular glues vs PROTACs in "
+    },
+    {
+      "id": "discovery_v2_1780946356",
+      "external_score": 59.8,
+      "grade": "C",
+      "internal_score": 74.8,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "physics",
+      "topic": "What physical mechanism caused the transition from a pre‑big‑bang quantum vacuum (or pre‑existing st"
+    },
+    {
+      "id": "discovery_v2_1781548520",
+      "external_score": 59.7,
+      "grade": "C",
+      "internal_score": 80.1,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Why does the ubiquitin-proteasome system possess cryptic, conditionally activatable substrate recept"
+    },
+    {
+      "id": "discovery_v2_1780951235",
+      "external_score": 59.6,
+      "grade": "C",
+      "internal_score": 77.0,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "neuroscience",
+      "topic": "What specific neural computations during REM sleep generate the narrative content of dreams, and how"
+    },
+    {
+      "id": "discovery_v2_1781105405",
+      "external_score": 59.6,
+      "grade": "C",
+      "internal_score": 75.0,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "general",
+      "topic": "What is the nature of the substrate or meta-reality that hosts our simulated universe, and can we de"
+    },
+    {
+      "id": "discovery_v2_1781751343",
+      "external_score": 59.6,
+      "grade": "C",
+      "internal_score": 55,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Does the spatial organization of bacterial-derived metabolites withinamy within the gut mucosa creat"
+    },
+    {
+      "id": "discovery_v2_1781508494",
+      "external_score": 59.3,
+      "grade": "C",
+      "internal_score": 65,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Why does the ubiquitin-proteasome system possess cryptic, conditionally activatable substrate recept"
+    },
+    {
+      "id": "discovery_v2_1781699903",
+      "external_score": 59.3,
+      "grade": "C",
+      "internal_score": 55,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "What specific molecular features of gut bacterial species—beyond their bulk metabolic profiles—enabl"
+    },
+    {
+      "id": "discovery_v2_1780956383",
+      "external_score": 59.2,
+      "grade": "C",
+      "internal_score": 76.8,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "space_astronomy",
+      "topic": "What fundamental property of space‑time (e.g., a varying dark energy equation of state or a new inte"
+    },
+    {
+      "id": "discovery_v2_1781712632",
+      "external_score": 58.6,
+      "grade": "C",
+      "internal_score": 55,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Do specific gut bacteria enhance checkpoint inhibitor response through species-unique molecular patt"
+    },
+    {
+      "id": "discovery_v2_1781510798",
+      "external_score": 58.5,
+      "grade": "C",
+      "internal_score": 83.8,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Why do molecular glues selectively recruit neo-substrates to E3 ligases despite the vast excess of c"
+    },
+    {
+      "id": "discovery_v2_1781106760",
+      "external_score": 58.2,
+      "grade": "C",
+      "internal_score": 75.6,
+      "flags": [
+        "no_citations",
+        "no_claims"
+      ],
+      "domain": "general",
+      "topic": "What is the nature of the substrate or meta-reality that hosts our simulated universe, and can we de"
+    },
+    {
+      "id": "discovery_v2_1782618742",
+      "external_score": 58.2,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "neuroscience",
+      "topic": "Does the glymphatic system's failure to clear amyloid-beta and tau represent a loss of intrinsic pum"
+    },
+    {
+      "id": "discovery_v2_1781163664",
+      "external_score": 57.9,
+      "grade": "C",
+      "internal_score": 75.3,
+      "flags": [
+        "no_citations",
+        "no_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "What assumption does everyone accept about Why do most Alzheimer drug candidates fail in late? What "
+    },
+    {
+      "id": "discovery_v2_1781123454",
+      "external_score": 57.8,
+      "grade": "C",
+      "internal_score": 61,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "general",
+      "topic": "What assumption does everyone accept about What happens to information when it crosses a blac? What "
+    },
+    {
+      "id": "discovery_v2_1781551202",
+      "external_score": 57.1,
+      "grade": "C",
+      "internal_score": 65.2,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Why do molecular glues selectively recruit neo-substrates to E3 ligases despite the vast excess of c"
+    },
+    {
+      "id": "discovery_v2_1783189697",
+      "external_score": 57.1,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "neuroscience",
+      "topic": "What specific neural processes during REM sleep transform transient episodic memories into long‑term"
+    },
+    {
+      "id": "discovery_v2_1781755143",
+      "external_score": 55.7,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Does the immunomodulatory effect of specific gut bacteria depend not on their metabolic output but o"
+    },
+    {
+      "id": "discovery_v2_1782734028",
+      "external_score": 55.4,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims",
+        "incomplete_structure"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Senolytic drug development: mechanisms of selective elimination of senescent cells in age-related di"
+    },
+    {
+      "id": "discovery_v2_1780957057",
+      "external_score": 55.3,
+      "grade": "C",
+      "internal_score": 75.2,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "space_astronomy",
+      "topic": "What fundamental property of space‑time (e.g., a varying dark energy equation of state or a new inte"
+    },
+    {
+      "id": "discovery_v2_1783708951",
+      "external_score": 55.0,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "general",
+      "topic": "Can we define and empirically detect an affective state in artificial agents that is functionally eq"
+    },
+    {
+      "id": "discovery_v2_1781702777",
+      "external_score": 54.7,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "What specific molecular features of gut bacterial species—beyond their bulk metabolic profiles—enabl"
+    },
+    {
+      "id": "discovery_v2_1783186090",
+      "external_score": 54.7,
+      "grade": "C",
+      "internal_score": 54,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "neuroscience",
+      "topic": "What specific neural processes during REM sleep encode, consolidate, and integrate recent experience"
+    },
+    {
+      "id": "discovery_v2_1783547303",
+      "external_score": 54.6,
+      "grade": "C",
+      "internal_score": 49,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "general",
+      "topic": "Does dreaming function as an active predictive simulation that integrates new experiences with exist"
+    },
+    {
+      "id": "discovery_v2_1780951926",
+      "external_score": 54.5,
+      "grade": "C",
+      "internal_score": 72.5,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "neuroscience",
+      "topic": "What specific neural computations during REM sleep generate the narrative content of dreams, and how"
+    },
+    {
+      "id": "discovery_v2_1781790378",
+      "external_score": 53.9,
+      "grade": "C",
+      "internal_score": 61,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Does the spatial organization of bacterial-derived metabolites withinamy within the gut mucosa creat"
+    },
+    {
+      "id": "discovery_v2_1781776685",
+      "external_score": 53.6,
+      "grade": "C",
+      "internal_score": 59,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Do specific gut bacteria enhance checkpoint inhibitor response through species-unique molecular patt"
+    },
+    {
+      "id": "discovery_v2_1782628619",
+      "external_score": 52.8,
+      "grade": "C",
+      "internal_score": 0,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "space_astronomy",
+      "topic": "Is the cosmological principle—the assumption that the universe is homogeneous and isotropic on large"
+    },
+    {
+      "id": "discovery_v2_1781709481",
+      "external_score": 52.2,
+      "grade": "C",
+      "internal_score": 47,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Does the immunomodulatory effect of specific gut bacteria depend not on their metabolic output but o"
+    },
+    {
+      "id": "discovery_v2_1780916329",
+      "external_score": 51.8,
+      "grade": "C",
+      "internal_score": 62.1,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "space_astronomy",
+      "topic": "dark matter gravitational effects"
+    },
+    {
+      "id": "discovery_v2_1780947260",
+      "external_score": 51.7,
+      "grade": "C",
+      "internal_score": 60.9,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "physics",
+      "topic": "What physical mechanism caused the transition from a pre‑big‑bang quantum vacuum (or pre‑existing st"
+    },
+    {
+      "id": "discovery_v2_1783710709",
+      "external_score": 51.0,
+      "grade": "C",
+      "internal_score": 12.1,
+      "flags": [
+        "no_citations",
+        "no_claims"
+      ],
+      "domain": "computer_science",
+      "topic": "Can we engineer a unified affective architecture that endows AI systems with genuine, context-sensit"
+    },
+    {
+      "id": "discovery_v2_1781444646",
+      "external_score": 50.2,
+      "grade": "C",
+      "internal_score": 56,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Does the spatial topology of immune cell infiltration—not just its presence or density—determine whe"
+    },
+    {
+      "id": "discovery_v2_1783188279",
+      "external_score": 32.7,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "ungrounded_claims"
+      ],
+      "domain": "neuroscience",
+      "topic": "What specific neural processes during REM sleep transform transient episodic memories into long‑term"
+    },
+    {
+      "id": "discovery_v2_1780871296",
+      "external_score": 28.6,
+      "grade": "F",
+      "internal_score": 70.7,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "physics",
+      "topic": "What if the gravitational effects attributed to dark matter are actually caused by a modification of"
+    },
+    {
+      "id": "discovery_v2_1782654718",
+      "external_score": 2.9,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Targeted protein degradation - substrate specificity determinants for molecular glues vs PROTACs in "
+    },
+    {
+      "id": "discovery_v2_1782656774",
+      "external_score": 2.9,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "drug_discovery",
+      "topic": "Targeted protein degradation - substrate specificity determinants for molecular glues vs PROTACs in "
+    },
+    {
+      "id": "discovery_v2_1782835856",
+      "external_score": 2.9,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "drug_discovery",
+      "topic": "drug resistance mechanisms in cancer"
+    },
+    {
+      "id": "discovery_v2_1782840559",
+      "external_score": 2.9,
+      "grade": "F",
+      "internal_score": null,
+      "flags": [
+        "no_citations",
+        "no_claims",
+        "incomplete_structure"
+      ],
+      "domain": "mathematics",
+      "topic": "what are prime numbers and how can we predict them"
+    }
+  ]
+}

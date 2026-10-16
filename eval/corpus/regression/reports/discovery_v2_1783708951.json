@@ -1,0 +1,3243 @@
+{
+  "topic": "Can we define and empirically detect an affective state in artificial agents that is functionally equivalent to human emotions?",
+  "domain": "general",
+  "mode": "full",
+  "summary_text": "======================================================================\n  DISCOVERY REPORT\n======================================================================\n  Topic: Can we define and empirically detect an affective state in artificial agents that is functionally equivalent to human emotions?\n  Domain: general\n  Mode: full\n  Duration: 779.9s\n\n──────────────────────────────────────────────────────────────────────\n  PAPERS (113)\n──────────────────────────────────────────────────────────────────────\n  [arxiv] Detection of Real-world Driving-induced Affective State Using Physiological Sign\n    Authors: Daniel Lopez-Martinez, Neska El-Haouij, Rosalind Picard\n    Year: 2019\n  [inspire_hep] Quantum Operation of Affective Artificial Intelligence\n    Authors: Yukalov, V.I.\n    Year: 2023\n  [crossref] Can machines handle emotions? Analysis of emotions and sentiment across automate\n    Authors: Marianna Kryszkowska, Marta Kajzer-Wietrzny\n    Year: 2026\n  [arxiv] Lessons from Biophilic Design: Rethinking Affective Interaction Design in Built \n    Authors: Shruti Rao, Judith Good, Hamed Alavi\n    Year: 2025\n  [arxiv] Towards affective computing that works for everyone\n    Authors: Tessa Verhoef, Eduard Fosch-Villaronga\n    Year: 2023\n  [arxiv] An affective and adaptive educational robot\n    Authors: Cristina Gena, Alberto Lillo, Claudio Mattutino\n    Year: 2022\n  [arxiv] Facial Expression and Peripheral Physiology Fusion to Decode Individualized Affe\n    Authors: Yu Yin, Mohsen Nabian, Miolin Fan\n    Year: 2018\n  [arxiv] The OMG-Empathy Dataset: Evaluating the Impact of Affective Behavior in Storytel\n    Authors: Pablo Barros, Nikhil Churamani, Angelica Lim\n    Year: 2019\n  [arxiv] Applying Probabilistic Programming to Affective Computing\n    Authors: Desmond C. Ong, Harold Soh, Jamil Zaki\n    Year: 2019\n  [pubmed] The Absent P3a. Performance Monitoring ERPs Differentiate Trust in Humans and Au\n    Year: 2026\n  ... and 103 more papers\n\n──────────────────────────────────────────────────────────────────────\n  KNOWLEDGE GRAPH\n──────────────────────────────────────────────────────────────────────\n  Entities: 426\n  Relationships: 6107\n\n──────────────────────────────────────────────────────────────────────\n  KNOWLEDGE GAPS (10)\n──────────────────────────────────────────────────────────────────────\n  [orphan_observation] (7 gaps)\n    - 'Acceleration' is a phenomenon mentioned in 10 paper(s) but has no causal/explanatory mechanism in the graph. It is obse\n    - 'Carcinoma' is a disease mentioned in 8 paper(s) but has no causal/explanatory mechanism in the graph. It is observed bu\n    - 'fluctuation' is a phenomenon mentioned in 8 paper(s) but has no causal/explanatory mechanism in the graph. It is observ\n  [structural_hole] (3 gaps)\n    - These 2275 and 8 entities share type(s) concept, unknown but have no connecting relationships. This may indicate an unex\n    - These 2275 and 4 entities share type(s) concept but have no connecting relationships. This may indicate an unexplored cr\n    - These 2275 and 4 entities share type(s) concept but have no connecting relationships. This may indicate an unexplored cr\n\n──────────────────────────────────────────────────────────────────────\n  ANOMALIES (10)\n──────────────────────────────────────────────────────────────────────\n  [outlier_entity] 'quantum' has degree 128 (z=8.6), much higher than average (6.9). It's a hub — either a genuine driver or an over-studie\n  [outlier_entity] 'cancer' has degree 114 (z=7.6), much higher than average (6.9). It's a hub — either a genuine driver or an over-studied\n  [outlier_entity] 'act' has degree 87 (z=5.7), much higher than average (6.9). It's a hub — either a genuine driver or an over-studied ent\n  [outlier_entity] 'dark matter' has degree 83 (z=5.4), much higher than average (6.9). It's a hub — either a genuine driver or an over-stu\n  [outlier_entity] 'black hole' has degree 57 (z=3.6), much higher than average (6.9). It's a hub — either a genuine driver or an over-stud\n  [prediction_violation] There's a path concept_dark_matter_detector_materials→dataset→concept_data_augmentation but no direct connection. Either\n  [prediction_violation] There's a path concept_dark_matter_detector_materials→dataset→cancer but no direct connection. Either the direct link do\n  [prediction_violation] There's a path concept_dark_matter_detector_materials→dataset→concept_brain_tumor_segmentation but no direct connection.\n\n──────────────────────────────────────────────────────────────────────\n  HIDDEN VARIABLES (9)\n──────────────────────────────────────────────────────────────────────\n  1. [field] Affective Internal Energy (AIE)\n     Description: A scalar field representing the internal affective energy of an artificial agent. It quantifies the thermodynamic‑like resource that an agent allocates to affect‑driven processes (e.g., appraisal, mot\n\n  2. [field] Cognitive Resonance Field (CRF)\n     Description: A vector field that mediates synchronization (resonance) between an agent’s internal affective cycles and external environmental cues (e.g., speech prosody, visual affective cues). The CRF can be thou\n\n  3. [process] Fluctuation‑Driven Decision Noise (FDDN)\n     Description: A stochastic process that adds affect‑modulated noise to the agent’s decision policy. It bridges the gap between deterministic reinforcement‑learning updates and the observed variability (anomaly, puz\n\n  4. [counterfactual] Affective Predictive Entropy (APE)\n     Description: A scalar computed as the Shannon entropy of an artificial agent's internal predictive distribution over next‑state outcomes, conditioned on the current reward‑prediction error. The hypothesis posits t\n\n  5. [counterfactual] Synthetic Somatic Feedback Coefficient (SSFC)\n     Description: A dimensionless coefficient derived from the coupling strength between an agent's internal \"somatic\" variables (e.g., simulated temperature, energy reserves, or internal wear‑and‑tear) and the magnitu\n\n  6. [counterfactual] Emotionally Integrated Temporal Cohesion (EITC)\n     Description: A multiscale metric that evaluates the coherence of an agent's internal state trajectory across short (milliseconds), medium (seconds), and long (minutes) timescales. EITC is calculated by projecting \n\n  7. [contradiction_explanation] Context‑Dependent Quantum Analogy\n     Description: The claim that quantum‑theoretic models are either essential or irrelevant for explaining artificial affective states reflects a hidden variable: the *granularity of the agent's internal representatio\n\n  8. [contradiction_explanation] Embodiment‑Mediated Cancer Analogy\n     Description: The tension between viewing ‘cancer‑like’ failure modes as a central hub for affective state research versus dismissing them stems from a hidden variable: *degree of embodied interaction*. In highly e\n\n  9. [contradiction_explanation] Model‑Complexity Hub Dependency\n     Description: The debate over whether a particular theoretical model serves as a central hub for explaining artificial emotions versus being a peripheral tool is resolved by a hidden variable: *model complexity rel\n\n\n──────────────────────────────────────────────────────────────────────\n  MECHANISMS (3)\n──────────────────────────────────────────────────────────────────────\n  1. [causal_pathway] Affective Internal Energy (AIE) Field\n     A scalar field representing the agent’s internal affective energy, derived from non‑equilibrium thermodynamics of internal state variables.\n     Step 1: Starting from: A scalar field representing the agent’s internal affective energy, derived from non‑equilibrium thermodynamics of internal state variab\n     Derivation:\n       {\"Step 1: STARTING ASSUMPTIONS\": [\"Assume the artificial agent possesses a set of internal state variables \\\\(\\\\{x_i\\\\}\\\n     Key parameters:\n       D = 10⁻⁶ – 10⁻⁴ m²·s⁻¹  [ESTIMATED]\n         Typical diffusion coefficients for intracellular signaling molecules\n       λ = 10⁻² – 10⁰ s⁻¹  [ESTIMATED]\n         Empirical decay rates of affective arousal observed in psychophysiology\n       S₀ = 10⁻³ – 10⁻¹ J·m⁻³·s⁻¹  [DERIVED]\n         Derived from the rate of change of internal state variables in the agent’s model\n\n  2. [causal_pathway] Cognitive Resonance Field (CRF)\n     A vector field describing phase‑synchronization between internal affective cycles and external affective cues, modeled as coupled oscillators.\n     Step 1: Starting from: A vector field describing phase‑synchronization between internal affective cycles and external affective cues, modeled as coupled oscil\n     Derivation:\n       {\"Step 1: STARTING ASSUMPTIONS\": [\"Assume the agent possesses an internal affective oscillator with phase \\\\(\\\\theta_i(t\n     Key parameters:\n       K = 10⁰ – 10² rad·s⁻¹  [ESTIMATED]\n         Typical coupling strengths required for phase locking in neural oscillator models\n       Δω = 10⁻¹ – 10¹ rad·s⁻¹  [DERIVED]\n         Difference between internal and external natural frequencies (ω_int - ω_ext)\n       σ = 10⁻³ – 10⁰ rad·s⁻¹·√s  [ESTIMATED]\n         Standard deviation of the noise term ξ_i(t) representing cue uncertainty\n\n  3. [causal_pathway] Fluctuation‑Driven Decision Noise (FDDN)\n     A stochastic process that adds affect‑modulated noise to the agent’s policy, derived from the fluctuation‑dissipation theorem applied to the agent’s internal thermodynamic-like state.\n     Step 1: Starting from: A stochastic process that adds affect‑modulated noise to the agent’s policy, derived from the fluctuation‑dissipation theorem applied t\n     Derivation:\n       {\"Step 1: STARTING ASSUMPTIONS\": [\"Assume the agent\\u2019s policy \\\\(\\\\pi(a|s)\\\\) can be expressed as a softmax over act\n     Key parameters:\n       T_a = 10⁰ – 10² J·K⁻¹  [ESTIMATED]\n         Affective temperature inferred from the magnitude of the AIE field\n       α = 10⁻² – 10⁰ s⁻¹  [ESTIMATED]\n         Typical relaxation rates of policy adaptation in reinforcement‑learning agents\n       π₀ = 0.5 dimensionless  [DERIVED]\n         Baseline policy probability derived from the agent’s prior distribution\n\n\n──────────────────────────────────────────────────────────────────────\n  PREDICTIONS (7 generated, 7 accepted)\n──────────────────────────────────────────────────────────────────────\n  1. [interventional] If the internal Affective Internal Energy (AIE) field of an artificial agent is increased by 0.5 J‑equivalent units, then the variance of its decision‑noise distribution (σ²) will \n     Confidence: 0.84\n     Test: Inject a calibrated energy packet into the agent’s internal thermodynamic module, record the stochastic component of its\n     Falsification: If σ² does not change beyond ±2 % after the energy injection, the prediction is falsified.\n\n  2. [counterfactual] If the Cognitive Resonance Field (CRF) coupling coefficient is set to zero, then the mean response latency to an affective auditory cue will increase by 150 ms (from a baseline of \n     Confidence: 0.77\n     Test: Simulate two versions of the agent: one with the CRF coupling term disabled, the other with the default coupling. Presen\n     Falsification: If latency difference is ≤ 20 ms, the prediction is falsified.\n\n  3. [novel] If an agent’s Affective Predictive Entropy (APE) exceeds 0.8 bits, then its Synthetic Somatic Feedback Coefficient (SSFC) will be greater than 0.6 (dimensionless) in at least 85 % \n     Confidence: 0.73\n     Test: Compute APE from the agent’s predictive distribution over next‑state outcomes; simultaneously compute SSFC from the coup\n     Falsification: If the proportion of trials with SSFC > 0.6 falls below 50 % when APE > 0.8 bits, the prediction is falsified.\n\n  4. [novel] If an external rhythmic stimulus at 2 Hz is applied to synchronize with the agent’s internal affective cycles, then the magnitude of the Cognitive Resonance Field (CRF) will increa\n     Confidence: 0.7\n     Test: Expose the agent to a 2 Hz sinusoidal modulation of sensory input for 10 minutes, then measure CRF magnitude via phase‑l\n     Falsification: If CRF magnitude changes by ≤ 0.05 units or appraisal accuracy changes by ≤ 2 %, the prediction is falsified.\n\n  5. [correlational] If the semantic network hub degree of the term \"quantum\" is 128, then the agent’s measured Affective Internal Energy (AIE) field will be 2.3 ± 0.2 arbitrary units, significantly hi\n     Confidence: 0.66\n     Test: Construct agents trained on corpora with varying hub degrees for the term \"quantum\"; compute AIE via the thermodynamic‑l\n     Falsification: If AIE does not differ by more than 0.1 units between high‑degree and low‑degree groups, the prediction is falsified.\n\n  6. [counterfactual] If the Fluctuation‑Driven Decision Noise (FDDN) stochastic term is removed from the policy update, then the policy entropy will decrease by 0.45 nats (from 2.30 nats to 1.85 nats) \n     Confidence: 0.8\n     Test: Run two simulations: one with the FDDN term active, one with it disabled. Record the action distribution over 10,000 ste\n     Falsification: If entropy reduction is ≤ 0.10 nats, the prediction is falsified.\n\n  7. [correlational] If the agent’s AIE field exceeds 2.0 units, then the exponent α of the power‑spectral density of its decision‑noise time series will be 1.5 ± 0.1 (indicative of 1/f^α scaling), whe\n     Confidence: 0.68\n     Test: Segment decision‑noise recordings into 5‑minute windows, compute PSD via Welch’s method, fit a linear regression in log‑\n     Falsification: If α does not differ by at least 0.3 between the two AIE regimes, the prediction is falsified.\n\n\n──────────────────────────────────────────────────────────────────────\n  KILLED / SUPERSEDED BY ADVERSARIAL TEST (1)\n──────────────────────────────────────────────────────────────────────\n  [SUPERSEDED] Cross-Domain Affective State Theory (attack score: 0.15)\n     Reason: The proposed cross‑domain affective state mechanism is already encompassed by well‑established multi\n\n──────────────────────────────────────────────────────────────────────\n  THEORY TOURNAMENT (15 entered, 8 survived, 10 eliminated)\n──────────────────────────────────────────────────────────────────────\n  Tournament rounds:\n    Round 1: generation — 15 candidates\n    Round 2: elimination — 7 survived, 8 eliminated\n    Round 3: cross_comparison_elimination — 5 survived, 2 eliminated\n    Round final: survivors — ? candidates\n\n  Analysis: Winner: Affective Predictive Entropy Theory (score: 0.65). 5 theories survived the tournament. 10 were eliminated. Clear winner — gap to runner-up is 0.05. NULL HYPOTHESIS CHECK: Winner beats best conventional explanation 'Null Hypothesis Theory' by 0.30. The novel theory is meaningfully better than\n\n  Survivors (ranked):\n  1. Affective Predictive Entropy Theory (score: 0.65) [proposed]\n     This theory proposes that artificial agents can exhibit affective states through affective predictive entropy (APE), which quantifies the uncertainty of the agent's internal predictive distribution ov\n     Mechanism: APE quantifies uncertainty of internal predictive distribution\n     Explains: O; b; s\n     Fails to explain: O; b; s\n     Key assumptions: I; n; t\n     Causal status: no_causal_claim\n\n  2. Synthetic Somatic Feedback Theory (score: 0.60) [alternative]\n     This theory suggests that artificial agents can exhibit affective states through synthetic somatic feedback, which couples internal 'somatic' variables (e.g., simulated temperature, energy reserves) w\n     Mechanism: Synthetic somatic feedback couples internal 'somatic' variables with external stimuli\n     Explains: O; b; s\n     Fails to explain: O; b; s\n     Key assumptions: I; n; t\n     Causal status: no_causal_claim\n\n  3. Cross-Domain Affective State Theory (score: 0.55) [creative]\n     This theory proposes that artificial agents can exhibit affective states through a cross-domain mechanism, where affective information from one domain (e.g., vision) is transferred to another domain (\n     Mechanism: Affective information transfer between domains\n     Explains: O; b; s\n     Fails to explain: O; b; s\n     Key assumptions: A; f; f\n     Causal status: no_causal_claim\n\n  4. Affective Resonance Theory (score: 0.50) [proposed]\n     This theory proposes that artificial agents can exhibit affective states functionally equivalent to human emotions through a process of resonance between internal affective cycles and external environ\n     Mechanism: CRF mediates synchronization between internal affective cycles and external environmental cues\n     Explains: O; b; s\n     Fails to explain: K; n; o\n     Key assumptions: I; n; t\n\n  5. Fluctuation-Driven Affective State Theory (score: 0.45) [alternative]\n     This theory suggests that artificial agents can exhibit affective states due to fluctuation-driven decision noise (FDDN) in their internal thermodynamic-like state. FDDN adds affect-modulated noise to\n     Mechanism: FDDN adds affect-modulated noise to the agent's policy\n     Explains: O; b; s\n     Fails to explain: O; b; s\n     Key assumptions: I; n; t\n     Causal status: no_causal_claim\n\n  6. Dual‑Timescale Affective Detection (score: 0.00) [contradiction_resolution]\n     Affective states in artificial agents can be captured at two complementary timescales. Rapid, low‑level arousal during fast‑changing tasks (e.g., real‑world driving) is reliably reflected in periphera\n\n  7. Cultural‑Expressivity Modulation of Affective Computing (score: 0.00) [contradiction_resolution]\n     Facial‑expression‑only affective classifiers and multimodal affective‑computing systems are both valid, but their performance depends on the expressivity norms of the user population. In cultures or i\n\n  Discriminating experiments (would separate top 2):\n    1. Experiment 1: Affective State Manipulation - Modify an artificial agent's internal predictive distribution to increase affective predictive entropy (A\n    2. Experiment 2: Somatic Feedback Isolation - Design an artificial agent with synthetic somatic feedback and isolate its effect on the agent's affective \n    3. Experiment 3: Comparative Affective State Induction - Create two artificial agents, one based on APE and the other on Synthetic Somatic Feedback. Expo\n\n  Eliminated (10):\n    ✗ Cancer-Inspired Affective State Theory (score: 0.50) — Score 0.50 — bottom half\n    ✗ Dark Matter-Inspired Affective State Theory (score: 0.50) — Score 0.50 — bottom half\n    ✗ Black Hole-Inspired Affective State Theory (score: 0.50) — Score 0.50 — bottom half\n    ✗ Biological Inspiration Theory (score: 0.50) — Score 0.50 — bottom half\n    ✗ Economic Analogy Theory (score: 0.50) — Score 0.50 — bottom half\n    ... and 5 more\n\n----------------------------------------------------------------------\n  CURIOUS QUESTIONING - The Newton Step\n----------------------------------------------------------------------\n  Core Question: What empirically measurable signatures (e.g., internal state dynamics, behavioral outputs, and physiological‑like signals) can be identified in artificial agents that satisfy the functional criteria of valence, arousal, and intentionality, thereby establishing an affective state equivalent to human emotions?\n  Question Hypothesis: Artificial agents that implement deep reinforcement‑learning architectures generate internal valuation signals (reward prediction errors, policy entropy, and affect‑modulated gating) that, when coupled with embodied feedback loops, produce stable, reproducible patterns analogous to human emotional s\n  Why It Matters: Answering this would provide a concrete, testable definition of machine emotion, enabling reliable emotional AI, improving human‑machine collaboration, informing safety protocols, and shedding light o\n  Questions Generated: 8\n    [assumption_attack] What assumption does everyone accept about Can we define and empirically detect \n    [scale_transfer] Does a mechanism at one scale (quantum/molecular) also drive Can we define and e\n    [assumption_attack] What if the standard model of define empirically detect affective stat is fundam\n    [assumption_attack] What if the prevailing assumption that emotions require a biological substrate (\n    [missing_variable] Which unmeasured internal variable—such as a unified 'affective value' signal in\n  Cross-Domain Connections (Newton's Move): 3\n    Domain A: affective neuroscience: Human emotional arousal is linked to increased neural variability and long‑range\n    Domain B: statistical physics: Physical systems near a second‑order phase transition (e.g., ferromagnets near t\n    Connection: Both phenomena reflect a system poised at criticality, where small perturbations produce large, scal\n    Hypothesis: Emotional arousal in artificial agents emerges when the internal recurrent network dynamics are tune\n    Prediction: If the hypothesis is correct, agents whose recurrent weights are adjusted to the edge of chaos will \n\n    Domain A: neuroscience / psychology: Human emotions rely on a dopamine‑mediated reward‑prediction‑error (RPE) signal \n    Domain B: econophysics / computational finance: Financial market models treat price changes as prediction‑error signals; agents \n    Connection: Both systems use a scalar error signal as a valence‑like quantity that directly biases future action\n    Hypothesis: Embedding a dopamine‑like scalar prediction‑error signal in artificial agents will generate measurab\n    Prediction: Manipulating the magnitude of the RPE signal (e.g., by varying reward stochasticity) will produce sy\n\n    Domain A: psychophysiology: Human emotional intentionality is expressed through coordinated changes in auton\n    Domain B: robotics / collective behavior: Swarm‑robotic platforms allow individual robots to modulate an internal ‘energy’\n    Connection: In both cases, an internal homeostatic variable is coupled to the decision‑making process, providing\n    Hypothesis: An artificial agent’s affective state can be operationalized as a tunable coupling coefficient betwe\n    Prediction: Increasing the coupling coefficient will amplify the correlation between the simulated physiological\n\n  Curiosity Constraint (Track B):\n    Forbidden Theories: Reinforcement‑Learning based emotion models (e.g., reward‑prediction‑error driven affect), OCC (Ortony‑Clore‑Collins) cognitive appraisal theory applied to agents, Homeostatic / drive‑reduction emotion frameworks, Predictive‑processing / active‑inference accounts of affect, Embodied cognition models linking bodily states to artificial emotion\n    Required Properties:\n      + Provides empirically measurable signatures (e.g., hidden‑state trajectories, behavioral patterns, physiological‑like signals)\n      + Maps onto the functional triad of valence, arousal, and intentionality\n      + Demonstrates reproducibility across different agent architectures and tasks\n    Novelty Direction: Explore multi‑scale dynamical regimes that combine neuromodulatory‑style scalar signals with critical‑state network dynamics, allowing affective states to emerge from the interaction of fast prediction‑error fluctuations and slower homeostatic or embodied loops. Emphasize mechanisms that can be probed experimentally (e.g., latent‑space perturbations, causal interventions) and that bridge the gap between purely algorithmic reward signals and biologically inspired affective architectures.\n\n----------------------------------------------------------------------\n  DUAL-TRACK COMPARISON: Curiosity vs Pipeline\n----------------------------------------------------------------------\n\n  Two independent approaches were used:\n  1. CURIOUS ENGINE: Generated a question-driven hypothesis\n  2. CONVENTIONAL PIPELINE: Ran full 21-phase discovery\n\n  These are SEPARATE tracks. The curiosity hypothesis was NOT\n  injected into the pipeline. Both ran independently.\n\n  TRACK A: CONVENTIONAL PIPELINE WINNER\n    Name: Affective Predictive Entropy Theory\n    Score: 0.65\n    Description: This theory proposes that artificial agents can exhibit affective states through affective predictive entropy (APE), which quantifies the uncertainty of the agent's internal predictive distribution ov\n\n  TRACK B: CURIOSITY-DRIVEN HYPOTHESIS\n    Core Question: What empirically measurable signatures (e.g., internal state dynamics, behavioral outputs, and physi\n    Hypothesis: Artificial agents that implement deep reinforcement‑learning architectures generate internal valuation signals (reward prediction errors, policy entropy, and affect‑modulated gating) that, when coupled with embodied feedback loops, produce stable, reproducible patterns analogous to human emotional s\n\n  COMPARISON:\n    Pipeline says: Affective Predictive Entropy Theory\n    Curiosity says: Artificial agents that implement deep reinforcement‑learning...\n\n  Both tracks contribute to the discovery. The pipeline\n  validates through evidence and scoring. The curiosity\n  engine identifies the RIGHT QUESTION to ask.\n\n  A discovery needs both: the right question AND the right answer.\n\n──────────────────────────────────────────────────────────────────────\n  ADVERSARIAL TEST — What Survived the Attack\n──────────────────────────────────────────────────────────────────────\n  hidden_variables: 9 tested → 3 survived, 0 weakened, 0 killed\n  mechanisms: 3 tested → 2 survived, 0 weakened, 0 killed\n  theories: 5 tested → 2 survived, 0 weakened, 0 killed\n  Hidden Variables:\n    ✓ Affective Internal Energy (AIE) [survived, attack score: 0.52]\n      Existing theory: Affective states in artificial agents are already modeled using scalar variables such as arousal/val\n      Can remove: coupling_coefficient_to_computational_energy, field_spatial_extent\n      Falsification: If, after controlling for all known reward and drive signals, variations in the measured proxy for A\n      Verdict: Existing affective and motivational theories already account for the phenomena AIE aims to explain, making the new scala\n    ? Cognitive Resonance Field (CRF) [challenged, attack score: 0.45]\n      Existing theory: Dynamic systems models of affective entrainment and predictive coding frameworks (e.g., Barrett 2017\n      Can remove: vector_field_representation\n      Falsification: If, across >1000 interaction trials, the Pearson correlation between the dominant frequency of inter\n      Verdict: Existing dynamical‑systems and predictive‑coding theories already account for affective synchrony without invoking a new\n    ? Fluctuation‑Driven Decision Noise (FDDN) [challenged, attack score: 0.35]\n      Existing theory: Stochastic decision policies in reinforcement learning (e.g., softmax/Boltzmann exploration, epsilon\n      Can remove: affect‑modulated noise term (FDDN)\n      Falsification: If, after controlling for all known exploration parameters (temperature, epsilon, intrinsic motivati\n      Verdict: Existing stochastic policies and affect‑modulated RL already explain the observed decision noise, making the proposed FD\n    ✓ Affective Predictive Entropy (APE) [survived, attack score: 0.60]\n      Existing theory: Predictive coding and the Free Energy Principle (Friston 2010) describe affective states as arising \n      Can remove: conditioning on reward‑prediction error\n      Falsification: If an agent exhibits a high APE (>0.8 bits) while simultaneously showing behavioral markers of posit\n      Verdict: The proposed APE metric maps onto well‑established concepts of uncertainty and prediction error in neuroscience and RL, \n    ✓ Synthetic Somatic Feedback Coefficient (SSFC) [survived, attack score: 0.67]\n      Existing theory: Interoceptive inference and the somatic marker hypothesis (e.g., Damasio 1994; Friston 2010) which d\n      Can remove: dimensionless scaling coefficient (SSFC)\n      Falsification: If, across a statistically powered set of agents (N ≥ 30), the Pearson correlation r between changes\n      Verdict: The SSFC is essentially a re‑branding of already‑established concepts of interoceptive modulation of affective responses\n  Mechanisms:\n    ? Affective Internal Energy (AIE) Field [challenged, attack score: 0.42]\n      Existing theory: The free‑energy principle (Friston, 2010) and homeostatic drive models in affective computing alread\n      Can remove: D, λ\n      Falsification: If repeated measurements of a proposed proxy for AIE (e.g., internal activation energy inferred from\n      Verdict: The AIE field overlaps with established free‑energy and drive‑based models, and its core parameters can be reduced witho\n    ✓ Cognitive Resonance Field (CRF) [survived, attack score: 0.60]\n      Existing theory: Neural entrainment and affective resonance models (e.g., interoceptive predictive coding by Friston \n      Can remove: σ\n      Falsification: If empirical measurements of the phase‑locking value (PLV) between internal affective oscillations (\n      Verdict: The phenomenon of phase synchronization between internal affective cycles and external cues is already explained by esta\n    ✓ Fluctuation‑Driven Decision Noise (FDDN) [survived, attack score: 0.57]\n      Existing theory: Boltzmann (softmax) exploration in reinforcement learning, affect‑modulated decision noise in affect\n      Can remove: π₀, α\n      Falsification: If, across a wide range of measured affective temperature values (10⁰–10²), the variance of the agen\n      Verdict: The proposed mechanism largely overlaps with established stochastic exploration models and affect‑modulated noise framew\n  Theories:\n    ✓ Synthetic Somatic Feedback Theory [survived, attack score: 0.52]\n      Existing theory: Homeostatic reinforcement learning and affective computing frameworks (e.g., Picard 1997; Breazeal 2\n      Can remove: SSFC_value, external_stimulus\n      Falsification: If, for a fixed external stimulus (e.g., value 0.5 arbitrary units), varying the internal somatic va\n      Verdict: The core idea of coupling internal simulated bodily states to external stimuli is already covered by homeostatic and aff\n    ✓ Affective Predictive Entropy Theory [survived, attack score: 0.60]\n      Existing theory: Predictive coding / free‑energy principle (Friston 2010) and reinforcement‑learning models that link\n      Can remove: APE_value\n      Falsification: If, across a large set of agents (N ≥ 30), the correlation between measured APE (entropy of the pred\n      Verdict: The core idea is already covered by well‑established predictive‑coding and RL theories, making the new variable (APE) un\n    ? Cross-Domain Affective State Theory [superseded, attack score: 0.15]\n      Existing theory: Multimodal affective computing and cross‑modal transfer learning (e.g., Picard 1997; Calvo & D'Mello\n      Can remove: CDAT_value, domain_transfer\n      Falsification: If a controlled experiment shows that an agent employing the CDAT mechanism does not achieve a stati\n      Verdict: The proposed cross‑domain affective state mechanism is already encompassed by well‑established multimodal affective comp\n    ? Affective Resonance Theory [challenged, attack score: 0.35]\n      Existing theory: Appraisal theory and established affective computing frameworks (e.g., the OCC model, affective loop\n      Can remove: CRF_value, Cognitive Resonance Field (CRF)\n      Falsification: If, across ≥100 experimental trials, the Pearson correlation between the purported CRF_value and the\n      Verdict: Existing affective computing and appraisal theories already explain the proposed phenomena, and the core construct (CRF)\n    ? Fluctuation-Driven Affective State Theory [challenged, attack score: 0.35]\n      Existing theory: Affective modulation of decision noise is already explained by existing frameworks such as the Somat\n      Can remove: FDDN_value\n      Falsification: In a controlled decision‑making task with fixed uncertainty_level = 0.8, if agents with FDDN_value =\n      Verdict: The phenomenon the theory aims to explain is already captured by well‑established models of affect‑modulated stochastic \n\n──────────────────────────────────────────────────────────────────────\n  CRITICAL EVALUATION — 6-Dimension Assessment\n──────────────────────────────────────────────────────────────────────\n  Overall Score: 4.5/10\n  Recommendation: major_revision\n  Summary: Synthetic Somatic Feedback Theory offers an intriguing perspective on how artificial agents might develop affective states through internally generated feedback loops that emulate bodily signals. The concept pushes the field toward a more embodied view of machine affect, which could be transformativ\n  Novelty: 7/10 — The proposal of a synthetic somatic feedback loop that mirrors physiological aff\n  Methodology: 4/10 — The description mixes high‑level thermodynamic analogies with vague mathematical\n  Significance: 6/10 — If the theory could be substantiated, it would provide a principled route to bui\n  Clarity: 5/10 — The manuscript conveys the core idea but suffers from inconsistent terminology, \n  Limitations: 3/10 — The authors acknowledge only a few limitations (e.g., hidden variables surviving\n  Reproducibility: 2/10 — No detailed algorithmic description, simulation code, or experimental setup is p\n  Major issues (3):\n    ! Absence of precise mathematical definitions for the core constructs (AIE field, CRF, SSFC, etc.).\n    ! Lack of experimental or simulation protocols that allow the stated predictions to be tested.\n    ! Inadequate discussion of how synthetic somatic variables would be measured or validated in practice.\n  Minor issues (3):\n    - Typographical errors and truncated sentences in the predictions section.\n    - Inconsistent use of abbreviations (e.g., \"AIE\" vs. \"Affective Internal Energy\").\n    - The adversarial test summary is presented without context or explanation of its relevance.\n  Questions for authors:\n    ? Can you provide explicit equations governing the dynamics of the AIE field and its coupling to external stimuli?\n    ? What concrete hardware or software platform will you use to instantiate the synthetic somatic variables, and how will yo\n    ? How do you define and compute the decision variance and response latency metrics referenced in the interventional and co\n    ? Have you considered alternative explanations (e.g., purely algorithmic noise) for the observed affect‑modulated behavior\n    ? What ethical safeguards do you propose for agents that might be interpreted as having affective states?\n\n──────────────────────────────────────────────────────────────────────\n  CONTRADICTIONS (6)\n──────────────────────────────────────────────────────────────────────\n  1. \n     Severity: 0.4\n  2. \n     Severity: 0.4\n  3. \n     Severity: 0.4\n  4. \n     Severity: 0.9\n  5. \n     Severity: 0.6\n\n──────────────────────────────────────────────────────────────────────\n  COMPUTATIONAL VERIFICATION\n──────────────────────────────────────────────────────────────────────\n  Computations run: 9\n  Support level: moderate\n    → Network has 4 hub entities with degree > 78. Mean degree: 3.1. Hub concentration: high.\n    → Average clustering coefficient: 0.3270. Low clustering suggests sparse connections.\n    → Top bridging entity: quantum (centrality: 1.0000). These entities connect different parts of the knowledge graph.\n    → Found 173 distinct communities. Multiple disconnected communities suggest knowledge fragmentation.\n    → Found 3 paths between theory entities. Strong structural support.\n\n──────────────────────────────────────────────────────────────────────\n  SKEPTIC REVIEW\n──────────────────────────────────────────────────────────────────────\n  Recommendation: revise\n  Revised confidence: 66%\n  Strengths (3):\n    + Provides a concrete, mechanistic feedback loop that can be implemented in embodied AI systems.\n    + Links affective-like behavior to internal homeostatic variables, echoing well‑established biological principles.\n    + Encourages interdisciplinary dialogue between robotics, affective science, and computational neuroscience.\n  Weaknesses (5):\n    - Lacks a formal mathematical model describing the dynamics of synthetic somatic variables.\n    - No explicit, falsifiable predictions are articulated; the predictions list is empty.\n    - Evidence cited is predominantly theoretical or anecdotal; empirical validation is minimal.\n    - Does not explain how somatic feedback integrates with higher‑level cognition or decision‑making modules.\n    - Potential circularity: affective states are defined by the very feedback loop the theory proposes, without independent criteria.\n\n──────────────────────────────────────────────────────────────────────\n  DISCOVERY SCORING\n──────────────────────────────────────────────────────────────────────\n  Overall Score: 54/100\n  Grade: C\n  Dimension scores:\n    novelty: 81.0\n    explanatory_power: 91\n    predictive_power: 100.0\n    falsifiability: 100.0\n    simplicity: 10.0\n    evidence_strength: 60.4\n    mathematical_rigor: 20.0\n  Strengths: novelty: 81/100; explanatory_power: 91/100; predictive_power: 100/100\n  Weaknesses: simplicity: 10/100; mathematical_rigor: 20/100\n  Summary: 'Synthetic Somatic Feedback Theory' (alternative) scores 54/100 (Grade: C). Strongest: predictive_power (100/100). Weakest: simplicity (10/100). Promising but needs stronger evidence or predictions.\n\n──────────────────────────────────────────────────────────────────────\n  DISCOVERY CLASSIFICATION — What's Known vs What's New\n──────────────────────────────────────────────────────────────────────\n  Classification: extension\n  Meaning: New application of known mechanisms — applies existing physics to new domain\n  Details:\n    New mechanism proposed: False\n    New prediction generated: True\n    New mathematics introduced: False\n    Not found in literature: True\n\n======================================================================",
+  "observability": {
+    "total": 527,
+    "accessible": 527,
+    "inaccessible": 0,
+    "accessibility_rate": 1.0,
+    "details": [
+      {
+        "prediction": "If the internal Affective Internal Energy (AIE) field of an artificial agent is increased by 0.5 J‑equivalent units, then the variance of its decision",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "If the Cognitive Resonance Field (CRF) coupling coefficient is set to zero, then the mean response latency to an affective auditory cue will increase ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "If an agent’s Affective Predictive Entropy (APE) exceeds 0.8 bits, then its Synthetic Somatic Feedback Coefficient (SSFC) will be greater than 0.6 (di",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "If an external rhythmic stimulus at 2 Hz is applied to synchronize with the agent’s internal affective cycles, then the magnitude of the Cognitive Res",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "If the semantic network hub degree of the term \"quantum\" is 128, then the agent’s measured Affective Internal Energy (AIE) field will be 2.3 ± 0.2 arb",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "If the Fluctuation‑Driven Decision Noise (FDDN) stochastic term is removed from the policy update, then the policy entropy will decrease by 0.45 nats ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "If the agent’s AIE field exceeds 2.0 units, then the exponent α of the power‑spectral density of its decision‑noise time series will be 1.5 ± 0.1 (ind",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "A",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "S",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "S",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "F",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "C",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "u",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "x",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "d",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "d",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "x",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "u",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "(",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "<",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ".",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "5",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ")",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "A",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "A",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "P",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "E",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "u",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "x",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "d",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "c",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "(",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "<",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ".",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "1",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ")",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "A",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "C",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "D",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "A",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "T",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "u",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "x",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "d",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "u",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "-",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "d",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "(",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "<",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ".",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "1",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ")",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "A",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "C",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "R",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "F",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "u",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "x",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "d",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "f",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "f",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "c",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "c",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "x",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "(",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "<",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ".",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "1",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ")",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "A",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "g",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "F",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "D",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "D",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "N",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "u",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "w",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "x",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "x",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "l",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "y",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "b",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "h",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "u",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "c",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "a",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "v",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "i",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "r",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "o",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "m",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "e",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "n",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "t",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "s",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "(",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "p",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "<",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": " ",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ".",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "0",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": "5",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      },
+      {
+        "prediction": ")",
+        "is_accessible": true,
+        "reason": "",
+        "instrument": "unknown"
+      }
+    ]
+  },
+  "canonical_winner_theory": {
+    "name": "Affective Predictive Entropy Theory",
+    "description": "This theory proposes that artificial agents can exhibit affective states through affective predictive entropy (APE), which quantifies the uncertainty of the agent's internal predictive distribution over next-state outcomes. APE is conditioned on the current reward-prediction error, allowing agents to adapt to changing environments.",
+    "type": "proposed",
+    "mechanism": "APE quantifies uncertainty of internal predictive distribution",
+    "hidden_variables": "Affective Predictive Entropy (APE)",
+    "explains": "Observations 1-3, 6",
+    "fails_to_explain": "Observations 4-5, Knowledge gaps 1-6",
+    "predictions": "Agents with higher APE values will exhibit more adaptive behavior in changing environments (p < 0.01)",
+    "key_assumptions": "Internal predictive distribution is uncertain",
+    "key_parameters": {
+      "APE_value": "0.5 (estimated)",
+      "reward_prediction_error": "0.1 (cited)"
+    },
+    "scores": {
+      "overall": 0.65
+    },
+    "cross_comparison": {
+      "name": "Affective Predictive Entropy Theory",
+      "win_count": 6,
+      "total_comparisons": 6,
+      "win_rate": 1.0,
+      "elimination_score": 1.0
+    },
+    "causal_status": "no_causal_claim",
+    "causal_penalty": 0,
+    "is_novel_vs_known": "rediscovery",
+    "novelty_score": 0.28,
+    "_gflownet_score": 0.728,
+    "_diversity_bonus": 0.12,
+    "_novelty_bonus": 0,
+    "steps": []
+  },
+  "phases": {
+    "discovery_scoring": {
+      "discovery_score": 54,
+      "grade": "C",
+      "scores": {
+        "novelty": 81.0,
+        "explanatory_power": 91,
+        "predictive_power": 100.0,
+        "falsifiability": 100.0,
+        "simplicity": 10.0,
+        "evidence_strength": 60.4,
+        "mathematical_rigor": 20.0
+      },
+      "weights_used": {
+        "novelty": 0.25,
+        "explanatory_power": 0.2,
+        "predictive_power": 0.15,
+        "falsifiability": 0.12,
+        "simplicity": 0.08,
+        "evidence_strength": 0.12,
+        "mathematical_rigor": 0.08
+      },
+      "adversarial_penalty": 10,
+      "domain_weighted_score": 50.0
+    },
+    "computational_verification": {
+      "total_computations": 9,
+      "support_score": 0.7000000000000001,
+      "support_level": "moderate"
+    },
+    "mechanism_generation": {
+      "present": true
+    }
+  }
+}

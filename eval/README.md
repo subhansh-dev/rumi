@@ -73,11 +73,37 @@ python -m eval.harness data/discovery_v2_1783710709.json
 python -m eval.harness data/discovery_v2_1783710709.json --judge
 ```
 
-Run the regression tests:
+Run the tests:
 
 ```
 python -m pytest eval/tests -q
 ```
+
+## Regression corpus & leaderboard (Phase 0)
+
+Freeze saved reports into a corpus so changes can be measured WITHOUT a full
+discovery run. The corpus is trimmed to harness-relevant fields and the
+knowledge archive is snapshotted, so scores are deterministic.
+
+```
+python -m eval.regression build        # data/discovery_v2_*.json -> frozen fixtures + baseline
+python -m eval.regression check        # re-score fixtures, fail on regression
+python -m eval.regression leaderboard  # ranked table -> eval/leaderboard.json
+```
+
+Corpus: `eval/corpus/regression/` (`reports/`, `baseline.json`, `archive_snapshot.json`).
+
+## Offline scorer replay
+
+Measure scorer **code** changes (not just report changes) without a full run:
+
+```
+python -m eval.replay data/discovery_v2_<ts>.json
+```
+
+Rebuilds the scorer inputs from a stored report and diffs the affected
+dimensions against what the report recorded. Approximate — gaps/anomalies/
+papers/graph are not stored in the report.
 
 ## Limitations
 
