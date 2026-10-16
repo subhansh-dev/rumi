@@ -3086,9 +3086,11 @@ class RumiLive:
                 llm_fn=self._call_llm,
                 post_output_fn=self._post_output,
             )
+            _impr = reflexion_result.get("improvement_score")
+            _impr_txt = f"{_impr:.0%}" if isinstance(_impr, (int, float)) else "unverified"
             self._post_output(f"[green]Reflexion: {reflexion_result['patches_applied']} patches applied, "
                              f"{reflexion_result['patches_rejected']} rejected, "
-                             f"score: {reflexion_result['improvement_score']:.0%}[/green]")
+                             f"external-score: {_impr_txt}[/green]")
         except Exception as e:
             self._post_output(f"[yellow]Reflexion skipped: {e}[/yellow]")
 
@@ -3545,9 +3547,11 @@ class RumiLive:
                 llm_fn=self._call_llm,
                 post_output_fn=self._post_output,
             )
+            _impr = reflexion_result.get("improvement_score")
+            _impr_txt = f"{_impr:.0%}" if isinstance(_impr, (int, float)) else "unverified"
             self._post_output(f"[green]Reflexion: {reflexion_result['patches_applied']} patches applied, "
                              f"{reflexion_result['patches_rejected']} rejected, "
-                             f"score: {reflexion_result['improvement_score']:.0%}[/green]")
+                             f"external-score: {_impr_txt}[/green]")
             metrics.record("reflexion", "ok", time.time() - t0)
         except Exception as e:
             self._post_output(f"[yellow]Reflexion skipped: {e}[/yellow]")
@@ -7300,21 +7304,25 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
 
             if action == "stats":
                 stats = improver.get_stats()
+                _avg = stats['avg_improvement_score']
+                _avg_txt = f"{_avg:.0%}" if isinstance(_avg, (int, float)) else "n/a"
                 lines = [
                     "Reflexion (Recursive Self-Improvement) Stats:",
                     f"  Total cycles: {stats['total_cycles']}",
                     f"  Weaknesses found: {stats['total_weaknesses_found']}",
                     f"  Patches applied: {stats['total_patches_applied']}",
                     f"  Patches rejected: {stats['total_patches_rejected']}",
-                    f"  Avg improvement score: {stats['avg_improvement_score']:.0%}",
+                    f"  Avg improvement score (external): {_avg_txt}",
                 ]
                 last = stats.get("last_cycle")
                 if last:
                     r = last.get("result", {})
                     lines.append(f"  Last cycle: {last.get('timestamp', '?')}")
+                    _s = r.get('improvement_score')
+                    _s_txt = f"{_s:.0%}" if isinstance(_s, (int, float)) else "unverified"
                     lines.append(f"    Weaknesses: {r.get('weaknesses_found', 0)} | "
                                 f"Applied: {r.get('patches_applied', 0)} | "
-                                f"Score: {r.get('improvement_score', 0):.0%}")
+                                f"Score: {_s_txt}")
                 return "\n".join(lines)
 
             elif action == "history":
@@ -7325,11 +7333,13 @@ Output ONLY valid JSON as a list of objects with keys: title, question, methodol
                 lines = ["Reflexion History:"]
                 for entry in history:
                     r = entry.get("result", {})
+                    _s = r.get('improvement_score')
+                    _s_txt = f"{_s:.0%}" if isinstance(_s, (int, float)) else "unverified"
                     lines.append(f"  [{entry.get('timestamp', '?')[:16]}] "
                                 f"Cycle #{r.get('cycle', '?')} | "
                                 f"Weaknesses: {r.get('weaknesses_found', 0)} | "
                                 f"Applied: {r.get('patches_applied', 0)} | "
-                                f"Score: {r.get('improvement_score', 0):.0%}")
+                                f"Score: {_s_txt}")
                     for d in r.get("details", []):
                         lines.append(f"    [{d.get('status', '?')}] {d.get('patch', '')[:60]}")
                 return "\n".join(lines)

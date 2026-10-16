@@ -105,6 +105,23 @@ Rebuilds the scorer inputs from a stored report and diffs the affected
 dimensions against what the report recorded. Approximate — gaps/anomalies/
 papers/graph are not stored in the report.
 
+## Reflexion gate (A2)
+
+The self-improvement loop no longer scores itself on "patches applied". Its
+objective is the external score, and every patch must clear a frozen gate:
+
+- **In-cycle gate** (`brain/reflexion.py::_regression_gate`): a provisional
+  patch is only committed if `pytest eval/tests` and `eval.regression check`
+  still pass in a fresh interpreter. Otherwise it is restored from backup.
+- **Cross-cycle gate** (`_evaluate_previous_cycle`): a cycle's patches are
+  provisional until a later run of the **same topic** reports an external score.
+  If that score regressed past `EXTERNAL_REGRESSION_TOLERANCE` (3 points), the
+  patches are reverted.
+- **Objective**: `improvement_score` is the external-score delta (or `None` when
+  no comparable score exists) — never `applied / total`.
+- **Goal-post protection**: `_is_forbidden_path` blocks any patch under `eval/`
+  and to the scoring/novelty modules, beyond `FORBIDDEN_FILES`.
+
 ## Limitations
 
 - `novelty_vs_heldout` is only as good as the corpus you populate.

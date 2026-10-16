@@ -174,13 +174,20 @@ def main(argv=None) -> int:
     ap.add_argument("cmd", choices=["build", "check", "leaderboard"])
     ap.add_argument("--tolerance", type=float, default=1.0)
     args = ap.parse_args(argv)
-    if args.cmd == "build":
-        build()
+    try:
+        if args.cmd == "build":
+            build()
+            return 0
+        if args.cmd == "check":
+            return check(tolerance=args.tolerance)   # 0 = ok, 1 = regression
+        leaderboard()
         return 0
-    if args.cmd == "check":
-        return check(tolerance=args.tolerance)
-    leaderboard()
-    return 0
+    except FileNotFoundError:
+        print("corpus not built — run 'python -m eval.regression build' first")
+        return 3            # 3 = could not run (distinct from a real regression)
+    except Exception as e:  # noqa: BLE001
+        print(f"regression check could not run: {e}")
+        return 3
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ import ast
 import hashlib
 import json
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -49,11 +50,84 @@ FORBIDDEN_FILES = {
     "confidence_scorer.py", "theory_competition.py",
     # The external eval harness itself:
     "harness.py", "metrics.py", "judge.py",
+    # The frozen regression corpus + replay tools (the agent must not move its
+    # own baseline or grading config):
+    "regression.py", "replay.py", "config.json",
 }
+
+# Never patch anything inside these directories, regardless of filename.
+FORBIDDEN_PATH_PARTS = {"eval"}
+
+# Where eval/harness.py stamps the external score onto past runs.
+ARCHIVE_FILE = DATA_DIR / "discovery_archive.json"
+
+# A patch is provisional until an external score says otherwise.
+EXTERNAL_REGRESSION_TOLERANCE = 3.0   # external-score points (0-100 scale)
+REGRESSION_GATE_ENABLED = True        # run pytest + frozen-corpus check per patch
 
 MAX_PATCHES_PER_CYCLE = 3
 MIN_CONFIDENCE_THRESHOLD = 0.7
 MAX_HISTORY = 100
+
+
+def _is_forbidden_path(path: Path) -> bool:
+    """True if `path` may never be patched (by filename or by directory)."""
+    if path.name in FORBIDDEN_FILES:
+        return True
+    return any(part in FORBIDDEN_PATH_PARTS for part in path.parts)
+
+
+def _read_archive() -> dict:
+    try:
+        return json.loads(ARCHIVE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _topic_external_scores(topic: str) -> list:
+    """External scores stamped on prior runs of this exact topic (oldest -> newest)."""
+    topic = str(topic or "").strip()
+    if not topic:
+        return []
+    out = []
+    for run in _read_archive().get("runs", []):
+        if str(run.get("topic", "")).strip() == topic:
+            s = run.get("external_score")
+            if isinstance(s, (int, float)):
+                out.append(float(s))
+    return out
+
+
+def _domain_external_scores(domain: str) -> list:
+    domain = str(domain or "").strip()
+    if not domain:
+        return []
+    out = []
+    for run in _read_archive().get("runs", []):
+        if str(run.get("domain", "")).strip() == domain:
+            s = run.get("external_score")
+            if isinstance(s, (int, float)):
+                out.append(float(s))
+    return out
+
+
+def _external_context(run_result: dict) -> dict:
+    """The external-score context Reflexion is allowed to optimise against.
+
+    Reads only scores stamped by eval/harness.py — never a self-reported number.
+    """
+    topic = run_result.get("query") or run_result.get("topic") or ""
+    domain = run_result.get("domain") or ""
+    same = _topic_external_scores(topic)
+    dom = _domain_external_scores(domain)
+    return {
+        "topic": topic,
+        "domain": domain,
+        "same_topic_scores": same,
+        "same_topic_count": len(same),
+        "same_topic_last": same[-1] if same else None,
+        "domain_avg": round(sum(dom) / len(dom), 1) if dom else None,
+    }
 
 
 def _timestamp() -> str:
@@ -340,8 +414,8 @@ class CodePatchGenerator:
         if not module_path:
             return None
 
-        # Safety check
-        if module_path.name in FORBIDDEN_FILES:
+        # Safety check (filename and directory)
+        if _is_forbidden_path(module_path):
             return None
 
         if current_code is None:
@@ -567,7 +641,7 @@ class RecursiveImprover:
                 "patches_applied": int,
                 "patches_rejected": int,
                 "details": [...],
-                "improvement_score": float,
+                "improvement_score": float | None,  # external-signal; None = unverifiable
             }
         """
         if post_output_fn is None:
@@ -579,6 +653,21 @@ class RecursiveImprover:
         self._cycle_count += 1
         cycle = self._cycle_count
         post_output_fn(f"[Reflexion] Starting self-improvement cycle #{cycle}")
+
+        # Step 0a: External context — the ONLY objective Reflexion may optimise.
+        ext_ctx = _external_context(run_result)
+        if ext_ctx.get("same_topic_last") is not None:
+            post_output_fn(f"[Reflexion] External baseline (same topic): "
+                           f"{ext_ctx['same_topic_last']}")
+        elif ext_ctx.get("domain_avg") is not None:
+            post_output_fn(f"[Reflexion] External baseline (domain avg): {ext_ctx['domain_avg']}")
+
+        # Step 0b: Regression gate on the PREVIOUS cycle's provisional patches.
+        prior_gate = self._evaluate_previous_cycle()
+        if prior_gate.get("status") == "reverted":
+            post_output_fn(f"[Reflexion] Previous patches REGRESSED the external score "
+                           f"({prior_gate.get('score_before')} -> "
+                           f"{prior_gate.get('score_after')}); reverted.")
 
         # Step 1: Analyze weaknesses
         analysis = self._analyzer.analyze(run_result)
@@ -620,6 +709,7 @@ class RecursiveImprover:
         applied = 0
         rejected = 0
         details = []
+        applied_patches = []
 
         for item in patches[:MAX_PATCHES_PER_CYCLE]:
             patch = item["patch"]
@@ -652,28 +742,59 @@ class RecursiveImprover:
                 })
                 continue
 
-            # Step 4: Apply the patch
-            success = self._apply_patch(patch)
-            if success:
-                applied += 1
-                post_output_fn(f"[Reflexion] Applied: {patch['description'][:60]}")
-                details.append({
-                    "patch": patch["description"],
-                    "file": patch["file"],
-                    "status": "applied",
-                    "confidence": patch.get("confidence", 0),
-                })
-            else:
+            # Step 4: Apply the patch provisionally (backup written, not committed)
+            if not self._apply_patch(patch):
                 rejected += 1
                 post_output_fn(f"[Reflexion] Failed to apply: {patch['description'][:60]}")
                 details.append({
                     "patch": patch["description"],
                     "status": "apply_failed",
                 })
+                continue
 
-        # Improvement score
-        total = applied + rejected
-        improvement_score = applied / total if total > 0 else 0.5
+            # Step 5: Frozen regression gate — a patch may not break the
+            # measurable apparatus (harness tests or the frozen corpus).
+            gate = self._regression_gate()
+            if gate["status"] == "failed":
+                self._restore_backup(patch)
+                rejected += 1
+                post_output_fn(f"[Reflexion] Rejected (regression gate failed): "
+                               f"pytest_rc={gate.get('pytest_rc')} "
+                               f"corpus_rc={gate.get('corpus_rc')}")
+                details.append({
+                    "patch": patch["description"],
+                    "file": patch["file"],
+                    "status": "rejected",
+                    "reason": "regression_gate_failed",
+                    "gate": gate,
+                })
+                continue
+
+            # Step 6: Commit the gated patch
+            commit_hash = _git_commit(
+                f"Reflexion patch: {patch.get('description', 'auto-fix')[:60]}")
+            patch["_commit"] = commit_hash
+            applied += 1
+            post_output_fn(f"[Reflexion] Applied: {patch['description'][:60]} "
+                           f"(gate: {gate['status']})")
+            details.append({
+                "patch": patch["description"],
+                "file": patch["file"],
+                "status": "applied",
+                "confidence": patch.get("confidence", 0),
+                "backup": patch.get("_backup"),
+                "commit": commit_hash,
+                "gate": gate["status"],
+            })
+            applied_patches.append({
+                "file": patch["file"],
+                "description": patch.get("description", ""),
+                "backup": patch.get("_backup"),
+                "commit": commit_hash,
+            })
+
+        # Objective = the EXTERNAL score, never "how many patches we applied".
+        improvement_score = self._external_improvement_score(ext_ctx, prior_gate)
 
         result = {
             "cycle": cycle,
@@ -682,28 +803,41 @@ class RecursiveImprover:
             "patches_applied": applied,
             "patches_rejected": rejected,
             "details": details,
-            "improvement_score": improvement_score,
+            "improvement_score": improvement_score,   # external-signal; None if unmeasurable
+            "external_context": ext_ctx,
+            "external_before": ext_ctx.get("same_topic_last"),
+            "prior_cycle_gate": prior_gate,
+            "applied_patches": applied_patches,
+            "verification_pending": bool(applied_patches),
         }
 
         self._history.append({"timestamp": _timestamp(), "result": result})
         self._save_history()
 
+        _impr_txt = (f"{improvement_score:.0%}"
+                     if isinstance(improvement_score, (int, float)) else "unverified")
         post_output_fn(f"[Reflexion] Cycle #{cycle} complete: "
                        f"{applied} applied, {rejected} rejected, "
-                       f"score: {improvement_score:.0%}")
+                       f"improvement (external): {_impr_txt}")
 
         return result
 
     def _apply_patch(self, patch: Dict[str, Any]) -> bool:
-        """Apply a validated patch to the actual file."""
+        """Write a validated patch to disk (backup first). Does NOT commit.
+
+        The patch is provisional: the caller runs the regression gate, then either
+        commits it or calls _restore_backup(). This keeps git history free of
+        fix-then-immediately-revert noise.
+        """
         file_path = BRAIN_DIR.parent / patch["file"]
         if not file_path.exists():
             return False
 
-        # Safety: double-check forbidden
-        if file_path.name in FORBIDDEN_FILES:
+        # Safety: double-check forbidden (filename and directory)
+        if _is_forbidden_path(file_path):
             return False
 
+        backup_path = None
         try:
             original = file_path.read_text(encoding="utf-8")
             patched = original.replace(patch["old_code"], patch["new_code"], 1)
@@ -714,24 +848,140 @@ class RecursiveImprover:
             # Backup
             backup_path = PATCHES_DIR / f"{file_path.stem}_{hashlib.md5(patch['old_code'].encode()).hexdigest()[:8]}.backup"
             backup_path.write_text(original, encoding="utf-8")
+            patch["_backup"] = backup_path.name
 
             # Apply
             file_path.write_text(patched, encoding="utf-8")
-
-            # Git commit
-            commit_msg = f"Reflexion patch: {patch.get('description', 'auto-fix')[:60]}"
-            commit_hash = _git_commit(commit_msg)
-
             return True
 
         except Exception:
-            # Revert on failure
-            try:
-                if backup_path.exists():
+            if backup_path and backup_path.exists():
+                try:
                     file_path.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
-            except Exception:
-                pass
+                except Exception:
+                    pass
             return False
+
+    def _restore_backup(self, patch: Dict[str, Any]) -> bool:
+        """Undo a provisional patch using the backup written by _apply_patch."""
+        try:
+            file_path = BRAIN_DIR.parent / patch["file"]
+            backup_name = patch.get("_backup") or patch.get("backup")
+            if not backup_name:
+                return False
+            backup_path = PATCHES_DIR / backup_name
+            if not backup_path.exists():
+                return False
+            file_path.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
+            return True
+        except Exception:
+            return False
+
+    def _revert_patches(self, patches: list) -> int:
+        """Undo a set of previously applied patches (restore backups + commit)."""
+        reverted = 0
+        for p in reversed(patches):
+            if self._restore_backup({"file": p.get("file"),
+                                     "_backup": p.get("backup")}):
+                reverted += 1
+        if reverted:
+            _git_commit(f"Reflexion: revert {reverted} patch(es) "
+                        f"that regressed the external score")
+        return reverted
+
+    @staticmethod
+    def _run_cmd(cmd: list, timeout: int = 240) -> Optional[int]:
+        """Run a subprocess from the repo root. Returns exit code, or None if it
+        could not be run."""
+        try:
+            r = subprocess.run(cmd, cwd=str(BRAIN_DIR.parent),
+                               capture_output=True, timeout=timeout)
+            return r.returncode
+        except Exception:
+            return None
+
+    def _regression_gate(self) -> Dict[str, Any]:
+        """Frozen gates a provisional patch must not break.
+
+        Runs the harness tests and the frozen-corpus regression check in fresh
+        interpreters. A definitive failure (pytest exit 1, or corpus regression
+        exit 1) => revert. If a gate cannot run at all, we warn but do not block.
+        """
+        if not REGRESSION_GATE_ENABLED:
+            return {"status": "skipped"}
+        rc_tests = self._run_cmd([sys.executable, "-m", "pytest", "eval/tests", "-q"])
+        rc_corpus = self._run_cmd([sys.executable, "-m", "eval.regression", "check"])
+        if (rc_tests == 1) or (rc_corpus == 1):
+            return {"status": "failed", "pytest_rc": rc_tests, "corpus_rc": rc_corpus}
+        ok = (rc_tests in (0, 5)) and (rc_corpus == 0)
+        return {"status": "passed" if ok else "inconclusive",
+                "pytest_rc": rc_tests, "corpus_rc": rc_corpus}
+
+    def _evaluate_previous_cycle(self) -> Dict[str, Any]:
+        """Decide what to do with the previous cycle's provisional patches.
+
+        A provisional patch is kept unless a later run of the SAME topic shows
+        the external score regressed beyond tolerance. If there is no comparable
+        score yet, the patches stay pending ('unverified').
+        """
+        prev = None
+        for entry in reversed(self._history):
+            r = entry.get("result", {})
+            if r.get("verification_pending"):
+                prev = r
+                break
+        if not prev:
+            return {"status": "n/a", "detail": "no pending patches"}
+        patches = prev.get("applied_patches") or []
+        if not patches:
+            return {"status": "n/a", "detail": "previous cycle applied no patches"}
+
+        before = prev.get("external_before")
+        ctx = prev.get("external_context") or {}
+        if not isinstance(before, (int, float)):
+            before = ctx.get("same_topic_last")
+        n_at = ctx.get("same_topic_count", 0)
+        now = _topic_external_scores(prev.get("topic"))
+
+        if not isinstance(before, (int, float)) or len(now) <= n_at:
+            return {"status": "unverified",
+                    "detail": "no comparable external score yet",
+                    "score_before": before}
+
+        after = now[-1]
+        if after < before - EXTERNAL_REGRESSION_TOLERANCE:
+            reverted = self._revert_patches(patches)
+            prev["verification_pending"] = False
+            prev["gate_status"] = "reverted"
+            self._save_history()
+            return {"status": "reverted", "score_before": before,
+                    "score_after": after, "patches_reverted": reverted}
+
+        prev["verification_pending"] = False
+        prev["gate_status"] = "kept"
+        self._save_history()
+        return {"status": "kept", "score_before": before, "score_after": after}
+
+    @staticmethod
+    def _external_improvement_score(ext_ctx: Dict[str, Any],
+                                    prior_gate: Dict[str, Any]) -> Optional[float]:
+        """Objective = the EXTERNAL score, not the number of patches applied.
+
+        Returns None when there is no comparable external measurement yet — an
+        explicitly *unknown* objective, so the loop can never reward itself for
+        merely applying patches.
+        """
+        if prior_gate.get("status") == "reverted":
+            return 0.0
+        before = prior_gate.get("score_before")
+        after = prior_gate.get("score_after")
+        if isinstance(before, (int, float)) and isinstance(after, (int, float)) and before > 0:
+            return round(max(0.0, min(1.0, (after - before) / before)), 3)
+        # Fall back to the same-topic external trend, if we have two points.
+        scores = ext_ctx.get("same_topic_scores") or []
+        if len(scores) >= 2 and scores[-2] > 0:
+            return round(max(0.0, min(1.0, (scores[-1] - scores[-2]) / scores[-2])), 3)
+        return None
 
     def get_history(self, limit: int = 10) -> list:
         """Get recent improvement history."""
@@ -753,9 +1003,10 @@ class RecursiveImprover:
         )
 
         avg_improvement = 0.0
-        scores = [r.get("result", {}).get("improvement_score", 0) for r in self._history]
-        if scores:
-            avg_improvement = sum(scores) / len(scores)
+        scores = [r.get("result", {}).get("improvement_score") for r in self._history]
+        numeric = [s for s in scores if isinstance(s, (int, float))]
+        if numeric:
+            avg_improvement = sum(numeric) / len(numeric)
 
         return {
             "total_cycles": len(self._history),

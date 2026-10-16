@@ -3371,7 +3371,14 @@ Output JSON: {{"critique": "...", "strengths": ["s1", "s2"], "weaknesses": ["w1"
         print(f"  Weaknesses found: {reflexion_result.get('weaknesses_found', 0)}")
         print(f"  Patches applied: {reflexion_result.get('patches_applied', 0)}")
         print(f"  Patches rejected: {reflexion_result.get('patches_rejected', 0)}")
-        print(f"  Improvement score: {reflexion_result.get('improvement_score', 0):.0%}")
+        _impr = reflexion_result.get("improvement_score")
+        if isinstance(_impr, (int, float)):
+            print(f"  Improvement score (external): {_impr:.0%}")
+        else:
+            print("  Improvement score (external): unverified — no comparable external score yet")
+        _ec = reflexion_result.get("external_context") or {}
+        if _ec.get("domain_avg") is not None:
+            print(f"  External baseline (domain avg): {_ec['domain_avg']}")
     except Exception as e:
         print(f"  [WARN] Reflexion skipped: {e}")
 
