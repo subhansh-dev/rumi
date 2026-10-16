@@ -4181,6 +4181,27 @@ def _finalize_report(report, papers, graph, gaps, anomalies,
     report_text = "\n".join(L)
     report["summary_text"] = report_text
 
+    # ── EXTERNAL EVAL HARNESS ─────────────────────────────────────────────
+    # Frozen, out-of-reach measurement (see eval/README.md). Computes the
+    # headline quality numbers RUMI cannot self-report, stamps them into the
+    # report, appends a hash-chained ledger row, and writes the score back to
+    # the archive for cross-run continuity. The agent must never modify eval/.
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _root = str(_Path(__file__).resolve().parent.parent)
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from eval.harness import run_external_eval
+        report["external_eval"] = run_external_eval(
+            report, papers=papers, domain=report.get("domain", "")
+        )
+        _ee = report["external_eval"]
+        print(f"  [External Eval] score={_ee.get('external_score', 0):.1f}/100 "
+              f"grade={_ee.get('grade', '?')} flags={_ee.get('flags', [])}", flush=True)
+    except Exception as _e:
+        print(f"  [WARN] External eval harness skipped: {_e}", flush=True)
+
     print(report_text)
 
     # Save report + text + update dashboard index

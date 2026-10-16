@@ -380,6 +380,14 @@ def main():
         print(f"  {B}Score:{R} {score_color}{score:.0f}/100{R} (domain: {domain_score:.0f}/100) {B}({grade}){R}")
     else:
         print(f"  {B}Score:{R} {score_color}{score:.0f}/100{R} {B}({grade}){R}")
+    ext = report.get("external_eval", {})
+    if ext:
+        ext_score = ext.get("external_score", 0)
+        ext_color = GREEN if ext_score >= 70 else AMBER if ext_score >= 40 else RED
+        flag_str = ", ".join(ext.get("flags", []) or [])
+        tail = f"  {DIM}flags: {flag_str}{R}" if flag_str else ""
+        print(f"  {B}External:{R} {ext_color}{ext_score:.0f}/100{R} "
+              f"(eval harness {ext.get('harness_version', '?')}){tail}")
     if report.get("refinement"):
         print(f"  {GREEN}Refinement:{R} complete")
     if report.get("reflexion"):

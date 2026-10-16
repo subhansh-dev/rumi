@@ -43,6 +43,12 @@ PATCHES_DIR = BRAIN_DIR.parent / ".reflexion_patches"
 FORBIDDEN_FILES = {
     "main.py", "self_modifier.py", "reflexion.py",
     "agi_orchestrator.py", "self_awareness.py",
+    # ── Evaluation integrity — the agent must not move its own goalposts ──
+    # Scoring + novelty apparatus the self-improvement loop has edited before:
+    "discovery_scorer.py", "novelty_checker.py", "novelty_detector.py",
+    "confidence_scorer.py", "theory_competition.py",
+    # The external eval harness itself:
+    "harness.py", "metrics.py", "judge.py",
 }
 
 MAX_PATCHES_PER_CYCLE = 3

@@ -1,0 +1,26 @@
+{
+  "harness_version": "1.0.0",
+  "frozen": true,
+  "note": "READ-ONLY. This file defines how RUMI is graded. The agent (including Reflexion) must never modify anything under eval/. Weights live HERE, not in RUMI.",
+  "weights": {
+    "citation_validity": 0.15,
+    "claim_support_rate": 0.20,
+    "novelty_vs_archive": 0.25,
+    "score_consistency": 0.20,
+    "structure_completeness": 0.20
+  },
+  "thresholds": {
+    "score_inflation_tolerance": 3.0,
+    "rediscovery_overlap": 0.5,
+    "min_claim_support": 0.5,
+    "min_structure": 0.6
+  },
+  "missing_metric_policy": "zero",
+  "judge": {
+    "enabled": false,
+    "provider": "nvidia",
+    "model": "meta/llama-3.1-70b-instruct",
+    "sample_claims": 5,
+    "family_note": "Pinned deliberately to a provider family DISJOINT from RUMI's generator (cerebras) and scorer (groq), to avoid self-preference bias. Disabled by default so the harness has zero network dependency."
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "version": "1.0.0",
+  "note": "Held-out ground truth: topics RUMI is NEVER shown at runtime. Populate this to enable true rediscovery detection (novelty_vs_heldout). An empty 'entries' list disables the metric cleanly. Each entry: {topic, domain, known_findings: [...], key_terms: [...]}. key_terms should be distinctive tokens of the KNOWN result so that a genuinely novel winner does NOT overlap them.",
+  "entries": []
+}

@@ -32,6 +32,9 @@ rumi_out.txt
 data/*.json
 data/*.md
 
+# ---- External Eval Harness ---------------------------
+eval/ledger.jsonl
+
 # ---- Config & Secrets --------------------------------
 config/api_keys.json
 .claude/
