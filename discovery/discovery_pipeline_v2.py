@@ -1956,62 +1956,54 @@ Output JSON:
                     print(f"  [Winner Override] Picking novel: '{best_novel.get('name', '?')[:40]}' (score={best_novel.get('scores', {}).get('overall', 0):.2f})", flush=True)
                     winner = best_novel
 
-            # -- GFlowNet-Inspired Diversity Selection --
-            # Re-rank theories by composite score: quality + novelty + diversity
-            # This rewards theories that are DIFFERENT from each other, not just high-scoring
+            # -- Diversity-Grounded Selection (GFlowNet sampling property) --
+            # Sample theories proportional to reward with sequential niching
+            # (discovery/diversity_sampler.py). Replaces the old in-pipeline
+            # "GFlowNet" bonus, which capped a count of unique words.
             if len(theories) >= 3:
                 try:
-                    import re
-                    # Compute diversity bonus for each theory
-                    for i, t in enumerate(theories):
-                        t_desc = t.get("description", t.get("mechanism", ""))
-                        t_name = t.get("name", "")
-                        quality_score = t.get("scores", {}).get("overall", 0)
+                    import zlib
+                    from discovery.diversity_sampler import (
+                        gflownet_select,
+                        marginal_diversity,
+                        population_diversity,
+                    )
 
-                        # Novelty bonus
-                        novelty_verdict = t.get("is_novel_vs_known", "")
-                        novelty_bonus = {"novel": 0.2, "refinement": 0.1, "": 0.05}.get(novelty_verdict, 0)
+                    def _flow_reward(_t):
+                        q = (_t.get("scores", {}) or {}).get("overall", 0) or 0
+                        verdict = _t.get("is_novel_vs_known", "")
+                        n_bonus = {"novel": 0.2, "refinement": 0.1, "": 0.05}.get(verdict, 0)
+                        return max(float(q), 1e-6) * (1.0 + n_bonus)
 
-                        # Diversity bonus — reward theories with unique terms
-                        # Compare against other theories' descriptions
-                        unique_terms = 0
-                        t_words = set(w.lower() for w in t_desc.split() if len(w) > 4)
-                        for j, other in enumerate(theories):
-                            if i == j:
-                                continue
-                            other_desc = other.get("description", "")
-                            other_words = set(w.lower() for w in other_desc.split() if len(w) > 4)
-                            overlap = len(t_words & other_words)
-                            total = len(t_words | other_words)
-                            if total > 0:
-                                similarity = overlap / total
-                                if similarity < 0.3:  # less similar = more diverse
-                                    unique_terms += 1
+                    before = population_diversity(theories)
+                    _seed = zlib.crc32(str(topic).encode("utf-8")) & 0xFFFFFFFF
+                    order = gflownet_select(
+                        theories, reward_fn=_flow_reward, seed=_seed,
+                        temperature=0.5, diversity_weight=0.5,
+                    )
+                    ranked = [theories[i] for i in order]
+                    for rank, th in enumerate(ranked):
+                        th["_gflownet_score"] = round(_flow_reward(th), 4)
+                        th["_diversity_distance"] = round(
+                            marginal_diversity(th, ranked[:rank]), 3)
+                        th["_flow_rank"] = rank
+                    theories = ranked
 
-                        diversity_bonus = min(0.15, unique_terms * 0.03)
+                    print(f"  [GFlowNet] Sampled {before['n']} theories proportional to reward "
+                          f"(mean pairwise distance {before['mean_pairwise_distance']:.2f})", flush=True)
 
-                        # Composite score (GFlowNet-style: quality × novelty × diversity)
-                        composite = quality_score * (1 + novelty_bonus + diversity_bonus)
-                        t["_gflownet_score"] = round(composite, 3)
-                        t["_diversity_bonus"] = round(diversity_bonus, 3)
-                        t["_novelty_bonus"] = round(novelty_bonus, 3)
-
-                    # Re-sort by composite score
-                    theories.sort(key=lambda t: t.get("_gflownet_score", 0), reverse=True)
-
-                    # Update winner if composite score suggests a different one
-                    # BUT never promote known science (rediscovery/well_known) — Winner Override already rejected it
+                    # Promote the top sample only if it is non-known and scores
+                    # above the current winner. Never promote known science.
                     if theories and winner:
-                        best_composite = theories[0]
-                        if best_composite.get("_gflownet_score", 0) > (winner.get("_gflownet_score", 0) or 0):
-                            # Don't promote known science over novel theories
-                            if best_composite.get("is_novel_vs_known") in ("well_known", "rediscovery"):
-                                print(f"  [GFlowNet] Skipping known science '{best_composite.get('name', '?')[:40]}' — keeping novel winner '{winner.get('name', '?')[:40]}'", flush=True)
+                        best = theories[0]
+                        if _flow_reward(best) > _flow_reward(winner):
+                            if best.get("is_novel_vs_known") in ("well_known", "rediscovery"):
+                                print(f"  [GFlowNet] Skipping known science '{best.get('name', '?')[:40]}' — keeping novel winner '{winner.get('name', '?')[:40]}'", flush=True)
                             else:
                                 old_winner_name = winner.get("name", "?")
-                                winner = best_composite
-                                print(f"  [GFlowNet] Winner updated: '{old_winner_name[:40]}' -> '{winner.get('name', '?')[:40]}' (composite={winner.get('_gflownet_score', 0):.3f})", flush=True)
-                                print(f"  [GFlowNet] Diversity bonus: +{winner.get('_diversity_bonus', 0):.2f}, Novelty bonus: +{winner.get('_novelty_bonus', 0):.2f}", flush=True)
+                                winner = best
+                                print(f"  [GFlowNet] Winner updated: '{old_winner_name[:40]}' -> '{winner.get('name', '?')[:40]}' (flow={winner.get('_gflownet_score', 0):.3f})", flush=True)
+                                print(f"  [GFlowNet] Diversity distance: {winner.get('_diversity_distance', 0):.2f}, novelty: {winner.get('is_novel_vs_known', '?')}", flush=True)
                 except Exception as e:
                     print(f"  [WARN] GFlowNet re-ranking skipped: {e}", flush=True)
 

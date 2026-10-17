@@ -334,42 +334,39 @@ Generate exactly {count} hypotheses:"""
         self, candidates: list[HypothesisCandidate], target_size: int
     ) -> list[HypothesisCandidate]:
         """
-        GFlowNet-style selection: sample proportional to reward,
-        with diversity bonus for niching.
+        Sample a subset proportional to reward, with sequential niching.
 
-        Unlike top-k selection, this keeps diverse candidates even if
-        their reward is slightly lower, because diversity itself has value.
+        Delegates to discovery/diversity_sampler.gflownet_select: each candidate
+        is drawn with probability ∝ reward (temperature 1.0 — the literal
+        GFlowNet property P(x) ∝ R(x)), and after every draw the survivors get a
+        bonus for being far from what is already selected. Diverse candidates
+        therefore survive even when their reward is slightly lower.
+
+        This is a closed-form, seeded sampler, not a trained flow network.
         """
         if not candidates:
             return []
         if len(candidates) <= target_size:
-            return candidates
+            return list(candidates)
 
-        # Compute diversity bonus (distance from already-selected)
-        selected: list[HypothesisCandidate] = []
-        remaining = list(candidates)
+        from discovery.diversity_sampler import gflownet_select
 
-        # Always keep the top reward candidate
-        remaining.sort(key=lambda c: c.reward, reverse=True)
-        selected.append(remaining.pop(0))
-
-        while len(selected) < target_size and remaining:
-            # For each remaining candidate, compute adjusted reward
-            best_idx = 0
-            best_score = -1.0
-            for i, c in enumerate(remaining):
-                # Diversity: min distance to any selected candidate
-                diversity = min(
-                    self._hypothesis_distance(c, s) for s in selected
-                )
-                # Adjusted reward = reward * (1 + diversity_bonus)
-                adjusted = c.reward * (1.0 + 0.5 * diversity)
-                if adjusted > best_score:
-                    best_score = adjusted
-                    best_idx = i
-            selected.append(remaining.pop(best_idx))
-
-        return selected
+        views = [
+            {
+                "name": c.title,
+                "description": c.description,
+                "scores": {"overall": max(float(c.reward), 1e-9)},
+            }
+            for c in candidates
+        ]
+        order = gflownet_select(
+            views,
+            target_size=target_size,
+            temperature=1.0,
+            diversity_weight=0.5,
+            seed=0,
+        )
+        return [candidates[i] for i in order]
 
     def _hypothesis_distance(
         self, a: HypothesisCandidate, b: HypothesisCandidate

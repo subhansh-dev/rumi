@@ -136,6 +136,25 @@ objective is the external score, and every patch must clear a frozen gate:
 - **Goal-post protection**: `_is_forbidden_path` blocks any patch under `eval/`
   and to the scoring/novelty modules, beyond `FORBIDDEN_FILES`.
 
+## Diversity selection (A4)
+
+Phase 8 re-ranked competing theories in a block labelled "GFlowNet-Inspired".
+It was not. The bonus was `min(0.15, unique_terms * 0.03)` — a capped count of
+words appearing in one theory but not others. A global tally, not a diversity
+measure; the name cited work the code did not implement.
+
+`discovery/diversity_sampler.py` replaces it with the property that matters:
+selection probability proportional to reward, `P(x) ∝ R(x)` (temperature 1.0),
+with sequential niching (max-marginal-relevance) re-evaluated after every draw,
+so a distinct candidate outranks a near-duplicate of similar reward. It is
+seeded and therefore reproducible, and `temperature → 0` degenerates to greedy
+top-k — which is exactly how the proportional behaviour is tested.
+`scientist/tournament_hypothesis.py::_gflownet_select` now delegates to the same
+sampler instead of passing greedy MMR off as proportional sampling.
+
+Still **not** a trained flow network: no forward policy, no flow-matching loss.
+The module docstring says so; the old name did not.
+
 ## Limitations
 
 - `novelty_vs_heldout` is only as good as the corpus you populate.
