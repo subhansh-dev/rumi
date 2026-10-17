@@ -59,8 +59,11 @@ _finalize_report()  ──► eval.harness.run_external_eval(report, papers)
 ```
 
 The score ships **inside** the report, is appended to a tamper-evident ledger,
-and is stamped onto the archived run so the next run's `get_archive_context`
-can reference it. Nothing is a bolt-on island.
+and is stamped onto the archived run. The next run's `get_archive_context` reads
+it back as `External calibration` (self-report vs external average) and
+`Same-topic external history` (best/latest on the topic, with a regression
+warning) — so RUMI sees the honest number, not only its own self-grade. Nothing
+is a bolt-on island.
 
 ## Usage
 

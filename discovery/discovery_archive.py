@@ -171,14 +171,51 @@ def get_archive_context(topic: str, domain: str) -> str:
     lines.append("PREVIOUS DISCOVERY CONTEXT:")
     lines.append("")
 
-    # Recent runs — ONLY same domain
-    recent_runs = [r for r in archive.get("runs", [])[-10:] if r.get("domain") == domain]
+    # Recent runs — ONLY same domain (last few runs *of this domain*, not the
+    # last few runs overall filtered by domain — that window hid domain history).
+    recent_runs = [r for r in archive.get("runs", []) if r.get("domain") == domain][-3:]
     if recent_runs:
         lines.append(f"Recent {domain} runs:")
-        for r in recent_runs[-3:]:
+        for r in recent_runs:
             sim = _topic_similarity(topic, r.get("topic", ""))
             if sim > 0.1:  # only show if somewhat relevant
-                lines.append(f"  - {r.get('topic', '?')[:60]} (score: {r.get('score', 0):.0f}/100)")
+                ext = r.get("external_score")
+                ext_txt = (f", external: {ext:.0f}/100"
+                           if isinstance(ext, (int, float)) else "")
+                lines.append(f"  - {r.get('topic', '?')[:60]} "
+                             f"(self-score: {r.get('score', 0):.0f}/100{ext_txt})")
+        lines.append("")
+
+    # External calibration — the frozen harness score vs RUMI's self-report.
+    # Continuity: the honest headline number is the external one (eval/README.md),
+    # so the next run sees the gap rather than only its own self-grade.
+    scored = [r for r in archive.get("runs", [])
+              if isinstance(r.get("external_score"), (int, float))]
+    if scored:
+        ext_avg = sum(r["external_score"] for r in scored) / len(scored)
+        self_avg = sum(r.get("score", 0) or 0 for r in scored) / len(scored)
+        lines.append(f"External calibration ({len(scored)} scored runs): "
+                     f"self-reported avg {self_avg:.0f}/100 vs external avg {ext_avg:.0f}/100.")
+        if self_avg - ext_avg >= 10:
+            lines.append("  NOTE: self-reported scores run materially above the external "
+                         "measurement. Optimise for grounding, real citations and "
+                         "falsifiable predictions — NOT for the self-reported number.")
+        lines.append("")
+
+    # Same-topic external history — the exact number the Reflexion gate (A2)
+    # compares across cycles, so the model can see its own trend, not just an
+    # all-runs average.
+    same_topic = [r for r in archive.get("runs", [])
+                  if isinstance(r.get("external_score"), (int, float))
+                  and _topic_similarity(topic, r.get("topic", "")) >= 0.5]
+    if same_topic:
+        best = max(r["external_score"] for r in same_topic)
+        last = same_topic[-1]["external_score"]
+        lines.append(f"Same-topic external history ({len(same_topic)} run(s)): "
+                     f"best {best:.0f}/100, latest {last:.0f}/100.")
+        if len(same_topic) >= 2 and last < best - 1.0:
+            lines.append("  NOTE: you have REGRESSED on this topic since your best run — "
+                         "recover what worked before adding new ideas.")
         lines.append("")
 
     # Known theories — ONLY high topic similarity
