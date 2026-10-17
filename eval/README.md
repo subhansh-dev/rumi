@@ -105,6 +105,17 @@ Rebuilds the scorer inputs from a stored report and diffs the affected
 dimensions against what the report recorded. Approximate — gaps/anomalies/
 papers/graph are not stored in the report.
 
+## Archive backfill
+
+Runs that predate the harness have no `external_score`, which starves the
+Reflexion gate. Re-score the saved reports and backfill the archive (marks each
+run `external_source="backfill"`; never overwrites a live score):
+
+```
+python -m eval.backfill_archive            # dry run
+python -m eval.backfill_archive --apply    # write data/discovery_archive.json
+```
+
 ## Reflexion gate (A2)
 
 The self-improvement loop no longer scores itself on "patches applied". Its
